@@ -10,7 +10,6 @@ pub struct DatasetConfig {
 
 impl DatasetConfig {
     pub fn validate(&self, dataset: &Dataset) -> Result<(), ResourceLimitError> {
-        self.resource_limits
-            .validate_dataset(dataset.time().len(), dataset.columns().len())
+        self.resource_limits.validate_dataset(dataset.time().len(), dataset.columns().len())
     }
 }

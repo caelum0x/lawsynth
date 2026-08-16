@@ -45,21 +45,15 @@ pub fn inspect_parquet(bytes: &[u8]) -> Result<ParquetEnvelope, ParquetError> {
         return Err(ParquetError::MissingFooter);
     }
     let length_offset = bytes.len() - 8;
-    let metadata_length = u32::from_le_bytes(
-        bytes[length_offset..length_offset + 4]
-            .try_into()
-            .expect("four bytes"),
-    ) as usize;
-    let metadata_offset = length_offset
-        .checked_sub(metadata_length)
-        .ok_or(ParquetError::InvalidMetadataLength)?;
+    let metadata_length =
+        u32::from_le_bytes(bytes[length_offset..length_offset + 4].try_into().expect("four bytes"))
+            as usize;
+    let metadata_offset =
+        length_offset.checked_sub(metadata_length).ok_or(ParquetError::InvalidMetadataLength)?;
     if metadata_offset < 4 {
         return Err(ParquetError::InvalidMetadataLength);
     }
-    Ok(ParquetEnvelope {
-        metadata_offset,
-        metadata_length,
-    })
+    Ok(ParquetEnvelope { metadata_offset, metadata_length })
 }
 
 /// Decodes uncompressed, PLAIN-encoded required numeric Parquet columns.
@@ -136,11 +130,7 @@ fn parse_file_metadata(bytes: &[u8]) -> Result<Vec<Vec<Column>>, String> {
             cursor.skip(ty)
         }
     })?;
-    if groups.is_empty() {
-        Err("metadata has no row groups".into())
-    } else {
-        Ok(groups)
-    }
+    if groups.is_empty() { Err("metadata has no row groups".into()) } else { Ok(groups) }
 }
 fn parse_group(cursor: &mut Compact<'_>) -> Result<Vec<Column>, String> {
     let mut result = Vec::new();
@@ -193,15 +183,15 @@ fn parse_column_metadata(cursor: &mut Compact<'_>) -> Result<Column, String> {
             Ok(())
         }
         5 if ty == I64 => {
-            count = Some(cursor.i64()? as usize);
+            count = Some(nonnegative_usize(cursor.i64()?, "column value count")?);
             Ok(())
         }
         7 if ty == I64 => {
-            size = Some(cursor.i64()? as usize);
+            size = Some(nonnegative_usize(cursor.i64()?, "column compressed size")?);
             Ok(())
         }
         9 if ty == I64 => {
-            offset = Some(cursor.i64()? as usize);
+            offset = Some(nonnegative_usize(cursor.i64()?, "column data offset")?);
             Ok(())
         }
         _ => cursor.skip(ty),
@@ -222,14 +212,20 @@ fn decode_column(file: &[u8], column: &Column) -> Result<Vec<f64>, String> {
             column.name, column.codec
         ));
     }
-    let end = column
-        .offset
-        .checked_add(column.size)
-        .ok_or("column range overflows")?;
-    let mut cursor = Compact::new(
-        file.get(column.offset..end)
-            .ok_or("column range exceeds file")?,
-    );
+    let width = match column.physical {
+        1 | 4 => 4,
+        2 | 5 => 8,
+        _ => return Err(format!("unsupported physical type {}", column.physical)),
+    };
+    let end = column.offset.checked_add(column.size).ok_or("column range overflows")?;
+    let payload = file.get(column.offset..end).ok_or("column range exceeds file")?;
+    // Every decoded PLAIN value consumes at least its physical width. This
+    // rejects forged metadata before `Vec::with_capacity` can reserve from an
+    // untrusted count, while still permitting page headers between values.
+    if column.count > payload.len() / width {
+        return Err("column value count exceeds its encoded payload".into());
+    }
+    let mut cursor = Compact::new(payload);
     let mut output = Vec::with_capacity(column.count);
     while output.len() < column.count {
         let page = parse_page(&mut cursor)?;
@@ -240,17 +236,7 @@ fn decode_column(file: &[u8], column: &Column) -> Result<Vec<f64>, String> {
             return Err("compressed page payloads are unsupported".into());
         }
         let body = cursor.take(page.compressed)?;
-        let width = match column.physical {
-            1 | 4 => 4,
-            2 | 5 => 8,
-            _ => return Err(format!("unsupported physical type {}", column.physical)),
-        };
-        if body.len()
-            != page
-                .values
-                .checked_mul(width)
-                .ok_or("page length overflows")?
-        {
+        if body.len() != page.values.checked_mul(width).ok_or("page length overflows")? {
             return Err("page has definition/repetition levels or invalid PLAIN bytes".into());
         }
         for raw in body.chunks_exact(width) {
@@ -285,16 +271,17 @@ fn parse_page(cursor: &mut Compact<'_>) -> Result<Page, String> {
             Ok(())
         }
         2 if ty == I32 => {
-            uncompressed = Some(cursor.i32()? as usize);
+            uncompressed =
+                Some(nonnegative_usize(i64::from(cursor.i32()?), "page uncompressed size")?);
             Ok(())
         }
         3 if ty == I32 => {
-            compressed = Some(cursor.i32()? as usize);
+            compressed = Some(nonnegative_usize(i64::from(cursor.i32()?), "page compressed size")?);
             Ok(())
         }
         5 if ty == STRUCT => fields(cursor, |field, ty, cursor| match field {
             1 if ty == I32 => {
-                values = Some(cursor.i32()? as usize);
+                values = Some(nonnegative_usize(i64::from(cursor.i32()?), "page value count")?);
                 Ok(())
             }
             2 if ty == I32 => {
@@ -313,11 +300,16 @@ fn parse_page(cursor: &mut Compact<'_>) -> Result<Page, String> {
         encoding: encoding.ok_or("page encoding missing")?,
     })
 }
+
+fn nonnegative_usize(value: i64, field: &'static str) -> Result<usize, String> {
+    usize::try_from(value)
+        .map_err(|_| format!("{field} must be a non-negative platform-sized integer"))
+}
 fn fields(
     cursor: &mut Compact<'_>,
     mut visit: impl FnMut(i16, u8, &mut Compact<'_>) -> Result<(), String>,
 ) -> Result<(), String> {
-    let mut prior = 0;
+    let mut prior: i16 = 0;
     loop {
         let header = cursor.byte()?;
         let ty = header & 15;
@@ -328,7 +320,7 @@ fn fields(
         let id = if delta == 0 {
             cursor.i16()?
         } else {
-            prior + delta
+            prior.checked_add(delta).ok_or("compact field id overflow")?
         };
         prior = id;
         visit(id, ty, cursor)?;
@@ -344,10 +336,7 @@ impl<'a> Compact<'a> {
     }
     fn take(&mut self, length: usize) -> Result<&'a [u8], String> {
         let end = self.position.checked_add(length).ok_or("length overflow")?;
-        let value = self
-            .bytes
-            .get(self.position..end)
-            .ok_or("unexpected end of compact data")?;
+        let value = self.bytes.get(self.position..end).ok_or("unexpected end of compact data")?;
         self.position = end;
         Ok(value)
     }
@@ -366,7 +355,8 @@ impl<'a> Compact<'a> {
         Err("varint overflow".into())
     }
     fn i32(&mut self) -> Result<i32, String> {
-        let value = self.varint()?;
+        let value = u32::try_from(self.varint()?)
+            .map_err(|_| "compact i32 exceeds its 32-bit wire range")?;
         Ok(((value >> 1) as i32) ^ -((value & 1) as i32))
     }
     fn i64(&mut self) -> Result<i64, String> {
@@ -374,10 +364,11 @@ impl<'a> Compact<'a> {
         Ok(((value >> 1) as i64) ^ -((value & 1) as i64))
     }
     fn i16(&mut self) -> Result<i16, String> {
-        Ok(self.i32()? as i16)
+        i16::try_from(self.i32()?)
+            .map_err(|_| "compact field id exceeds its 16-bit wire range".into())
     }
     fn string(&mut self) -> Result<String, String> {
-        let length = self.varint()? as usize;
+        let length = usize_from_varint(self.varint()?, "string length")?;
         String::from_utf8(self.take(length)?.to_vec()).map_err(|_| "non-UTF8 column path".into())
     }
     fn list(&mut self) -> Result<(usize, u8), String> {
@@ -385,7 +376,7 @@ impl<'a> Compact<'a> {
         let mut count = (header >> 4) as usize;
         let ty = header & 15;
         if count == 15 {
-            count = self.varint()? as usize
+            count = usize_from_varint(self.varint()?, "collection length")?
         }
         Ok((count, ty))
     }
@@ -405,7 +396,7 @@ impl<'a> Compact<'a> {
                 Ok(())
             }
             8 => {
-                let length = self.varint()? as usize;
+                let length = usize_from_varint(self.varint()?, "string length")?;
                 self.take(length)?;
                 Ok(())
             }
@@ -421,6 +412,10 @@ impl<'a> Compact<'a> {
             _ => Err("unknown compact type".into()),
         }
     }
+}
+
+fn usize_from_varint(value: u64, field: &'static str) -> Result<usize, String> {
+    usize::try_from(value).map_err(|_| format!("{field} exceeds platform address space"))
 }
 
 #[cfg(test)]
@@ -450,10 +445,7 @@ mod tests {
     }
 
     fn plain_double_page(values: &[f64]) -> Vec<u8> {
-        let body = values
-            .iter()
-            .flat_map(|value| value.to_le_bytes())
-            .collect::<Vec<_>>();
+        let body = values.iter().flat_map(|value| value.to_le_bytes()).collect::<Vec<_>>();
         let length = body.len() as i32;
         let mut page = vec![0x15]; // PageHeader.type = DATA_PAGE
         i32(0, &mut page);
@@ -521,10 +513,7 @@ mod tests {
         bytes.extend(b"PAR1");
         assert_eq!(
             inspect_parquet(&bytes).unwrap(),
-            ParquetEnvelope {
-                metadata_offset: 4,
-                metadata_length: 4
-            }
+            ParquetEnvelope { metadata_offset: 4, metadata_length: 4 }
         );
     }
 

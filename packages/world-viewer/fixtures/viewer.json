@@ -1,0 +1,16 @@
+{
+  "formatVersion": "0.1.0", "id": "sir", "name": "SIR epidemic", "description": "A closed population compartment model.",
+  "time": { "kind": "continuous", "symbol": "t", "unit": "day" },
+  "variables": [
+    { "id": "susceptible", "name": "Susceptible", "role": "state", "unit": "person" },
+    { "id": "infected", "name": "Infected", "role": "state", "unit": "person" },
+    { "id": "recovered", "name": "Recovered", "role": "state", "unit": "person" }
+  ],
+  "parameters": [{ "id": "beta", "value": 0.24, "bounds": [0, 1] }, { "id": "gamma", "value": 0.1, "fixed": true }],
+  "laws": [
+    { "id": "dS", "kind": "continuous", "target": "susceptible", "expression": { "kind": "binary", "operator": "mul", "left": { "kind": "constant", "value": -1 }, "right": { "kind": "symbol", "id": "infected" } } },
+    { "id": "dI", "kind": "continuous", "target": "infected", "expression": { "kind": "binary", "operator": "sub", "left": { "kind": "symbol", "id": "susceptible" }, "right": { "kind": "symbol", "id": "recovered" } } }
+  ],
+  "dependencies": { "nodes": ["susceptible", "infected", "recovered"], "edges": [{ "source": "susceptible", "target": "infected", "kind": "directed" }, { "source": "infected", "target": "recovered", "kind": "directed", "lag": 1 }] },
+  "tags": ["epidemiology", "deterministic"]
+}

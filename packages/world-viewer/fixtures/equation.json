@@ -1,0 +1,1 @@
+{ "kind": "piecewise", "branches": [{ "when": { "kind": "comparison", "operator": "gt", "left": { "kind": "symbol", "id": "x" }, "right": { "kind": "constant", "value": 0 } }, "then": { "kind": "call", "function": "sin", "arguments": [{ "kind": "symbol", "id": "x" }] } }], "otherwise": { "kind": "constant", "value": 0 } }

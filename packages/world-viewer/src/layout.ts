@@ -1,5 +1,66 @@
-import type { GraphModel } from "./graph.js";
-export interface ViewerPosition { readonly id: string; readonly x: number; readonly y: number; }
-export interface ViewerLayout { readonly nodes: readonly ViewerPosition[]; readonly width: number; readonly height: number; }
-/** Deterministic layered fallback for clients that do not supply layout-engine. */
-export function layoutGraphModel(graph: GraphModel, options: { readonly columnGap?: number; readonly rowGap?: number } = {}): ViewerLayout { const columnGap = options.columnGap ?? 220, rowGap = options.rowGap ?? 100; if (!Number.isFinite(columnGap) || !Number.isFinite(rowGap) || columnGap <= 0 || rowGap <= 0) throw new RangeError("layout gaps must be positive finite numbers"); const incoming = new Map(graph.nodes.map((node) => [node.id, 0])); for (const edge of graph.edges) if (edge.kind === "directed" && edge.source !== edge.target) incoming.set(edge.target, (incoming.get(edge.target) ?? 0) + 1); const layers = new Map<string, number>(); const pending = graph.nodes.map((node) => node.id).sort(); while (pending.length) { const id = pending.shift()!; const layer = layers.get(id) ?? 0; layers.set(id, layer); for (const edge of graph.edges.filter((candidate) => candidate.kind === "directed" && candidate.source === id && candidate.source !== candidate.target)) { incoming.set(edge.target, (incoming.get(edge.target) ?? 1) - 1); layers.set(edge.target, Math.max(layers.get(edge.target) ?? 0, layer + 1)); if (incoming.get(edge.target) === 0) pending.push(edge.target); } } const buckets = new Map<number, string[]>(); for (const node of graph.nodes) { const layer = layers.get(node.id) ?? 0; const bucket = buckets.get(layer) ?? []; bucket.push(node.id); buckets.set(layer, bucket); } const nodes = [...buckets.entries()].flatMap(([layer, ids]) => ids.sort().map((id, row) => ({ id, x: layer * columnGap, y: row * rowGap }))); return { nodes, width: Math.max(0, ...nodes.map((node) => node.x)) + columnGap, height: Math.max(0, ...nodes.map((node) => node.y)) + rowGap }; }
+export type ViewerPanel = "overview" | "equations" | "graph" | "trajectory" | "parameters" | "uncertainty" | "regimes" | "provenance";
+export type ViewerDensity = "comfortable" | "compact";
+
+export interface ViewerLayout {
+  readonly navigationWidth: number;
+  readonly evidenceWidth: number;
+  readonly contentMinWidth: number;
+  readonly gap: number;
+  readonly density: ViewerDensity;
+  readonly collapsedNavigation: boolean;
+  readonly collapsedEvidence: boolean;
+}
+
+export interface ResponsiveLayoutOptions {
+  readonly density?: ViewerDensity;
+  readonly navigationWidth?: number;
+  readonly evidenceWidth?: number;
+}
+
+function positive(value: number, name: string): void {
+  if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${name} must be positive`);
+}
+
+/** Chooses a stable three-column, two-column, or single-column inspection layout. */
+export function responsiveViewerLayout(width: number, options: ResponsiveLayoutOptions = {}): ViewerLayout {
+  positive(width, "viewer width");
+  const navigationWidth = options.navigationWidth ?? 224;
+  const evidenceWidth = options.evidenceWidth ?? 288;
+  positive(navigationWidth, "navigation width");
+  positive(evidenceWidth, "evidence width");
+  const compact = width < 920;
+  const narrow = width < 680;
+  return Object.freeze({
+    navigationWidth,
+    evidenceWidth,
+    contentMinWidth: narrow ? 280 : 480,
+    gap: options.density === "compact" ? 12 : 18,
+    density: options.density ?? "comfortable",
+    collapsedNavigation: narrow,
+    collapsedEvidence: compact,
+  });
+}
+
+export const VIEWER_PANELS: readonly { readonly id: ViewerPanel; readonly label: string }[] = Object.freeze([
+  { id: "overview", label: "Overview" },
+  { id: "equations", label: "Equations" },
+  { id: "graph", label: "Dependencies" },
+  { id: "trajectory", label: "Trajectory" },
+  { id: "parameters", label: "Parameters" },
+  { id: "uncertainty", label: "Uncertainty" },
+  { id: "regimes", label: "Regimes" },
+  { id: "provenance", label: "Provenance" },
+]);
+
+export function availablePanels(capabilities: {
+  readonly trajectory: boolean;
+  readonly uncertainty: boolean;
+  readonly regimes: boolean;
+  readonly provenance: boolean;
+}): readonly { readonly id: ViewerPanel; readonly label: string }[] {
+  return VIEWER_PANELS.filter(({ id }) =>
+    (id !== "trajectory" || capabilities.trajectory) &&
+    (id !== "uncertainty" || capabilities.uncertainty) &&
+    (id !== "regimes" || capabilities.regimes) &&
+    (id !== "provenance" || capabilities.provenance));
+}

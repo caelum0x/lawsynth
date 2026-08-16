@@ -37,3 +37,10 @@ lawsynth-sim = { path = "../lawsynth-sim" }
 lawsynth-symbolic = { path = "../lawsynth-symbolic" }
 lawsynth-world = { path = "../lawsynth-world" }
 pyo3 = { version = "0.28.3", features = ["extension-module"] }
+
+[build-dependencies]
+# PyO3 deliberately leaves CPython symbols unresolved for extension modules.
+# On macOS the dynamic loader must be told to resolve them from the running
+# interpreter (`-undefined dynamic_lookup`), which maturin normally supplies.
+# Keeping this in Cargo makes a direct `cargo build` equally valid.
+pyo3-build-config = "0.28.3"

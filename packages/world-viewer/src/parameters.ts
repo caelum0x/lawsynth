@@ -1,7 +1,3 @@
-import type { ViewerParameter } from "./viewer.js";
-export interface ParameterRow extends ViewerParameter { readonly inBounds: boolean; readonly displayValue: string; }
-export interface ParameterModel { readonly rows: readonly ParameterRow[]; readonly fixedCount: number; readonly estimatedCount: number; }
-export function buildParameterModel(parameters: readonly ViewerParameter[]): ParameterModel { const rows = [...parameters].sort((a,b) => a.id.localeCompare(b.id)).map((parameter) => { const [lower, upper] = parameter.bounds ?? [null, null]; return { ...parameter, inBounds: (lower === null || parameter.value >= lower) && (upper === null || parameter.value <= upper), displayValue: Number.isInteger(parameter.value) ? String(parameter.value) : parameter.value.toPrecision(8) }; }); return { rows, fixedCount: rows.filter((row) => row.fixed === true).length, estimatedCount: rows.filter((row) => row.fixed !== true).length }; }
 import type { ParameterDefinition, WorldDefinition } from "@lawsynth/world-schema";
 
 export interface ParameterRow {

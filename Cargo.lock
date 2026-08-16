@@ -13,6 +13,14 @@ name = "lawsynth-api-types"
 version = "0.1.0"
 
 [[package]]
+name = "lawsynth-artifact-service"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-bundle",
+ "lawsynth-store",
+]
+
+[[package]]
 name = "lawsynth-bundle"
 version = "0.1.0"
 dependencies = [
@@ -158,6 +166,7 @@ dependencies = [
  "lawsynth-symbolic",
  "lawsynth-world",
  "pyo3",
+ "pyo3-build-config",
 ]
 
 [[package]]
@@ -167,6 +176,20 @@ version = "0.1.0"
 [[package]]
 name = "lawsynth-runner"
 version = "0.1.0"
+
+[[package]]
+name = "lawsynth-scheduler"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-expr",
+ "lawsynth-runner",
+ "lawsynth-sim",
+ "lawsynth-store",
+ "lawsynth-worker",
+ "lawsynth-world",
+]
 
 [[package]]
 name = "lawsynth-score"
@@ -226,6 +249,20 @@ dependencies = [
 [[package]]
 name = "lawsynth-wasm"
 version = "0.1.0"
+
+[[package]]
+name = "lawsynth-worker"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-discovery",
+ "lawsynth-expr",
+ "lawsynth-runner",
+ "lawsynth-sim",
+ "lawsynth-store",
+ "lawsynth-world",
+]
 
 [[package]]
 name = "lawsynth-world"

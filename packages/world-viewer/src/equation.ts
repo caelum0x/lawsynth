@@ -1,30 +1,3 @@
-import type { ViewerExpression, ViewerLaw } from "./viewer.js";
-
-export interface EquationModel { readonly id: string; readonly target?: string; readonly kind: string; readonly text: string; readonly enabled: boolean; readonly symbols: readonly string[]; }
-const operation: Readonly<Record<string, string>> = { add: "+", sub: "−", mul: "×", div: "÷", pow: "^", eq: "=", ne: "≠", lt: "<", lte: "≤", gt: ">", gte: "≥", and: "∧", or: "∨" };
-
-/** Formats the typed expression AST, never evaluates arbitrary source text. */
-export function formatExpression(expression: ViewerExpression): string {
-  const node = expression as Record<string, unknown>;
-  const expressionAt = (key: string): ViewerExpression => node[key] as ViewerExpression;
-  switch (node.kind) {
-    case "constant": return String(node.value);
-    case "symbol": return String(node.id);
-    case "unary": return `${node.operator === "neg" ? "−" : `${String(node.operator)}(`}${formatExpression(expressionAt("operand"))}${node.operator === "neg" ? "" : ")"}`;
-    case "not": return `¬(${formatExpression(expressionAt("operand"))})`;
-    case "binary": case "comparison": return `(${formatExpression(expressionAt("left"))} ${operation[String(node.operator)] ?? String(node.operator)} ${formatExpression(expressionAt("right"))})`;
-    case "logical": return `(${((node.operands as readonly ViewerExpression[] | undefined) ?? []).map(formatExpression).join(` ${operation[String(node.operator)] ?? String(node.operator)} `)})`;
-    case "delay": return `delay(${formatExpression(expressionAt("expression"))}, ${String(node.lag)})`;
-    case "call": return `${String(node.function)}(${((node.arguments as readonly ViewerExpression[] | undefined) ?? []).map(formatExpression).join(", ")})`;
-    case "piecewise": return `piecewise(${((node.branches as readonly Record<string, ViewerExpression>[] | undefined) ?? []).map((branch) => `${formatExpression(branch.then)} if ${formatExpression(branch.when)}`).join("; ")}; otherwise ${formatExpression(expressionAt("otherwise"))})`;
-    default: throw new TypeError(`unknown expression kind ${String(node.kind)}`);
-  }
-}
-
-export function expressionSymbols(expression: ViewerExpression): readonly string[] {
-  const symbols = new Set<string>(); const walk = (node: unknown): void => { if (!node || typeof node !== "object") return; const value = node as Record<string, unknown>; if (value.kind === "symbol" && typeof value.id === "string") symbols.add(value.id); for (const child of Object.values(value)) if (child && typeof child === "object") Array.isArray(child) ? child.forEach(walk) : walk(child); }; walk(expression); return [...symbols].sort();
-}
-export function buildEquationModel(law: ViewerLaw): EquationModel { return { id: law.id, ...(law.target === undefined ? {} : { target: law.target }), kind: law.kind, text: formatExpression(law.expression), enabled: law.enabled !== false, symbols: expressionSymbols(law.expression) }; }
 import type { Expression, Law, WorldDefinition } from "@lawsynth/world-schema";
 
 export interface EquationView {

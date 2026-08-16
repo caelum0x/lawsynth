@@ -1,16 +1,3 @@
-import type { ViewerEdge, ViewerWorld } from "./viewer.js";
-export interface GraphNodeModel { readonly id: string; readonly label: string; readonly role?: string; readonly unit?: string; }
-export interface GraphEdgeModel extends ViewerEdge { readonly id: string; readonly label: string; }
-export interface GraphModel { readonly nodes: readonly GraphNodeModel[]; readonly edges: readonly GraphEdgeModel[]; readonly directed: boolean; }
-function edgeId(edge: ViewerEdge, index: number): string { return edge.id ?? `${edge.source}:${edge.kind}:${edge.target}:${edge.lag ?? 0}:${index}`; }
-export function buildGraphModel(world: ViewerWorld): GraphModel {
-  const declared = world.dependencies?.nodes ?? world.variables.map((variable) => variable.id);
-  const variable = new Map(world.variables.map((entry) => [entry.id, entry]));
-  const nodes = [...new Set(declared)].sort().map((id) => ({ id, label: variable.get(id)?.name ?? id, ...(variable.get(id)?.role === undefined ? {} : { role: variable.get(id)!.role }), ...(variable.get(id)?.unit === undefined ? {} : { unit: variable.get(id)!.unit }) }));
-  const edges = (world.dependencies?.edges ?? []).map((edge, index) => ({ ...edge, id: edgeId(edge, index), label: `${edge.kind}${edge.lag === undefined ? "" : ` lag ${edge.lag}`}` })).sort((left, right) => left.id.localeCompare(right.id));
-  return { nodes, edges, directed: edges.some((edge) => edge.kind === "directed") };
-}
-export function adjacentNodes(model: GraphModel, id: string): readonly string[] { const adjacent = new Set<string>(); for (const edge of model.edges) { if (edge.source === id) adjacent.add(edge.target); if (edge.target === id) adjacent.add(edge.source); } return [...adjacent].sort(); }
 import type { DependencyEdge, DependencyGraph, Law, WorldDefinition } from "@lawsynth/world-schema";
 import { layoutDag, type LayoutEdge, type LayoutGraph, type PositionedNode } from "@lawsynth/layout-engine";
 import { expressionSymbols } from "./equation.js";
@@ -81,7 +68,7 @@ export function graphForWorld(world: WorldDefinition): WorldGraphView {
   };
   let positions: readonly PositionedNode[];
   try {
-    positions = layoutDag(layoutGraph, { direction: "horizontal", layerGap: 96, nodeGap: 28 });
+    positions = layoutDag(layoutGraph, { direction: "LR", rankGap: 96, nodeGap: 28, margin: 12 }).nodes;
   } catch {
     positions = nodes.map((node, index) => ({ ...node, x: (index % 4) * 220, y: Math.floor(index / 4) * 100 }));
   }

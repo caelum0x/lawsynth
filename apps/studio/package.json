@@ -1,0 +1,20 @@
+{
+  "name": "@lawsynth/studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Production orchestration layer for the LawSynth scientific modeling studio.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.6" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --import ./tests/register-workspace-loader.mjs dist/tests/run.js"
+  },
+  "dependencies": {
+    "@lawsynth/api-client": "workspace:*",
+    "@lawsynth/state-store": "workspace:*",
+    "@lawsynth/world-schema": "workspace:*",
+    "@lawsynth/world-viewer": "workspace:*"
+  }
+}

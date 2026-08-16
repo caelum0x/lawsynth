@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext", "lib": ["ES2022", "DOM"],
+    "strict": true, "noUncheckedIndexedAccess": true, "exactOptionalPropertyTypes": true, "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true, "noEmitOnError": true, "declaration": true, "sourceMap": true,
+    "rootDir": ".", "outDir": "dist", "skipLibCheck": true,
+    "paths": {
+      "@lawsynth/layout-engine": ["../../packages/layout-engine/dist/src/index.d.ts"],
+      "@lawsynth/world-schema": ["../../packages/world-schema/dist/src/index.d.ts"],
+      "@lawsynth/world-viewer": ["../../packages/world-viewer/dist/src/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "examples/**/*.ts"], "exclude": ["dist", "node_modules"]
+}

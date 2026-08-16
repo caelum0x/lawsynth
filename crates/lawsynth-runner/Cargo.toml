@@ -11,7 +11,7 @@ autoexamples = false
 path = "src/lib.rs"
 
 [[example]]
-name = "checkpoint_basic"
+name = "runner_checkpoint_basic"
 path = "examples/checkpoint_basic.rs"
 
 [[bench]]

@@ -1,0 +1,15 @@
+{
+  "name": "@lawsynth/docs-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic static documentation compiler for LawSynth.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.6" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/tests/api_reference.test.js dist/tests/benchmarks.test.js dist/tests/blog.test.js dist/tests/code.test.js dist/tests/examples.test.js dist/tests/markdown.test.js dist/tests/navigation.test.js dist/tests/search.test.js dist/tests/site.test.js"
+  },
+  "dependencies": { "@lawsynth/world-schema": "workspace:*", "@lawsynth/world-viewer": "workspace:*" }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@lawsynth/playground",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Client-only LawSynth world editor and bounded WASM simulation playground.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.6" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node tests/run.mjs"
+  },
+  "dependencies": {
+    "@lawsynth/chart-core": "workspace:*",
+    "@lawsynth/world-schema": "workspace:*",
+    "@lawsynth/world-viewer": "workspace:*"
+  }
+}

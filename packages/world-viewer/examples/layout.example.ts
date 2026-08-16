@@ -1,0 +1,3 @@
+import { buildGraphModel, layoutGraphModel, type ViewerWorld } from "../src/index.js";
+const world: ViewerWorld = { formatVersion: "0.1.0", id: "chain", time: { kind: "continuous" }, variables: ["x", "y", "z"].map((id) => ({ id, role: "state" })), laws: ["x", "y", "z"].map((target) => ({ id: `d${target}`, kind: "continuous", target, expression: { kind: "constant", value: 0 } })), dependencies: { nodes: ["x", "y", "z"], edges: [{ source: "x", target: "y", kind: "directed" }, { source: "y", target: "z", kind: "directed" }] } };
+console.log(JSON.stringify(layoutGraphModel(buildGraphModel(world)), null, 2));

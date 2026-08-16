@@ -31,6 +31,9 @@ members = [
   "crates/lawsynth-plugin-host",
   "crates/lawsynth-store",
   "crates/lawsynth-wasm",
+  "services/artifact",
+  "services/scheduler",
+  "services/worker",
 ]
 
 [workspace.package]

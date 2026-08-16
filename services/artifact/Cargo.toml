@@ -1,0 +1,18 @@
+[package]
+name = "lawsynth-artifact-service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Local-first, content-addressed artifact lifecycle service for LawSynth."
+
+[dependencies]
+lawsynth-bundle = { path = "../../crates/lawsynth-bundle" }
+lawsynth-store = { path = "../../crates/lawsynth-store" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "lawsynth-artifact"
+path = "src/main.rs"

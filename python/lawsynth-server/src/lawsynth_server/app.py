@@ -16,6 +16,7 @@ from .dependencies import Services, build_services
 from .errors import NotFoundError, ValidationError
 from .health import check
 from .middleware import invoke
+from .native import discover_world, simulate_world
 from .pagination import page
 from .settings import Settings
 from .simulations import validate_simulation_spec
@@ -33,13 +34,15 @@ class Application:
         path = request.get("path")
         if not isinstance(method, str) or not isinstance(path, str):
             raise ValidationError("request requires method and path")
-        if method == "GET" and path == "/health":
+        if method == "GET" and path in {"/health", "/v1/health"}:
             return {"status": 200, "body": asdict(check(self.services.database, self.services.storage))}
         headers = request.get("headers", {})
         if not isinstance(headers, dict):
             raise ValidationError("headers must be an object")
         principal = self.services.auth.authenticate(headers.get("Authorization"))
         parts = [part for part in path.split("/") if part]
+        if parts[:1] == ["v1"]:
+            parts = parts[1:]
         if method == "GET" and parts == ["events"]:
             require_scope(principal, "read")
             return {"status": 200, "body": {"items": self.services.events.list(principal.organization_id, after=request.get("after"))}}
@@ -62,6 +65,42 @@ class Application:
                 return 201, item
             status, response, replayed = self.services.idempotency.execute(principal.organization_id, key, {"method": method, "path": path, "body": body}, put)
             return {"status": status, "headers": {"Idempotency-Replayed": str(replayed).lower()}, "body": response}
+        if (
+            method == "POST"
+            and len(parts) == 3
+            and parts[0] == "worlds"
+            and parts[2] == "simulate"
+        ):
+            require_scope(principal, "write")
+            body = request.get("body")
+            if not isinstance(body, dict):
+                raise ValidationError("body must be an object")
+            simulation = validate_simulation_spec(body)
+            key = headers.get("Idempotency-Key")
+            if not isinstance(key, str):
+                raise ValidationError("Idempotency-Key is required for writes")
+
+            def execute_simulation() -> tuple[int, dict[str, object]]:
+                world = self.services.worlds.get(principal.organization_id, parts[1])
+                trajectory = simulate_world(world, simulation)
+                self.services.events.append(
+                    principal.organization_id,
+                    "worlds.simulated",
+                    {"id": parts[1], "samples": len(trajectory["time"])},
+                )
+                return 200, trajectory
+
+            status, response, replayed = self.services.idempotency.execute(
+                principal.organization_id,
+                key,
+                {"method": method, "path": path, "body": simulation},
+                execute_simulation,
+            )
+            return {
+                "status": status,
+                "headers": {"Idempotency-Replayed": str(replayed).lower()},
+                "body": response,
+            }
         if not parts or parts[0] not in {"projects", "datasets", "worlds", "runs"} or len(parts) > 2:
             raise NotFoundError("route not found")
         repository = getattr(self.services, parts[0])
@@ -86,7 +125,40 @@ class Application:
             if not isinstance(key, str):
                 raise ValidationError("Idempotency-Key is required for writes")
             def create() -> tuple[int, dict[str, object]]:
-                item = repository.create(principal.organization_id, body)
+                project_id = body.get("project_id")
+                if project_id is not None:
+                    if not isinstance(project_id, str):
+                        raise ValidationError("project_id must be a string")
+                    self.services.projects.get(principal.organization_id, project_id)
+                if parts[0] == "runs" and "dataset_id" in body:
+                    dataset_id = body["dataset_id"]
+                    if not isinstance(dataset_id, str):
+                        raise ValidationError("dataset_id must be a string")
+                    dataset = self.services.datasets.get(principal.organization_id, dataset_id)
+                    _, discovered_spec = discover_world(dataset, body.get("states"), body.get("discovery", {}))
+                    world_name = body.get("world_name", f"{body.get('name', 'run')}-world")
+                    if not isinstance(world_name, str) or not world_name.strip():
+                        raise ValidationError("world_name must be a non-empty string")
+                    world = self.services.worlds.create(
+                        principal.organization_id,
+                        {
+                            "name": world_name,
+                            "project_id": project_id,
+                            "dataset_id": dataset_id,
+                            **discovered_spec,
+                        },
+                    )
+                    self.services.events.append(
+                        principal.organization_id,
+                        "worlds.discovered",
+                        {"id": world["id"], "dataset_id": dataset_id},
+                    )
+                    item = repository.create(
+                        principal.organization_id,
+                        {**body, "world_id": world["id"], "status": "succeeded"},
+                    )
+                else:
+                    item = repository.create(principal.organization_id, body)
                 self.services.events.append(principal.organization_id, f"{parts[0]}.created", {"id": item["id"]})
                 return 201, item
             status, response, replayed = self.services.idempotency.execute(principal.organization_id, key, {"method": method, "path": path, "body": body}, create)

@@ -22,11 +22,11 @@ pub use profile::profile_summary;
 pub use serve::unavailable as serve_unavailable;
 pub use simulate::simulation_config;
 
-use std::{fmt::Write, fs};
+use std::{fmt::Write, fs, path::Path};
 
 use lawsynth_bundle::{read_discrete_world, read_world, write_world};
 use lawsynth_core::Identifier;
-use lawsynth_data::{Dataset, NumericColumn, TimeAxis};
+use lawsynth_data::{Dataset, read_csv_numeric, read_parquet_numeric, read_tsv_numeric};
 use lawsynth_differentiate::DerivativeMethod;
 use lawsynth_discovery::{DiscoveryConfig, SparseMethod, discover};
 use lawsynth_sim::{
@@ -112,7 +112,7 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
         }
         index += 2;
     }
-    let dataset = read_numeric_csv(input, time.as_deref().ok_or_else(usage)?)?;
+    let dataset = read_numeric_dataset(input, time.as_deref().ok_or_else(usage)?)?;
     let mut config = DiscoveryConfig::new(state.ok_or_else(usage)?);
     config.polynomial_degree = degree;
     config.sparse.threshold = threshold;
@@ -120,21 +120,14 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     config.include_trigonometric = include_trigonometric;
     config.include_rational = include_rational;
     config.smoothing_radius = smoothing_radius;
-    if [
-        use_spline,
-        use_spectral,
-        savgol_window.is_some(),
-        tvreg_lambda.is_some(),
-    ]
-    .into_iter()
-    .filter(|selected| *selected)
-    .count()
+    if [use_spline, use_spectral, savgol_window.is_some(), tvreg_lambda.is_some()]
+        .into_iter()
+        .filter(|selected| *selected)
+        .count()
         > 1
     {
-        return Err(
-            "choose only one of --spline, --spectral, --savgol-window, or --tvreg-lambda"
-                .to_owned(),
-        );
+        return Err("choose only one of --spline, --spectral, --savgol-window, or --tvreg-lambda"
+            .to_owned());
     }
     if use_spline {
         config.derivative.method = DerivativeMethod::NaturalCubicSpline;
@@ -143,22 +136,15 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     } else if let Some(window) = savgol_window {
         config.derivative.method = DerivativeMethod::SavitzkyGolay { window };
     } else if let Some(lambda) = tvreg_lambda {
-        config.derivative.method = DerivativeMethod::TotalVariation {
-            lambda,
-            iterations: tvreg_iterations,
-        };
+        config.derivative.method =
+            DerivativeMethod::TotalVariation { lambda, iterations: tvreg_iterations };
     }
     if let Some(replicates) = bootstrap_replicates {
-        config.bootstrap = Some(BootstrapConfig {
-            replicates,
-            ..BootstrapConfig::default()
-        });
+        config.bootstrap = Some(BootstrapConfig { replicates, ..BootstrapConfig::default() });
     }
     if let Some(max_depth) = symbolic_depth {
-        config.symbolic = Some(lawsynth_symbolic::SymbolicConfig {
-            max_depth,
-            ..Default::default()
-        });
+        config.symbolic =
+            Some(lawsynth_symbolic::SymbolicConfig { max_depth, ..Default::default() });
     }
     let result = discover(&dataset, &config).map_err(|error| error.to_string())?;
     let candidate = result
@@ -173,49 +159,27 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     ))
 }
 
-fn read_numeric_csv(path: &str, time_column: &str) -> Result<Dataset, String> {
-    let contents = fs::read_to_string(path).map_err(|error| error.to_string())?;
-    let mut lines = contents.lines();
-    let header = lines
-        .next()
-        .ok_or_else(|| "CSV input has no header".to_owned())?;
-    let names = header.split(',').map(str::trim).collect::<Vec<_>>();
-    if names.is_empty() || names.iter().any(|name| name.is_empty()) {
-        return Err("CSV header has an empty column name".to_owned());
-    }
-    let time_index = names
-        .iter()
-        .position(|name| *name == time_column)
-        .ok_or_else(|| format!("CSV has no '{time_column}' time column"))?;
-    let ids = names
-        .iter()
-        .map(|name| Identifier::new(*name).map_err(|error| error.to_string()))
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut values = vec![Vec::new(); names.len()];
-    for (line_number, line) in lines.enumerate() {
-        if line.trim().is_empty() {
-            continue;
-        }
-        let fields = line.split(',').map(str::trim).collect::<Vec<_>>();
-        if fields.len() != names.len() {
+/// Reads observations through the native CSV, TSV, or Parquet data boundary.
+///
+/// Binary Parquet is selected by extension before any text decoding. The native
+/// Parquet decoder deliberately rejects encodings outside its supported numeric
+/// subset instead of silently producing a partial dataset.
+pub fn read_numeric_dataset(path: impl AsRef<Path>, time_column: &str) -> Result<Dataset, String> {
+    let path = path.as_ref();
+    let bytes = fs::read(path).map_err(|error| error.to_string())?;
+    let extension =
+        path.extension().and_then(|extension| extension.to_str()).map(str::to_ascii_lowercase);
+    let result = match extension.as_deref() {
+        Some("parquet" | "parq") => read_parquet_numeric(&bytes, time_column),
+        Some("tsv") => read_tsv_numeric(&bytes, time_column),
+        Some("csv") | None => read_csv_numeric(&bytes, time_column),
+        Some(extension) => {
             return Err(format!(
-                "CSV row {} has the wrong column count",
-                line_number + 2
+                "unsupported observation format '.{extension}'; use .csv, .tsv, .parquet, or .parq"
             ));
         }
-        for (column, field) in fields.iter().enumerate() {
-            values[column].push(parse_number(field)?);
-        }
-    }
-    let time = TimeAxis::new(values[time_index].clone()).map_err(|error| error.to_string())?;
-    let columns = ids
-        .into_iter()
-        .zip(values)
-        .enumerate()
-        .filter(|(index, _)| *index != time_index)
-        .map(|(_, (id, values))| NumericColumn::new(id, values))
-        .collect::<Vec<_>>();
-    Dataset::new(time, columns).map_err(|error| error.to_string())
+    };
+    result.map_err(|error| error.to_string())
 }
 
 fn parse_identifiers(value: &str) -> Result<Vec<Identifier>, String> {
@@ -389,40 +353,26 @@ fn simulate_discrete_command(arguments: &[String]) -> Result<String, String> {
 }
 
 fn parse_assignment(value: &str) -> Result<(Identifier, f64), String> {
-    let (name, number) = value
-        .split_once('=')
-        .ok_or_else(|| "expected NAME=VALUE".to_owned())?;
-    Ok((
-        Identifier::new(name).map_err(|error| error.to_string())?,
-        parse_number(number)?,
-    ))
+    let (name, number) = value.split_once('=').ok_or_else(|| "expected NAME=VALUE".to_owned())?;
+    Ok((Identifier::new(name).map_err(|error| error.to_string())?, parse_number(number)?))
 }
 
 fn parse_scheduled_assignment(value: &str) -> Result<(f64, Identifier, f64), String> {
-    let (time, assignment) = value
-        .split_once(':')
-        .ok_or_else(|| "expected TIME:NAME=VALUE".to_owned())?;
+    let (time, assignment) =
+        value.split_once(':').ok_or_else(|| "expected TIME:NAME=VALUE".to_owned())?;
     let (id, value) = parse_assignment(assignment)?;
     Ok((parse_number(time)?, id, value))
 }
 
 fn parse_number(value: &str) -> Result<f64, String> {
-    let number: f64 = value
-        .parse()
-        .map_err(|_| format!("invalid number '{value}'"))?;
-    if number.is_finite() {
-        Ok(number)
-    } else {
-        Err(format!("number '{value}' must be finite"))
-    }
+    let number: f64 = value.parse().map_err(|_| format!("invalid number '{value}'"))?;
+    if number.is_finite() { Ok(number) } else { Err(format!("number '{value}' must be finite")) }
 }
 
 fn parse_steps(value: &str) -> Result<usize, String> {
-    value
-        .parse()
-        .map_err(|_| format!("invalid step count '{value}'"))
+    value.parse().map_err(|_| format!("invalid step count '{value}'"))
 }
 
 fn usage() -> String {
-    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.csv --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]".to_owned()
+    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]".to_owned()
 }

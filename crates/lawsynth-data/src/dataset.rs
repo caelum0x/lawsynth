@@ -30,27 +30,17 @@ impl Dataset {
             }
             for (index, value) in column.values.iter().copied().enumerate() {
                 if !value.is_finite() {
-                    return Err(DataError::NonFiniteValue {
-                        column: column.id,
-                        index,
-                        value,
-                    });
+                    return Err(DataError::NonFiniteValue { column: column.id, index, value });
                 }
             }
-            if column_map
-                .insert(column.id.clone(), column.clone())
-                .is_some()
-            {
+            if column_map.insert(column.id.clone(), column.clone()).is_some() {
                 return Err(DataError::DuplicateColumn(column.id));
             }
         }
         if column_map.is_empty() {
             return Err(DataError::NoColumns);
         }
-        Ok(Self {
-            time,
-            columns: column_map,
-        })
+        Ok(Self { time, columns: column_map })
     }
 
     pub fn time(&self) -> &TimeAxis {
@@ -63,9 +53,7 @@ impl Dataset {
 
     /// Returns the stable, lexicographically ordered numeric column schema.
     pub fn schema(&self) -> DatasetSchema {
-        DatasetSchema {
-            columns: self.columns.keys().cloned().collect(),
-        }
+        DatasetSchema { columns: self.columns.keys().cloned().collect() }
     }
 
     /// Splits observations into deterministic, aligned, owned batches.
@@ -153,10 +141,7 @@ mod tests {
             TimeAxis::new(vec![0.0, 1.0]).unwrap(),
             [NumericColumn::new(id("x"), vec![0.0])],
         );
-        assert!(matches!(
-            result,
-            Err(DataError::ColumnLengthMismatch { .. })
-        ));
+        assert!(matches!(result, Err(DataError::ColumnLengthMismatch { .. })));
     }
 
     #[test]
@@ -192,9 +177,6 @@ mod tests {
         assert_eq!(windows[0].rows, 0..3);
         assert_eq!(windows[1].rows, 1..4);
         assert_eq!(windows[1].columns[&id("x")], vec![11.0, 12.0, 13.0]);
-        assert_eq!(
-            data.windows(WindowConfig::new(5, 1)),
-            Err(DataError::InvalidWindowConfig)
-        );
+        assert_eq!(data.windows(WindowConfig::new(5, 1)), Err(DataError::InvalidWindowConfig));
     }
 }

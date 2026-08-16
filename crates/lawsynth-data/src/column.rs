@@ -10,11 +10,7 @@ pub struct NumericColumn {
 
 impl NumericColumn {
     pub fn new(id: Identifier, values: Vec<f64>) -> Self {
-        Self {
-            id,
-            values,
-            unit: None,
-        }
+        Self { id, values, unit: None }
     }
 
     pub fn with_unit(mut self, unit: impl Into<String>) -> Self {

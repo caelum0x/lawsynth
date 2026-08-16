@@ -1,0 +1,1 @@
+{ "nodes": ["x", "y", "z"], "edges": [{ "source": "x", "target": "y", "kind": "directed" }, { "source": "y", "target": "z", "kind": "bidirected", "strength": 0.7 }] }

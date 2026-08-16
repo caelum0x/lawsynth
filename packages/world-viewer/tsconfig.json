@@ -22,6 +22,6 @@
       "@lawsynth/world-schema": ["../world-schema/dist/src/index.d.ts"]
     }
   },
-  "include": ["src/**/*.ts", "examples/**/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

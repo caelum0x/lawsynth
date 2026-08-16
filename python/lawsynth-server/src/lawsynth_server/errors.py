@@ -34,3 +34,9 @@ class ConflictError(ServerError):
 
 class IdempotencyConflict(ConflictError):
     code = "idempotency_conflict"
+
+
+class NativeUnavailableError(ServerError):
+    """The optional executable LawSynth runtime is not installed for this server."""
+
+    status_code, code = 503, "native_unavailable"

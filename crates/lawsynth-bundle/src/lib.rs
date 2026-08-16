@@ -12,6 +12,7 @@ mod signature;
 mod writer;
 
 pub use canonical::canonical_entry_order;
+pub use checksum::sha256_hex;
 pub use config::BundleConfig;
 pub use error::BundleError;
 pub use migration::{BundleFormatVersion, migration_path};

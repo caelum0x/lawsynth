@@ -1,0 +1,21 @@
+import { appTests } from "./app.test.js";
+import { datasetTests } from "./dataset.test.js";
+import { discoveryTests } from "./discovery.test.js";
+import { equationsTests } from "./equations.test.js";
+import { providersTests } from "./providers.test.js";
+import { regimesTests } from "./regimes.test.js";
+import { routesTests } from "./routes.test.js";
+import { simulationTests } from "./simulation.test.js";
+import { structureTests } from "./structure.test.js";
+import { workspaceTests } from "./workspace.test.js";
+
+const tests: readonly [string, () => Promise<void>][] = [
+  ["app lifecycle", appTests], ["dataset profiling", datasetTests], ["discovery observation", discoveryTests],
+  ["equation comparison", equationsTests], ["provider lifecycle", providersTests], ["regime planning", regimesTests],
+  ["routes", routesTests], ["simulation execution", simulationTests], ["structure filtering", structureTests], ["workspace selection", workspaceTests],
+];
+
+for (const [name, run] of tests) {
+  await run();
+  console.log(`ok - ${name}`);
+}

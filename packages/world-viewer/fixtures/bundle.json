@@ -1,0 +1,5 @@
+{
+  "format": "lawsynth-world", "format_version": "0.1.0", "world_encoding": "lawsynth-world-binary-v1",
+  "world": { "formatVersion": "0.1.0", "id": "linear", "time": { "kind": "continuous" }, "variables": [{ "id": "x", "role": "state" }], "laws": [{ "id": "dx", "kind": "continuous", "target": "x", "expression": { "kind": "constant", "value": 0 } }] },
+  "entries": [{ "path": "world/world.json", "mediaType": "application/json", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "bytes": 231 }]
+}

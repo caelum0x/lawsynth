@@ -3,12 +3,10 @@ use lawsynth_core::Identifier;
 
 /// Parses a `NAME=FINITE_VALUE` command-line assignment without shell-specific behavior.
 pub fn parse_assignment_text(value: &str) -> Result<(Identifier, f64), CliError> {
-    let (name, number) = value
-        .split_once('=')
-        .ok_or(CliError::InvalidArgument("expected NAME=VALUE"))?;
-    let number = number
-        .parse::<f64>()
-        .map_err(|_| CliError::InvalidArgument("invalid finite number"))?;
+    let (name, number) =
+        value.split_once('=').ok_or(CliError::InvalidArgument("expected NAME=VALUE"))?;
+    let number =
+        number.parse::<f64>().map_err(|_| CliError::InvalidArgument("invalid finite number"))?;
     if !number.is_finite() {
         return Err(CliError::InvalidArgument("invalid finite number"));
     }
@@ -27,9 +25,7 @@ pub fn parse_identifier_list(value: &str) -> Result<Vec<Identifier>, CliError> {
         })
         .collect::<Result<Vec<_>, _>>()?;
     if values.is_empty() {
-        Err(CliError::InvalidArgument(
-            "expected at least one identifier",
-        ))
+        Err(CliError::InvalidArgument("expected at least one identifier"))
     } else {
         Ok(values)
     }

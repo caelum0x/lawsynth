@@ -1,0 +1,13 @@
+[package]
+name = "lawsynth-external-simulator"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+lawsynth-plugin-api = { path = "../../crates/lawsynth-plugin-api" }
+
+[workspace]

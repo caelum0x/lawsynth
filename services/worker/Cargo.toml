@@ -1,0 +1,26 @@
+[package]
+name = "lawsynth-worker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Local, durable execution worker for LawSynth discovery and simulation jobs."
+
+[dependencies]
+lawsynth-core = { path = "../../crates/lawsynth-core" }
+lawsynth-data = { path = "../../crates/lawsynth-data" }
+lawsynth-discovery = { path = "../../crates/lawsynth-discovery" }
+lawsynth-runner = { path = "../../crates/lawsynth-runner" }
+lawsynth-sim = { path = "../../crates/lawsynth-sim" }
+lawsynth-store = { path = "../../crates/lawsynth-store" }
+lawsynth-world = { path = "../../crates/lawsynth-world" }
+
+[dev-dependencies]
+lawsynth-expr = { path = "../../crates/lawsynth-expr" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "lawsynth-worker"
+path = "src/main.rs"
