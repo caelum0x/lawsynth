@@ -1,0 +1,7 @@
+{
+  "case_id": "unsafe-archive",
+  "mode": "invalid",
+  "fixture": {
+    "mutation": "unsafe-path"
+  }
+}

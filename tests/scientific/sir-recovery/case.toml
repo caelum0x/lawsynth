@@ -1,0 +1,8 @@
+[case]
+id = "sir-recovery"
+kind = "supported"
+description = "Quadratic candidate discovery and simulation for a deterministic SIR trajectory."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

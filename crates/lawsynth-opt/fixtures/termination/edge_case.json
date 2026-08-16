@@ -1,0 +1,7 @@
+{
+  "solver": "nelder_mead",
+  "objective": "non_finite_outside_domain",
+  "initial": [0.0],
+  "config": {"max_iterations": 0},
+  "expected_reason": "iteration_limit"
+}

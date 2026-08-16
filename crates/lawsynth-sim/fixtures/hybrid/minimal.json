@@ -1,0 +1,5 @@
+{
+  "interval": {"start": 0.0, "end": 2.0},
+  "event_times": [1.0],
+  "expected_segments": [[0.0, 1.0], [1.0, 2.0]]
+}

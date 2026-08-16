@@ -1,0 +1,6 @@
+{
+  "time": [0.0, 0.5, 1.0, 1.5],
+  "columns": {"position": [0.0, 0.25, 1.0, 2.25], "velocity": [0.0, 1.0, 2.0, 3.0]},
+  "schema": {"time_column": "time", "numeric_columns": ["position", "velocity"]},
+  "fingerprint_contract": "column order and values contribute to identity"
+}

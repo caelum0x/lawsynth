@@ -7,6 +7,20 @@ license.workspace = true
 description = "PyO3 bindings for the LawSynth executable World core."
 autoexamples = false
 
+[[example]]
+name = "py_bundle_basic"
+path = "examples/py_bundle_basic.rs"
+
+[[bench]]
+name = "py_simulation_latency"
+path = "benches/py_simulation_latency.rs"
+harness = false
+
+[[bench]]
+name = "py_world_throughput"
+path = "benches/py_world_throughput.rs"
+harness = false
+
 [lib]
 name = "_native"
 crate-type = ["cdylib"]

@@ -1,0 +1,4 @@
+{
+  "parameter_schedule": [[1.0, "rate", 0.1]],
+  "expected": [{"time": 1.0, "identifier": "rate", "value": 0.1}]
+}

@@ -1,6 +1,13 @@
-"""Python interface to the LawSynth executable-world engine."""
+"""Python interface to the LawSynth executable-world engine.
 
-from ._native import Scenario, Trajectory, World, discover_world as _discover_world
+Importing data-model modules does not require loading the compiled extension;
+native classes are resolved lazily when a simulation or discovery is requested.
+"""
+
+from ._version import __version__
+from .config import DiscoveryConfig
+from .dataset import Dataset
+from .errors import LawSynthError, NativeError, ValidationError
 
 
 def discover(
@@ -28,7 +35,9 @@ def discover(
     methods include ``finite``, ``savgol``, ``spline``, ``spectral`` (periodic
     regular grids), and ``tvreg``.
     """
-    return _discover_world(
+    from ._native import discover_world
+
+    return discover_world(
         list(time),
         {name: list(values) for name, values in columns.items()},
         list(state),
@@ -46,4 +55,19 @@ def discover(
     )
 
 
-__all__ = ["discover", "Scenario", "Trajectory", "World"]
+def __getattr__(name):
+    if name in {"Scenario", "Trajectory", "World"}:
+        try:
+            from . import _native
+        except ImportError as error:
+            raise NativeError(
+                "the lawsynth native extension is unavailable; install the built package"
+            ) from error
+        return getattr(_native, name)
+    raise AttributeError(name)
+
+
+__all__ = [
+    "Dataset", "DiscoveryConfig", "LawSynthError", "NativeError", "ValidationError",
+    "discover", "Scenario", "Trajectory", "World", "__version__",
+]

@@ -1,0 +1,9 @@
+{
+  "candidates": [
+    {"mean_squared_error": 0.40, "complexity": 1, "stability": 0.95},
+    {"mean_squared_error": 0.10, "complexity": 8, "stability": 0.90},
+    {"mean_squared_error": 0.20, "complexity": 3, "stability": 0.97}
+  ],
+  "weights": {"fit": 0.6, "complexity": 0.2, "stability": 0.2},
+  "purpose": "rank comparable candidates while retaining trade-offs"
+}

@@ -1,0 +1,1 @@
+{"required":[{"source":"x","target":"y"}],"forbidden":[{"source":"z","target":"x"}]}

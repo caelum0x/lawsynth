@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "Bundle interchange",
+  "kind": "bundle_interchange",
+  "states": [
+    "signal"
+  ],
+  "initial": [
+    1
+  ],
+  "time": {
+    "start": 0,
+    "stop": 8,
+    "step": 0.05
+  },
+  "parameters": {
+    "decay": 0.4
+  },
+  "description": "A portable JSON world descriptor and deterministic scalar trajectory.",
+  "status": "reference-model"
+}

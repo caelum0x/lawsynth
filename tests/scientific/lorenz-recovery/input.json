@@ -1,0 +1,5 @@
+{
+  "case_id": "lorenz-recovery", "kind": "supported",
+  "fixture": {"system":"lorenz","parameters":{"sigma":10.0,"rho":28.0,"beta":2.6666666666666665},"initial":[1.0,1.0,1.0],"stop":1.0,"integration_step":0.01},
+  "run": {"states":["x","y","z"],"options":{"--degree":2,"--threshold":0.01},"simulate_initial":{"x":1.0,"y":1.0,"z":1.0},"simulate_end":0.05,"simulate_step":0.01}
+}

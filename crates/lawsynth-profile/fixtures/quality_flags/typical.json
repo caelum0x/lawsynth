@@ -1,0 +1,6 @@
+{
+  "column": "sensor",
+  "values": [10.0, 10.1, 9.9, 10.0, 10.2, 25.0],
+  "expected_flags": ["outlier_present"],
+  "notes": "one value is far from the robust central range"
+}

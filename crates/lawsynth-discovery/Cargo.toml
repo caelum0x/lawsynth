@@ -7,6 +7,20 @@ license.workspace = true
 description = "Executable-world discovery orchestration for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "checkpoint_basic"
+path = "examples/checkpoint_basic.rs"
+
+[[bench]]
+name = "branch_latency"
+path = "benches/branch_latency.rs"
+harness = false
+
+[[bench]]
+name = "candidate_throughput"
+path = "benches/candidate_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }

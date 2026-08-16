@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": "Delayed feedback",
+  "kind": "delayed_feedback",
+  "states": [
+    "signal"
+  ],
+  "initial": [
+    1
+  ],
+  "time": {
+    "start": 0,
+    "stop": 15,
+    "step": 0.05
+  },
+  "parameters": {
+    "decay": 0.7,
+    "feedback": 0.55,
+    "delay": 1
+  },
+  "description": "A retarded scalar delay differential equation.",
+  "status": "reference-model"
+}

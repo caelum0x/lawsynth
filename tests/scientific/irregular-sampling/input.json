@@ -1,0 +1,5 @@
+{
+  "case_id":"irregular-sampling", "kind":"supported",
+  "fixture":{"system":"linear_growth","parameters":{"rate":0.4},"initial":[1.0],"stop":1.2,"integration_step":0.1,"sample_times":[0.0,0.07,0.19,0.28,0.43,0.51,0.68,0.77,0.94,1.03,1.2]},
+  "run":{"states":["x"],"options":{"--degree":1,"--threshold":0.0001},"simulate_initial":{"x":1.0},"simulate_end":0.2,"simulate_step":0.05}
+}

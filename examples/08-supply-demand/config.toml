@@ -1,0 +1,16 @@
+name = "Supply and demand"
+kind = "supply_demand"
+states = ["demand", "supply", "price"]
+initial = [8, 6, 5]
+start = 0
+stop = 20
+step = 0.05
+threshold = 0.0001
+description = "Coupled demand, supply, and price adjustment."
+
+[parameters]
+demand_rate = 0.7
+supply_rate = 0.45
+price_rate = 0.55
+target_price = 7
+cost = 3

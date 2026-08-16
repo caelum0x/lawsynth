@@ -1,0 +1,14 @@
+name = "Regime switching growth"
+kind = "regime_switching"
+states = ["signal"]
+initial = [1]
+start = 0
+stop = 10
+step = 0.05
+threshold = 0.0001
+description = "A coefficient changes at the declared switch time."
+
+[parameters]
+rate_before = 0.24
+rate_after = -0.12
+switch_time = 5

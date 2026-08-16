@@ -1,0 +1,5 @@
+{
+  "expression": "x + 0",
+  "limits": {"max_iterations": 1, "max_nodes": 16, "max_classes": 8},
+  "expected_expression": "x"
+}

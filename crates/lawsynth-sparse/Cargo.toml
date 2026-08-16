@@ -7,5 +7,19 @@ license.workspace = true
 description = "Sparse numerical regression for LawSynth discovery."
 autoexamples = false
 
+[[example]]
+name = "constrained_basic"
+path = "examples/constrained_basic.rs"
+
+[[bench]]
+name = "group_latency"
+path = "benches/group_latency.rs"
+harness = false
+
+[[bench]]
+name = "lasso_throughput"
+path = "benches/lasso_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }

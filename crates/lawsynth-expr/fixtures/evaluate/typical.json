@@ -1,0 +1,6 @@
+{
+  "expression": "rate * population - loss",
+  "environment": {"rate": 0.2, "population": 10.0, "loss": 1.0},
+  "expected": 1.0,
+  "canonical_print": "rate * population - loss"
+}

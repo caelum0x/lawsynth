@@ -1,0 +1,4 @@
+{
+  "command": ["serve"],
+  "expected_error": "serve_unavailable"
+}

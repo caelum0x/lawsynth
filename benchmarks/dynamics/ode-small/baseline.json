@@ -1,0 +1,6 @@
+{
+  "benchmark": "dynamics/ode-small",
+  "implementation": "lawsynth-cli",
+  "capability": "supported",
+  "baseline": "native CLI discovery, inspection, and configured simulation must exit successfully"
+}

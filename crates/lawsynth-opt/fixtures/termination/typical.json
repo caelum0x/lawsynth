@@ -1,0 +1,8 @@
+{
+  "solver": "lbfgs",
+  "objective": "sum((prediction - observation)^2)",
+  "initial": [0.1, 0.1],
+  "bounds": [{"lower": 0.0, "upper": 10.0}, {"lower": -5.0, "upper": 5.0}],
+  "config": {"max_iterations": 100, "gradient_tolerance": 1e-8},
+  "expected_reason": "converged"
+}

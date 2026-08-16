@@ -1,0 +1,5 @@
+{
+  "kind": "continuous_problem",
+  "state": ["x", "x"],
+  "expected_error": "duplicate_state_identifier"
+}

@@ -1,0 +1,7 @@
+{
+  "kind": "continuous_problem",
+  "state": ["x"],
+  "observations": 3,
+  "time": [0.0, 1.0, 2.0],
+  "values": {"x": [0.0, 1.0, 4.0]}
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "Energy load",
+  "kind": "energy_load",
+  "states": [
+    "load"
+  ],
+  "initial": [
+    50
+  ],
+  "time": {
+    "start": 0,
+    "stop": 24,
+    "step": 0.1
+  },
+  "parameters": {
+    "base_load": 50,
+    "amplitude": 18,
+    "period": 24,
+    "relaxation": 0.75
+  },
+  "description": "Thermally lagged periodic electricity load.",
+  "status": "reference-model"
+}

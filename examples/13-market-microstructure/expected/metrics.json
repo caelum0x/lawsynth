@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "supported",
+  "samples": 401,
+  "states": [
+    "midprice",
+    "imbalance"
+  ],
+  "artifact": "output/discovery.json",
+  "verification": "finite equation coefficients and nonempty simulation"
+}

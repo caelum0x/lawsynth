@@ -1,0 +1,6 @@
+{
+  "expression": "(a + b) + (c + d)",
+  "limits": {"max_iterations": 1, "max_nodes": 2, "max_classes": 1},
+  "expected_error": "limit_exceeded",
+  "purpose": "rewrite expansion must be bounded"
+}

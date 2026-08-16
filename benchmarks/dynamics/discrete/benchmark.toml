@@ -1,0 +1,22 @@
+id = "dynamics/discrete"
+title = "Discrete logistic map"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "LawSynth can simulate a serialized DiscreteWorld, but its public CLI currently has no discrete discovery/model-authoring command. This benchmark therefore cannot produce a native candidate without fabricating a bundle."
+
+[generation]
+kind = "logistic_map"
+samples = 81
+step = 1
+
+[generation.parameters]
+rate = 3.7
+initial = 0.2
+
+[discovery]
+states = ["x"]
+degree = 2
+threshold = 0.05
+trigonometric = false

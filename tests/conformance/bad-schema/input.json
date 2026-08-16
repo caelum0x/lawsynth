@@ -1,0 +1,7 @@
+{
+  "case_id": "bad-schema",
+  "mode": "invalid",
+  "fixture": {
+    "mutation": "not-a-zip"
+  }
+}

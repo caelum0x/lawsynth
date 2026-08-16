@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "Custom operator extension",
+  "kind": "custom_operator",
+  "states": [
+    "signal"
+  ],
+  "initial": [
+    1
+  ],
+  "time": {
+    "start": 0,
+    "stop": 8,
+    "step": 0.05
+  },
+  "parameters": {
+    "decay": 0.4
+  },
+  "description": "Extension capability boundary: custom expression operators require the plugin ABI.",
+  "status": "unsupported-capability"
+}

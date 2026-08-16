@@ -1,0 +1,29 @@
+id = "dynamics/ode-small"
+title = "Small continuous ODE"
+version = 1
+
+[capability]
+status = "supported"
+reason = "The public CLI accepts regularly sampled continuous observations, emits a World bundle, and simulates the discovered bundle."
+
+[generation]
+kind = "exponential_decay"
+samples = 81
+step = 0.05
+
+[generation.parameters]
+rate = 1
+
+[discovery]
+states = ["x"]
+degree = 2
+threshold = 0.05
+trigonometric = false
+
+[simulation]
+start = 0
+end = 0.5
+step = 0.05
+
+[simulation.initial]
+x = 1

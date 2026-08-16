@@ -1,0 +1,1 @@
+{"case_id":"lotka-volterra-recovery","kind":"supported","inspect_contains":"continuous world: 2 states, 2 variables","minimum_samples":6,"claim":"Exercises candidate construction and execution; it does not assert unique scientific recovery from one trajectory."}

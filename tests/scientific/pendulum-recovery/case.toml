@@ -1,0 +1,8 @@
+[case]
+id = "pendulum-recovery"
+kind = "supported"
+description = "Trigonometric-library candidate discovery and execution for a damped pendulum."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

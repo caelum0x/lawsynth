@@ -1,0 +1,16 @@
+{
+  "outcome": "accepted",
+  "inspect_contains": "continuous world: 1 states",
+  "columns": {
+    "time": [
+      0,
+      0.5,
+      1
+    ],
+    "x": [
+      0,
+      0.5,
+      1
+    ]
+  }
+}

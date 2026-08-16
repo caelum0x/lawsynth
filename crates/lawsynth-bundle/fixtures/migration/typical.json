@@ -1,0 +1,8 @@
+{
+  "format": "lawsynth.world.bundle",
+  "from": "v0",
+  "to": "v1",
+  "expected_path": ["v0", "v1"],
+  "world_kind": "continuous",
+  "checksums": {"world/world.bin": "sha256:example-documentation-only"}
+}

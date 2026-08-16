@@ -1,0 +1,5 @@
+{
+  "variables": [],
+  "polynomial_degree": 2,
+  "expected_error": "empty_feature_variable_set"
+}

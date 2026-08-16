@@ -1,0 +1,5 @@
+{
+  "observed": [1.0, 2.0],
+  "predicted": [1.0],
+  "expected_error": "length_mismatch"
+}

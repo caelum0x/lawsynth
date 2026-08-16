@@ -1,0 +1,1 @@
+{"case_id":"pendulum-recovery","kind":"supported","inspect_contains":"continuous world: 2 states, 2 variables","minimum_samples":6,"claim":"Checks a trigonometric feature configuration produces an executable candidate, not exact physical identification."}

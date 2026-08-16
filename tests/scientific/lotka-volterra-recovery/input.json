@@ -1,0 +1,13 @@
+{
+  "case_id": "lotka-volterra-recovery",
+  "kind": "supported",
+  "fixture": {
+    "system": "lotka_volterra",
+    "parameters": {"alpha": 1.5, "beta": 1.0, "delta": 0.75, "gamma": 1.0},
+    "initial": [1.2, 0.8], "stop": 1.2, "integration_step": 0.02
+  },
+  "run": {
+    "states": ["prey", "predator"], "options": {"--degree": 2, "--threshold": 0.001},
+    "simulate_initial": {"prey": 1.2, "predator": 0.8}, "simulate_end": 0.1, "simulate_step": 0.02
+  }
+}

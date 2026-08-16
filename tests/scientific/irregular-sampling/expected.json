@@ -1,0 +1,1 @@
+{"case_id":"irregular-sampling","kind":"supported","inspect_contains":"continuous world: 1 states, 1 variables","minimum_samples":5,"claim":"Validates native handling of a strictly increasing but nonuniform time axis."}

@@ -1,0 +1,8 @@
+[case]
+id = "lorenz-recovery"
+kind = "supported"
+description = "Quadratic candidate discovery and short-horizon simulation for Lorenz observations."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

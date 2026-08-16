@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "Customer growth",
+  "kind": "customer_growth",
+  "states": [
+    "customers"
+  ],
+  "initial": [
+    20
+  ],
+  "time": {
+    "start": 0,
+    "stop": 10,
+    "step": 0.05
+  },
+  "parameters": {
+    "r": 0.55,
+    "capacity": 1000
+  },
+  "description": "Saturating customer adoption.",
+  "status": "reference-model"
+}

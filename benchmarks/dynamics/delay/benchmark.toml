@@ -1,0 +1,24 @@
+id = "dynamics/delay"
+title = "Delayed feedback"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "The dataset generator is deterministic, but the public discovery CLI does not accept delay coordinates or expose delay identification. It must fail as a declared capability boundary."
+
+[generation]
+kind = "delayed_feedback"
+samples = 81
+step = 0.1
+
+[generation.parameters]
+delay_steps = 5
+gain = 0.8
+feedback = -0.25
+initial = 1
+
+[discovery]
+states = ["x"]
+degree = 2
+threshold = 0.05
+trigonometric = false

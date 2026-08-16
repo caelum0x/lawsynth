@@ -1,0 +1,6 @@
+{
+  "benchmark": "dynamics/stochastic",
+  "implementation": "lawsynth-cli",
+  "capability": "capability-boundary",
+  "baseline": "expected capability boundary; no synthetic candidate is permitted"
+}

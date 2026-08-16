@@ -1,0 +1,14 @@
+{
+  "benchmark": "equation/algebraic-noisy",
+  "target": "y = 1 + 2*x - 0.5*x^2 + deterministic Gaussian noise",
+  "generation": {
+    "kind": "algebraic_polynomial_noisy",
+    "samples": 101,
+    "step": 0.01,
+    "parameters": {
+      "seed": 20260816,
+      "noise_scale": 0.03
+    }
+  },
+  "expected_status": "capability-boundary"
+}

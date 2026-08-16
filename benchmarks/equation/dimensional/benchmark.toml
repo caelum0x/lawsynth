@@ -1,0 +1,21 @@
+id = "equation/dimensional"
+title = "Dimension-aware acceleration"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "The public discovery command has no dataset-unit input or dimensional-equation scoring API, so a unit-sensitive recovery score would be invented."
+
+[generation]
+kind = "dimensional_acceleration"
+samples = 81
+step = 0.05
+
+[generation.parameters]
+acceleration = 9.81
+
+[discovery]
+states = ["position", "velocity"]
+degree = 1
+threshold = 0.05
+trigonometric = false

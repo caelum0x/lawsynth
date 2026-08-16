@@ -7,6 +7,20 @@ license.workspace = true
 description = "Validated continuous and discrete identification problems for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "refine_basic"
+path = "examples/refine_basic.rs"
+
+[[bench]]
+name = "control_latency"
+path = "benches/control_latency.rs"
+harness = false
+
+[[bench]]
+name = "implicit_throughput"
+path = "benches/implicit_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }

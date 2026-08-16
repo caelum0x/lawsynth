@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": "Regime switching growth",
+  "kind": "regime_switching",
+  "states": [
+    "signal"
+  ],
+  "initial": [
+    1
+  ],
+  "time": {
+    "start": 0,
+    "stop": 10,
+    "step": 0.05
+  },
+  "parameters": {
+    "rate_before": 0.24,
+    "rate_after": -0.12,
+    "switch_time": 5
+  },
+  "description": "A coefficient changes at the declared switch time.",
+  "status": "reference-model"
+}

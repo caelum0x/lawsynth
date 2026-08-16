@@ -7,6 +7,20 @@ license.workspace = true
 description = "Deterministic preprocessing transforms for LawSynth discovery."
 autoexamples = false
 
+[[example]]
+name = "detrend_basic"
+path = "examples/detrend_basic.rs"
+
+[[bench]]
+name = "impute_throughput"
+path = "benches/impute_throughput.rs"
+harness = false
+
+[[bench]]
+name = "scale_latency"
+path = "benches/scale_latency.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }

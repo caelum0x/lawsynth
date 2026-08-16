@@ -7,6 +7,20 @@ license.workspace = true
 description = "Dimensional analysis primitives for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "check_basic"
+path = "examples/check_basic.rs"
+
+[[bench]]
+name = "convert_throughput"
+path = "benches/convert_throughput.rs"
+harness = false
+
+[[bench]]
+name = "infer_latency"
+path = "benches/infer_latency.rs"
+harness = false
+
 [lib]
 path = "src/lib.rs"
 

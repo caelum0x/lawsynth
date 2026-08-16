@@ -1,0 +1,14 @@
+name = "Lorenz attractor"
+kind = "lorenz"
+states = ["x", "y", "z"]
+initial = [1, 1, 1]
+start = 0
+stop = 4
+step = 0.01
+threshold = 0.0001
+description = "Three-state chaotic Lorenz system."
+
+[parameters]
+sigma = 10
+rho = 28
+beta = 2.666666666667

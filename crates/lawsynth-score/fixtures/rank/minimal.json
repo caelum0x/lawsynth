@@ -1,0 +1,4 @@
+{
+  "candidates": [{"mean_squared_error": 0.1, "complexity": 2}],
+  "expected_order": [0]
+}

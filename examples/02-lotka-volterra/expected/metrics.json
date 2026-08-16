@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "supported",
+  "samples": 241,
+  "states": [
+    "prey",
+    "predator"
+  ],
+  "artifact": "output/discovery.json",
+  "verification": "finite equation coefficients and nonempty simulation"
+}

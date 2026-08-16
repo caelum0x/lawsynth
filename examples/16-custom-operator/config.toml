@@ -1,0 +1,14 @@
+name = "Custom operator extension"
+kind = "custom_operator"
+states = ["signal"]
+initial = [1]
+start = 0
+stop = 8
+step = 0.05
+threshold = 0.0001
+description = "Extension capability boundary: custom expression operators require the plugin ABI."
+capability = "unsupported"
+boundary = "Custom expression operators require the plugin ABI, which is not present in this build."
+
+[parameters]
+decay = 0.4

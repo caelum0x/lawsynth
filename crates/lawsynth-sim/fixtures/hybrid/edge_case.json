@@ -1,0 +1,5 @@
+{
+  "interval": {"start": 1.0, "end": 1.0},
+  "event_times": [],
+  "expected_error": "non_positive_simulation_span"
+}

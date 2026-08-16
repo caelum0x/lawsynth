@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "name": "SIR epidemic",
+  "kind": "sir",
+  "states": [
+    "susceptible",
+    "infected",
+    "recovered"
+  ],
+  "initial": [
+    990,
+    10,
+    0
+  ],
+  "time": {
+    "start": 0,
+    "stop": 80,
+    "step": 0.25
+  },
+  "parameters": {
+    "beta": 0.32,
+    "gamma": 0.1,
+    "population": 1000
+  },
+  "description": "Closed-population susceptible-infected-recovered dynamics.",
+  "status": "reference-model"
+}

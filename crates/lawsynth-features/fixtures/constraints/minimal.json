@@ -1,0 +1,5 @@
+{
+  "variables": ["x"],
+  "polynomial_degree": 1,
+  "expected_terms": ["1", "x"]
+}

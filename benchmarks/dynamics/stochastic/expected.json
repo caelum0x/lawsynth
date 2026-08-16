@@ -1,0 +1,16 @@
+{
+  "benchmark": "dynamics/stochastic",
+  "target": "dX = -1.2 X dt + 0.3 dW (seeded Euler-Maruyama observations)",
+  "generation": {
+    "kind": "stochastic_ornstein_uhlenbeck",
+    "samples": 101,
+    "step": 0.02,
+    "parameters": {
+      "seed": 20260816,
+      "theta": 1.2,
+      "sigma": 0.3,
+      "initial": 1
+    }
+  },
+  "expected_status": "capability-boundary"
+}

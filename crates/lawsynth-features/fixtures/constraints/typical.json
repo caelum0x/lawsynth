@@ -1,0 +1,7 @@
+{
+  "variables": ["x", "u"],
+  "polynomial_degree": 2,
+  "include_trigonometric": true,
+  "constraints": {"forbid_symbols": ["u"], "allow_interactions": false},
+  "expected_absent_terms": ["u", "x * u"]
+}

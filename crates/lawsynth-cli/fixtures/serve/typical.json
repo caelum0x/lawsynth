@@ -1,0 +1,5 @@
+{
+  "command": ["discover", "observations.csv", "--time", "t", "--state", "x,y", "--solver", "sr3", "--output", "model.lsworld"],
+  "input_contract": {"csv": "rectangular numeric CSV", "strict_time": true},
+  "expected_output": "discovered world: mse=..."
+}

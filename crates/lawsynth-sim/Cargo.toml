@@ -7,6 +7,20 @@ license.workspace = true
 description = "Deterministic RK4 simulation for LawSynth World IR."
 autoexamples = false
 
+[[example]]
+name = "sde_basic"
+path = "examples/sde_basic.rs"
+
+[[bench]]
+name = "discrete_throughput"
+path = "benches/discrete_throughput.rs"
+harness = false
+
+[[bench]]
+name = "ode_latency"
+path = "benches/ode_latency.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-expr = { path = "../lawsynth-expr" }

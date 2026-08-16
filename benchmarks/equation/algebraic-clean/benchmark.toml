@@ -1,0 +1,20 @@
+id = "equation/algebraic-clean"
+title = "Clean algebraic polynomial"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "LawSynth currently exposes time-derivative discovery, not a public static algebraic-regression endpoint; this case must not be scored as recovered dynamics."
+
+[generation]
+kind = "algebraic_polynomial"
+samples = 101
+step = 0.01
+
+[generation.parameters]
+
+[discovery]
+states = ["y"]
+degree = 2
+threshold = 0.05
+trigonometric = false

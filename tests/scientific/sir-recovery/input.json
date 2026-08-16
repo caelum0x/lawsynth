@@ -1,0 +1,5 @@
+{
+  "case_id":"sir-recovery", "kind":"supported",
+  "fixture":{"system":"sir","parameters":{"beta":0.8,"gamma":0.2},"initial":[0.99,0.01,0.0],"stop":2.0,"integration_step":0.02},
+  "run":{"states":["susceptible","infected","recovered"],"options":{"--degree":2,"--threshold":0.0001},"simulate_initial":{"susceptible":0.99,"infected":0.01,"recovered":0.0},"simulate_end":0.1,"simulate_step":0.02}
+}

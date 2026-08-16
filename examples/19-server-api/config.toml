@@ -1,0 +1,14 @@
+name = "Server API boundary"
+kind = "server_api"
+states = ["signal"]
+initial = [1]
+start = 0
+stop = 8
+step = 0.05
+threshold = 0.0001
+description = "Service capability boundary: the HTTP server is not compiled into this workspace."
+capability = "unsupported"
+boundary = "The HTTP server is not compiled into this workspace; use the CLI or Python SDK locally."
+
+[parameters]
+decay = 0.4

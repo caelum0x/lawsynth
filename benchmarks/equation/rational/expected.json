@@ -1,0 +1,11 @@
+{
+  "benchmark": "equation/rational",
+  "target": "y = x / (1 + 0.5*x)",
+  "generation": {
+    "kind": "algebraic_rational",
+    "samples": 101,
+    "step": 0.01,
+    "parameters": {}
+  },
+  "expected_status": "capability-boundary"
+}

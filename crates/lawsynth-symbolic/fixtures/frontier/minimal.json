@@ -1,0 +1,4 @@
+{
+  "candidates": [{"expression": "x", "loss": 1.0, "complexity": 1}],
+  "expected_frontier_indices": [0]
+}

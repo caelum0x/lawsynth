@@ -7,6 +7,20 @@ license.workspace = true
 description = "Bounded deterministic symbolic expression search for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "simplify_basic"
+path = "examples/simplify_basic.rs"
+
+[[bench]]
+name = "constants_latency"
+path = "benches/constants_latency.rs"
+harness = false
+
+[[bench]]
+name = "crossover_throughput"
+path = "benches/crossover_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-expr = { path = "../lawsynth-expr" }

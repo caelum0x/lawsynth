@@ -1,0 +1,8 @@
+{
+  "diagnostics": [
+    {"severity": "warning", "code": "irregular_sampling", "message": "sampling intervals vary by 3.2%", "subject": "time"},
+    {"severity": "info", "code": "seed", "message": "deterministic seed 42", "subject": "discovery"}
+  ],
+  "engine_version": "0.1.0",
+  "seed": 42
+}

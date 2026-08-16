@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "status": "unsupported",
+  "boundary": "The HTTP server is not compiled into this workspace; use the CLI or Python SDK locally."
+}

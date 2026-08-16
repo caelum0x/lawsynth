@@ -1,0 +1,5 @@
+{
+  "objective": "(x - 1)^2",
+  "initial": [2.0],
+  "expected_reason": "converged"
+}

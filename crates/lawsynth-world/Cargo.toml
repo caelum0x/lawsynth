@@ -7,6 +7,20 @@ license.workspace = true
 description = "Typed continuous World IR for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "event_basic"
+path = "examples/event_basic.rs"
+
+[[bench]]
+name = "graph_throughput"
+path = "benches/graph_throughput.rs"
+harness = false
+
+[[bench]]
+name = "regime_latency"
+path = "benches/regime_latency.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-expr = { path = "../lawsynth-expr" }

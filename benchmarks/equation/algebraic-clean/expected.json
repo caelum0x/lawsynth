@@ -1,0 +1,11 @@
+{
+  "benchmark": "equation/algebraic-clean",
+  "target": "y = 1 + 2*x - 0.5*x^2",
+  "generation": {
+    "kind": "algebraic_polynomial",
+    "samples": 101,
+    "step": 0.01,
+    "parameters": {}
+  },
+  "expected_status": "capability-boundary"
+}

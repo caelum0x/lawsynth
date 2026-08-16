@@ -7,6 +7,20 @@ license.workspace = true
 description = "Deterministic feature libraries for LawSynth discovery."
 autoexamples = false
 
+[[example]]
+name = "interaction_basic"
+path = "examples/interaction_basic.rs"
+
+[[bench]]
+name = "delay_latency"
+path = "benches/delay_latency.rs"
+harness = false
+
+[[bench]]
+name = "rational_throughput"
+path = "benches/rational_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }

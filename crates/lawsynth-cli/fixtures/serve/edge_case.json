@@ -1,0 +1,4 @@
+{
+  "command": ["discover", "data.csv", "--time", "t", "--state", "x", "--solver", "unknown"],
+  "expected_error": "solver must be 'stlsq' or 'sr3'"
+}

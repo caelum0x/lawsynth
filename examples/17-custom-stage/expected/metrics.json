@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "status": "unsupported",
+  "boundary": "Custom discovery stages require the plugin host, which is not present in this build."
+}

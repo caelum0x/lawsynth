@@ -1,0 +1,9 @@
+{
+  "candidates": [
+    {"expression": "x", "loss": 1.4, "complexity": 1},
+    {"expression": "a * x", "loss": 0.4, "complexity": 3},
+    {"expression": "a * x + b", "loss": 0.35, "complexity": 5},
+    {"expression": "x + 0", "loss": 1.5, "complexity": 3}
+  ],
+  "expected_frontier_indices": [0, 1, 2]
+}

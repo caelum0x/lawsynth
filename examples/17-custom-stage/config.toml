@@ -1,0 +1,14 @@
+name = "Custom discovery stage"
+kind = "custom_stage"
+states = ["signal"]
+initial = [1]
+start = 0
+stop = 8
+step = 0.05
+threshold = 0.0001
+description = "Extension capability boundary: custom discovery stages require the plugin host."
+capability = "unsupported"
+boundary = "Custom discovery stages require the plugin host, which is not present in this build."
+
+[parameters]
+decay = 0.4

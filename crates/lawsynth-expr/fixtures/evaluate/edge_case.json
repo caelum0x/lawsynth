@@ -1,0 +1,6 @@
+{
+  "expression": "log(x)",
+  "environment": {"x": -1.0},
+  "expected_error": "non_finite_result",
+  "purpose": "evaluation must reject a non-finite scalar result"
+}

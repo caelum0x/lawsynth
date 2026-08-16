@@ -1,0 +1,6 @@
+{
+  "column": "flat",
+  "values": [7.0, 7.0, 7.0, 7.0],
+  "expected_flags": ["constant"],
+  "expected_standard_deviation": 0.0
+}

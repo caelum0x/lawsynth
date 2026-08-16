@@ -1,0 +1,20 @@
+id = "equation/rational"
+title = "Rational algebraic relation"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Rational feature flags apply to dynamical derivative discovery. The product has no public static rational-regression endpoint for this benchmark."
+
+[generation]
+kind = "algebraic_rational"
+samples = 101
+step = 0.01
+
+[generation.parameters]
+
+[discovery]
+states = ["y"]
+degree = 2
+threshold = 0.05
+trigonometric = false

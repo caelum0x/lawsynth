@@ -1,0 +1,5 @@
+{
+  "time": [0.0, 1.0, 1.0],
+  "values": [0.0, 1.0, 1.0],
+  "expected_error": "time_axis_not_strictly_increasing"
+}

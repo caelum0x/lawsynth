@@ -7,5 +7,19 @@ license.workspace = true
 description = "Candidate fit, complexity, and Pareto scoring for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "pareto_basic"
+path = "examples/pareto_basic.rs"
+
+[[bench]]
+name = "dimensionality_throughput"
+path = "benches/dimensionality_throughput.rs"
+harness = false
+
+[[bench]]
+name = "residual_latency"
+path = "benches/residual_latency.rs"
+harness = false
+
 [dependencies]
 lawsynth-expr = { path = "../lawsynth-expr" }

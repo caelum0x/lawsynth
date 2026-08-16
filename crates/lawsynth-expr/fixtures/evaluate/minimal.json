@@ -1,0 +1,5 @@
+{
+  "expression": "x",
+  "environment": {"x": 2.5},
+  "expected": 2.5
+}

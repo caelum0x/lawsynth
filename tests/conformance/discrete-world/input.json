@@ -1,0 +1,39 @@
+{
+  "case_id": "discrete-world",
+  "mode": "valid",
+  "bundle": {
+    "kind": "discrete",
+    "variables": [
+      {
+        "id": "x",
+        "role": "state"
+      }
+    ],
+    "parameters": [],
+    "laws": [
+      {
+        "target": "x",
+        "expression": {
+          "binary": "add",
+          "left": {
+            "symbol": "x"
+          },
+          "right": {
+            "constant": 1
+          }
+        }
+      }
+    ]
+  },
+  "command": {
+    "operation": "simulate-discrete",
+    "arguments": [
+      "--initial",
+      "x=2",
+      "--start",
+      "5",
+      "--steps",
+      "3"
+    ]
+  }
+}

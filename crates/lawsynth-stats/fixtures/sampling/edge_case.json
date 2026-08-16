@@ -1,0 +1,6 @@
+{
+  "population_size": 3,
+  "sample_size": 4,
+  "without_replacement": true,
+  "expected_error": "sample_exceeds_population"
+}

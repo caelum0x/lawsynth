@@ -1,0 +1,6 @@
+{
+  "time": [0.0, 1.0, 2.0],
+  "columns": {"x": [1.0, 2.0, 3.0]},
+  "state": ["missing"],
+  "expected_error": "state_not_in_dataset"
+}

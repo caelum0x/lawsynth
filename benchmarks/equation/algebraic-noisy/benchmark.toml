@@ -1,0 +1,22 @@
+id = "equation/algebraic-noisy"
+title = "Noisy algebraic polynomial"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "The native CLI does not expose a static noisy-regression workflow; converting this relation into a derivative target would measure a different problem."
+
+[generation]
+kind = "algebraic_polynomial_noisy"
+samples = 101
+step = 0.01
+
+[generation.parameters]
+seed = 20260816
+noise_scale = 0.03
+
+[discovery]
+states = ["y"]
+degree = 2
+threshold = 0.05
+trigonometric = false

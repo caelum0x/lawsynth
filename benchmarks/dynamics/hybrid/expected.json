@@ -1,0 +1,16 @@
+{
+  "benchmark": "dynamics/hybrid",
+  "target": "piecewise-linear bouncing state with reset at [0,1] bounds",
+  "generation": {
+    "kind": "hybrid_bounce",
+    "samples": 101,
+    "step": 0.05,
+    "parameters": {
+      "initial": 0.2,
+      "velocity": 0.7,
+      "lower": 0,
+      "upper": 1
+    }
+  },
+  "expected_status": "capability-boundary"
+}

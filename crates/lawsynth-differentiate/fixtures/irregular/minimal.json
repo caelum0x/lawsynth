@@ -1,0 +1,6 @@
+{
+  "time": [0.0, 1.0, 2.0],
+  "values": [0.0, 1.0, 4.0],
+  "index": 1,
+  "expected_derivative": 2.0
+}

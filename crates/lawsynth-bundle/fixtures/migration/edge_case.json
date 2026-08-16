@@ -1,0 +1,6 @@
+{
+  "from": "v1",
+  "to": "v0",
+  "expected_error": "unsupported_migration_direction",
+  "purpose": "readers do not silently downgrade newer bundles"
+}

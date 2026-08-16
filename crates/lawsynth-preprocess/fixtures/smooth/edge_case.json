@@ -1,0 +1,6 @@
+{
+  "method": "moving_average",
+  "radius": 0,
+  "input": [1.0, 2.0],
+  "expected_error": "radius_must_be_positive"
+}

@@ -1,0 +1,6 @@
+{
+  "expression": "b + a + 0",
+  "rules": ["add_zero", "commute_add", "associate_add"],
+  "limits": {"max_iterations": 8, "max_nodes": 256, "max_classes": 64},
+  "expected_lowest_cost": "a + b"
+}

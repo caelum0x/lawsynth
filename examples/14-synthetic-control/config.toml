@@ -1,0 +1,15 @@
+name = "Synthetic control"
+kind = "synthetic_control"
+states = ["treated", "donor"]
+initial = [1, 1]
+start = 0
+stop = 12
+step = 0.05
+threshold = 0.0001
+description = "A treated series coupled to a donor series with a known intervention date."
+
+[parameters]
+coupling = 0.65
+donor_growth = 0.04
+effect = 0.3
+treatment_time = 6

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "name": "Stochastic volatility",
+  "kind": "stochastic_volatility",
+  "states": [
+    "price",
+    "variance"
+  ],
+  "initial": [
+    100,
+    0.04
+  ],
+  "time": {
+    "start": 0,
+    "stop": 10,
+    "step": 0.05
+  },
+  "parameters": {
+    "drift": 0.03,
+    "mean_reversion": 1.2,
+    "long_variance": 0.04,
+    "vol_of_vol": 0.22,
+    "seed": 314159
+  },
+  "description": "Euler–Maruyama price and variance path with a deterministic seed.",
+  "status": "reference-model"
+}

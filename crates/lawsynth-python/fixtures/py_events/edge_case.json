@@ -1,0 +1,4 @@
+{
+  "parameter_schedule": [[-1.0, "rate", 0.1]],
+  "expected_error": "scheduled_time_must_be_finite_and_within_simulation"
+}

@@ -1,0 +1,6 @@
+{
+  "from": "kg",
+  "to": "s",
+  "value": 1.0,
+  "expected_error": "incompatible_dimensions"
+}

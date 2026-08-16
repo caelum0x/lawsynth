@@ -1,0 +1,20 @@
+id = "equation/transcendental"
+title = "Transcendental algebraic relation"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Trigonometric features are available for derivative discovery, but not for a standalone algebraic-response recovery API."
+
+[generation]
+kind = "algebraic_transcendental"
+samples = 129
+step = 0.0078125
+
+[generation.parameters]
+
+[discovery]
+states = ["y"]
+degree = 2
+threshold = 0.05
+trigonometric = false

@@ -1,0 +1,15 @@
+name = "Lotka–Volterra predator prey"
+kind = "lotka_volterra"
+states = ["prey", "predator"]
+initial = [10, 5]
+start = 0
+stop = 12
+step = 0.05
+threshold = 0.0001
+description = "Coupled predator–prey population dynamics."
+
+[parameters]
+alpha = 1.1
+beta = 0.4
+delta = 0.1
+gamma = 0.4

@@ -1,0 +1,9 @@
+{
+  "variables": [
+    {"name": "distance", "unit": "m"},
+    {"name": "elapsed", "unit": "s"},
+    {"name": "speed", "unit": "m/s"}
+  ],
+  "expression": "distance / elapsed",
+  "expected_dimension": "L T^-1"
+}

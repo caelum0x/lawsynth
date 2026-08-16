@@ -7,5 +7,19 @@ license.workspace = true
 description = "Shared deterministic primitives for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "progress_basic"
+path = "examples/progress_basic.rs"
+
+[[bench]]
+name = "cancel_throughput"
+path = "benches/cancel_throughput.rs"
+harness = false
+
+[[bench]]
+name = "resource_latency"
+path = "benches/resource_latency.rs"
+harness = false
+
 [lib]
 path = "src/lib.rs"

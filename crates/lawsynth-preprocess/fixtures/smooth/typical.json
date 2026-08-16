@@ -1,0 +1,7 @@
+{
+  "pipeline": ["impute_linear", "detrend_linear", "standardize", "moving_average"],
+  "radius": 2,
+  "time": [0.0, 1.0, 2.0, 3.0, 4.0],
+  "input": [1.0, null, 5.0, 7.0, 9.0],
+  "purpose": "retain applied-transform reports for replay"
+}

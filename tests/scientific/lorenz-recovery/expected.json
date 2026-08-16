@@ -1,0 +1,1 @@
+{"case_id":"lorenz-recovery","kind":"supported","inspect_contains":"continuous world: 3 states, 3 variables","minimum_samples":6,"claim":"The finite short-horizon execution gate avoids an unsupported long-horizon chaotic forecast accuracy claim."}

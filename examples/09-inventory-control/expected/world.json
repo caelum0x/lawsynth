@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "Inventory control",
+  "kind": "inventory_control",
+  "states": [
+    "inventory",
+    "backlog"
+  ],
+  "initial": [
+    12,
+    0
+  ],
+  "time": {
+    "start": 0,
+    "stop": 50,
+    "step": 1
+  },
+  "parameters": {
+    "target_inventory": 20,
+    "demand": 9
+  },
+  "description": "Discrete-time order-up-to inventory policy.",
+  "status": "reference-model"
+}

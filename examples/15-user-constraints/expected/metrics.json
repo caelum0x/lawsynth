@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "supported",
+  "samples": 161,
+  "states": [
+    "positive",
+    "decaying"
+  ],
+  "artifact": "output/discovery.json",
+  "verification": "finite equation coefficients and nonempty simulation"
+}

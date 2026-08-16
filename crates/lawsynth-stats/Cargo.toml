@@ -7,5 +7,19 @@ license.workspace = true
 description = "Deterministic statistical utilities and bootstrap sampling for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "information_basic"
+path = "examples/information_basic.rs"
+
+[[bench]]
+name = "bootstrap_latency"
+path = "benches/bootstrap_latency.rs"
+harness = false
+
+[[bench]]
+name = "distributions_throughput"
+path = "benches/distributions_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }

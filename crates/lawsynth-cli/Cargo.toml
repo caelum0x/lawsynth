@@ -7,6 +7,20 @@ license.workspace = true
 description = "Command-line interface for LawSynth executable worlds."
 autoexamples = false
 
+[[example]]
+name = "intervene_basic"
+path = "examples/intervene_basic.rs"
+
+[[bench]]
+name = "profile_throughput"
+path = "benches/profile_throughput.rs"
+harness = false
+
+[[bench]]
+name = "simulate_latency"
+path = "benches/simulate_latency.rs"
+harness = false
+
 [[bin]]
 name = "lawsynth"
 path = "src/main.rs"

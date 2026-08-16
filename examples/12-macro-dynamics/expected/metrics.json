@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "supported",
+  "samples": 201,
+  "states": [
+    "output",
+    "inflation"
+  ],
+  "artifact": "output/discovery.json",
+  "verification": "finite equation coefficients and nonempty simulation"
+}

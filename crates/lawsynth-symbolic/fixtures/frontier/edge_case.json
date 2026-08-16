@@ -1,0 +1,8 @@
+{
+  "candidates": [
+    {"expression": "x", "loss": 1.0, "complexity": 1},
+    {"expression": "x + 0", "loss": 1.0, "complexity": 3}
+  ],
+  "expected_frontier_indices": [0],
+  "purpose": "a strictly more complex equal-loss candidate is dominated"
+}

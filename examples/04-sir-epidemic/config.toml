@@ -1,0 +1,14 @@
+name = "SIR epidemic"
+kind = "sir"
+states = ["susceptible", "infected", "recovered"]
+initial = [990, 10, 0]
+start = 0
+stop = 80
+step = 0.25
+threshold = 0.0001
+description = "Closed-population susceptible-infected-recovered dynamics."
+
+[parameters]
+beta = 0.32
+gamma = 0.1
+population = 1000

@@ -1,0 +1,18 @@
+{
+  "benchmark": "dynamics/ode-chaotic",
+  "target": "dx=sigma(y-x), dy=x(rho-z)-y, dz=xy-beta*z",
+  "generation": {
+    "kind": "lorenz",
+    "samples": 121,
+    "step": 0.01,
+    "parameters": {
+      "sigma": 10,
+      "rho": 28,
+      "beta": 2.6666666666666665,
+      "x0": 1,
+      "y0": 1,
+      "z0": 1
+    }
+  },
+  "expected_status": "passed"
+}

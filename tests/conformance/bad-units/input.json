@@ -1,0 +1,7 @@
+{
+  "case_id": "bad-units",
+  "mode": "invalid",
+  "fixture": {
+    "mutation": "invalid-unit"
+  }
+}

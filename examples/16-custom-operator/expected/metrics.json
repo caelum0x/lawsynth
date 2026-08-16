@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "status": "unsupported",
+  "boundary": "Custom expression operators require the plugin ABI, which is not present in this build."
+}

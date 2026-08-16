@@ -1,0 +1,6 @@
+{
+  "target": "state:unknown",
+  "value": 1.0,
+  "at_time": 0.0,
+  "expected_error": "unknown_intervention_target"
+}

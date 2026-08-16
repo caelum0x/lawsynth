@@ -1,0 +1,15 @@
+name = "Macro dynamics"
+kind = "macro_dynamics"
+states = ["output", "inflation"]
+initial = [1, 0.2]
+start = 0
+stop = 10
+step = 0.05
+threshold = 0.0001
+description = "A compact output-inflation feedback model."
+
+[parameters]
+growth = 0.08
+sensitivity = 0.45
+inflation_pressure = 0.16
+inflation_decay = 0.38

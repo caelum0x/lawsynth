@@ -6,3 +6,17 @@ rust-version.workspace = true
 license.workspace = true
 description = "Deterministic constant optimization for LawSynth candidates."
 autoexamples = false
+
+[[example]]
+name = "mixed_basic"
+path = "examples/mixed_basic.rs"
+
+[[bench]]
+name = "coordinate_latency"
+path = "benches/coordinate_latency.rs"
+harness = false
+
+[[bench]]
+name = "nelder_mead_throughput"
+path = "benches/nelder_mead_throughput.rs"
+harness = false

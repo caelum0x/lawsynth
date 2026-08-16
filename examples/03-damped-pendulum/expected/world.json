@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "Damped pendulum",
+  "kind": "damped_pendulum",
+  "states": [
+    "theta",
+    "omega"
+  ],
+  "initial": [
+    1.1,
+    0
+  ],
+  "time": {
+    "start": 0,
+    "stop": 12,
+    "step": 0.05
+  },
+  "parameters": {
+    "gravity": 9.81,
+    "damping": 0.25
+  },
+  "description": "A nonlinear pendulum with viscous damping.",
+  "status": "reference-model"
+}

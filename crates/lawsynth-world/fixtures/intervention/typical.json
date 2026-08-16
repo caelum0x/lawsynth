@@ -1,0 +1,7 @@
+{
+  "world": {"states": ["population"], "parameters": {"growth": 0.2}, "laws": {"population": "growth * population"}},
+  "interventions": [
+    {"target": "parameter:growth", "value": 0.05, "at_time": 5.0},
+    {"target": "state:population", "value": 100.0, "at_time": 10.0}
+  ]
+}

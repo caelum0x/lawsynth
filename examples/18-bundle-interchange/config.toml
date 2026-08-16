@@ -1,0 +1,12 @@
+name = "Bundle interchange"
+kind = "bundle_interchange"
+states = ["signal"]
+initial = [1]
+start = 0
+stop = 8
+step = 0.05
+threshold = 0.0001
+description = "A portable JSON world descriptor and deterministic scalar trajectory."
+
+[parameters]
+decay = 0.4

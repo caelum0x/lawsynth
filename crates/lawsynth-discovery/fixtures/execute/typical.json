@@ -1,0 +1,8 @@
+{
+  "time": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+  "columns": {"x": [1.0, 1.1, 1.21, 1.331, 1.4641, 1.61051], "u": [0.0, 0.0, 1.0, 1.0, 0.0, 0.0]},
+  "state": ["x"],
+  "controls": ["u"],
+  "config": {"polynomial_degree": 2, "include_trigonometric": false, "include_rational": false, "sparse_method": "sr3", "seed": 42},
+  "assumptions": {"forbidden_edges": [], "required_edges": []}
+}

@@ -7,6 +7,20 @@ license.workspace = true
 description = "Deterministic scalar expression IR and evaluator for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "printer_basic"
+path = "examples/printer_basic.rs"
+
+[[bench]]
+name = "parser_latency"
+path = "benches/parser_latency.rs"
+harness = false
+
+[[bench]]
+name = "symbol_throughput"
+path = "benches/symbol_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 

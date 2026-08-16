@@ -7,6 +7,20 @@ license.workspace = true
 description = "Deterministic scalar equivalence graph and extraction for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "proof_basic"
+path = "examples/proof_basic.rs"
+
+[[bench]]
+name = "cost_latency"
+path = "benches/cost_latency.rs"
+harness = false
+
+[[bench]]
+name = "extract_throughput"
+path = "benches/extract_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-expr = { path = "../lawsynth-expr" }

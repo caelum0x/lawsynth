@@ -1,0 +1,8 @@
+[case]
+id = "lotka-volterra-recovery"
+kind = "supported"
+description = "Polynomial-library candidate discovery and native simulation for the Lotka–Volterra ODE."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

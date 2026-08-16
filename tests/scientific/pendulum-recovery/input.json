@@ -1,0 +1,5 @@
+{
+  "case_id":"pendulum-recovery", "kind":"supported",
+  "fixture":{"system":"pendulum","parameters":{"damping":0.15,"gravity_over_length":1.0},"initial":[0.4,0.0],"stop":2.0,"integration_step":0.02},
+  "run":{"states":["theta","omega"],"options":{"--degree":2,"--threshold":0.01},"flags":["--trigonometric"],"simulate_initial":{"theta":0.4,"omega":0.0},"simulate_end":0.1,"simulate_step":0.02}
+}

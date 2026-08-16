@@ -1,0 +1,14 @@
+name = "Market microstructure"
+kind = "market_microstructure"
+states = ["midprice", "imbalance"]
+initial = [0, 1]
+start = 0
+stop = 20
+step = 0.05
+threshold = 0.0001
+description = "Price impact and order-imbalance resilience."
+
+[parameters]
+impact = 0.3
+resilience = 0.75
+liquidity = 0.12

@@ -1,0 +1,7 @@
+{
+  "case_id": "bad-expression",
+  "mode": "invalid",
+  "fixture": {
+    "mutation": "unknown-expression-tag"
+  }
+}

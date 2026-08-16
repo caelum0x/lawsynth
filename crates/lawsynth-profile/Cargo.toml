@@ -7,6 +7,20 @@ license.workspace = true
 description = "Deterministic numerical dataset profiling for LawSynth discovery."
 autoexamples = false
 
+[[example]]
+name = "delays_basic"
+path = "examples/delays_basic.rs"
+
+[[bench]]
+name = "dependence_latency"
+path = "benches/dependence_latency.rs"
+harness = false
+
+[[bench]]
+name = "distribution_throughput"
+path = "benches/distribution_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }

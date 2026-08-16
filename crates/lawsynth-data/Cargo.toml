@@ -7,6 +7,20 @@ license.workspace = true
 description = "Validated numerical time-series data boundary for LawSynth."
 autoexamples = false
 
+[[example]]
+name = "parquet_basic"
+path = "examples/parquet_basic.rs"
+
+[[bench]]
+name = "batch_latency"
+path = "benches/batch_latency.rs"
+harness = false
+
+[[bench]]
+name = "window_throughput"
+path = "benches/window_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 

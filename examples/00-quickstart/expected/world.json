@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "Quickstart logistic growth",
+  "kind": "quickstart",
+  "states": [
+    "population"
+  ],
+  "initial": [
+    1
+  ],
+  "time": {
+    "start": 0,
+    "stop": 10,
+    "step": 0.05
+  },
+  "parameters": {
+    "r": 0.8,
+    "capacity": 10
+  },
+  "description": "Logistic growth: d(population)/dt = r population (1 - population / capacity).",
+  "status": "reference-model"
+}
