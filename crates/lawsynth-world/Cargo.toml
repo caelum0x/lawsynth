@@ -1,0 +1,16 @@
+[package]
+name = "lawsynth-world"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Typed continuous World IR for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-units = { path = "../lawsynth-units" }
+
+[lib]
+path = "src/lib.rs"

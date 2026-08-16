@@ -1,0 +1,11 @@
+[package]
+name = "lawsynth-score"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Candidate fit, complexity, and Pareto scoring for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-expr = { path = "../lawsynth-expr" }

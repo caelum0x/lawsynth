@@ -1,0 +1,14 @@
+[package]
+name = "lawsynth-data"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Validated numerical time-series data boundary for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+
+[lib]
+path = "src/lib.rs"

@@ -1,0 +1,15 @@
+[package]
+name = "lawsynth-units"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Dimensional analysis primitives for LawSynth."
+autoexamples = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }

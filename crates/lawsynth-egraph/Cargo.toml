@@ -1,0 +1,12 @@
+[package]
+name = "lawsynth-egraph"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic scalar equivalence graph and extraction for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }

@@ -1,0 +1,22 @@
+[package]
+name = "lawsynth-discovery"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Executable-world discovery orchestration for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-features = { path = "../lawsynth-features" }
+lawsynth-profile = { path = "../lawsynth-profile" }
+lawsynth-preprocess = { path = "../lawsynth-preprocess" }
+lawsynth-score = { path = "../lawsynth-score" }
+lawsynth-sparse = { path = "../lawsynth-sparse" }
+lawsynth-stats = { path = "../lawsynth-stats" }
+lawsynth-symbolic = { path = "../lawsynth-symbolic" }
+lawsynth-world = { path = "../lawsynth-world" }

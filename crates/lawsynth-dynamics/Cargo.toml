@@ -1,0 +1,12 @@
+[package]
+name = "lawsynth-dynamics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Validated continuous and discrete identification problems for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }

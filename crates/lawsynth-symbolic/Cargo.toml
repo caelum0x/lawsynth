@@ -1,0 +1,13 @@
+[package]
+name = "lawsynth-symbolic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Bounded deterministic symbolic expression search for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-opt = { path = "../lawsynth-opt" }

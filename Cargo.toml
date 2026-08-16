@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/lawsynth-core",
+  "crates/lawsynth-expr",
+  "crates/lawsynth-bundle",
+  "crates/lawsynth-cli",
+  "crates/lawsynth-python",
+  "crates/lawsynth-data",
+  "crates/lawsynth-units",
+  "crates/lawsynth-world",
+  "crates/lawsynth-sim",
+  "crates/lawsynth-profile",
+  "crates/lawsynth-preprocess",
+  "crates/lawsynth-differentiate",
+  "crates/lawsynth-features",
+  "crates/lawsynth-sparse",
+  "crates/lawsynth-score",
+  "crates/lawsynth-stats",
+  "crates/lawsynth-symbolic",
+  "crates/lawsynth-opt",
+  "crates/lawsynth-egraph",
+  "crates/lawsynth-dynamics",
+  "crates/lawsynth-discovery",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+repository = "https://github.com/lawsynth/lawsynth"

@@ -1,0 +1,30 @@
+[package]
+name = "lawsynth-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Command-line interface for LawSynth executable worlds."
+autoexamples = false
+
+[[bin]]
+name = "lawsynth"
+path = "src/main.rs"
+
+[dependencies]
+lawsynth-bundle = { path = "../lawsynth-bundle" }
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-discovery = { path = "../lawsynth-discovery" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-profile = { path = "../lawsynth-profile" }
+lawsynth-sim = { path = "../lawsynth-sim" }
+lawsynth-stats = { path = "../lawsynth-stats" }
+lawsynth-symbolic = { path = "../lawsynth-symbolic" }
+
+[lib]
+path = "src/lib.rs"
+
+[dev-dependencies]
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-world = { path = "../lawsynth-world" }

@@ -1,0 +1,20 @@
+[package]
+name = "lawsynth-bundle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic .lsworld bundle I/O for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-world = { path = "../lawsynth-world" }
+lawsynth-units = { path = "../lawsynth-units" }
+
+[lib]
+path = "src/lib.rs"
+
+[dev-dependencies]
+lawsynth-sim = { path = "../lawsynth-sim" }

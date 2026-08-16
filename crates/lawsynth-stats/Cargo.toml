@@ -1,0 +1,11 @@
+[package]
+name = "lawsynth-stats"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic statistical utilities and bootstrap sampling for LawSynth."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }

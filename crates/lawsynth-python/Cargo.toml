@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-python"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "PyO3 bindings for the LawSynth executable World core."
+autoexamples = false
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-bundle = { path = "../lawsynth-bundle" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-discovery = { path = "../lawsynth-discovery" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-sim = { path = "../lawsynth-sim" }
+lawsynth-symbolic = { path = "../lawsynth-symbolic" }
+lawsynth-world = { path = "../lawsynth-world" }
+pyo3 = { version = "0.28.3", features = ["extension-module"] }
