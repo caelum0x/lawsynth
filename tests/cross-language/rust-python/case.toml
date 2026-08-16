@@ -1,0 +1,4 @@
+[case]
+id = "rust-python"
+workflow = "simulate"
+description = "Rust accepts a portable world artifact produced from Python test data."

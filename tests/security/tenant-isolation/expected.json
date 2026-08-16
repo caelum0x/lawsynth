@@ -1,0 +1,5 @@
+{
+  "case_id": "tenant-isolation",
+  "outcome": "rejected",
+  "error_contains": "usage:"
+}

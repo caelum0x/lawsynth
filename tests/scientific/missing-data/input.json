@@ -1,0 +1,5 @@
+{
+  "case_id":"missing-data", "kind":"capability-boundary",
+  "fixture":{"system":"linear_growth","parameters":{"rate":0.3},"initial":[1.0],"stop":1.0,"integration_step":0.1},
+  "nan_indices":{"x":[4,7]}, "run":{"states":["x"]}
+}

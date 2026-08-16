@@ -1,0 +1,11 @@
+target-version = "py311"
+line-length = 100
+extend-exclude = ["target", "build", "dist"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

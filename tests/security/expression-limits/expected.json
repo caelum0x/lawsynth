@@ -1,0 +1,5 @@
+{
+  "case_id": "expression-limits",
+  "outcome": "rejected",
+  "error_contains": "expression depth exceeds 128"
+}

@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible defect in implemented local behavior.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Please do not report security vulnerabilities here; use SECURITY.md."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed and expected behavior
+      description: State what happened and what should have happened.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include a command and shareable input/fixture.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions and platform
+      placeholder: "LawSynth revision, rustc, Python, OS"
+    validations:
+      required: true

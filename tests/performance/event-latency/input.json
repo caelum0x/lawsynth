@@ -1,0 +1,5 @@
+{
+  "case_id": "event-latency",
+  "operation": "sdk_intervention_ordering",
+  "size": 20000
+}

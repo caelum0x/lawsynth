@@ -1,0 +1,5 @@
+{
+  "case_id":"regime-recovery", "kind":"capability-boundary",
+  "fixture":{"system":"linear_growth","parameters":{"rate":0.2},"initial":[1.0],"stop":2.0,"integration_step":0.05},
+  "switch_index":20, "rate_after":-0.35
+}

@@ -1,0 +1,4 @@
+[case]
+id = "event-latency"
+operation = "sdk_intervention_ordering"
+max_seconds = 10

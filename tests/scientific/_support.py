@@ -111,7 +111,7 @@ def parse_trajectory(text: str, states: list[str]) -> list[dict[str, float]]:
     """Validate that a native simulation emits a rectangular, finite CSV."""
     rows = list(csv.DictReader(text.splitlines()))
     assert rows, "native simulation emitted no rows"
-    assert list(rows[0]) == ["time", *states], f"unexpected simulation columns: {list(rows[0])}"
+    assert list(rows[0]) == ["time", *sorted(states)], f"unexpected simulation columns: {list(rows[0])}"
     parsed = [{name: float(row[name]) for name in ["time", *states]} for row in rows]
     assert all(math.isfinite(value) for row in parsed for value in row.values()), "native simulation emitted non-finite values"
     return parsed

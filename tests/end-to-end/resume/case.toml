@@ -1,0 +1,4 @@
+[case]
+id = "resume"
+workflow = "boundary"
+description = "Document the absent durable resume/checkpoint command."

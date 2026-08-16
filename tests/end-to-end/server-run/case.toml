@@ -1,0 +1,4 @@
+[case]
+id = "server-run"
+workflow = "boundary"
+description = "Document the absent remote execution server surface."

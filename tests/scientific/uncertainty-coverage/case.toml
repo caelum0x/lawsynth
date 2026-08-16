@@ -1,0 +1,8 @@
+[case]
+id = "uncertainty-coverage"
+kind = "capability-boundary"
+description = "Bootstrap discovery executes, but no unimplemented trajectory-coverage metric is asserted."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

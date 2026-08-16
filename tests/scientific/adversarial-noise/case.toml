@@ -1,0 +1,8 @@
+[case]
+id = "adversarial-noise"
+kind = "supported-with-boundary"
+description = "Finite alternating measurement perturbations exercise smoothing and candidate construction."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

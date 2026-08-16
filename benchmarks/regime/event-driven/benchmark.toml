@@ -1,0 +1,4 @@
+family = "regime"
+name = "event-driven"
+samples = 128
+status = "capability_boundary"

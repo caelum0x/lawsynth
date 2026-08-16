@@ -1,0 +1,1 @@
+{"schema":"lawsynth-bench/v1","observations":[{"problem":"linear_decay","implementation":"candidate_a","metric":"equation_f1","value":0.92,"unit":"score"},{"problem":"linear_decay","implementation":"candidate_b","metric":"equation_f1","value":0.88,"unit":"score"}]}

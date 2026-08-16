@@ -1,0 +1,26 @@
+{
+  "name": "@lawsynth/world-viewer",
+  "version": "0.1.0",
+  "description": "Auditable, framework-neutral browser viewer for LawSynth worlds and simulation evidence.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "Apache-2.0",
+  "engines": { "node": ">=20" },
+  "files": ["dist", "README.md"],
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@lawsynth/chart-core": "workspace:*",
+    "@lawsynth/layout-engine": "workspace:*",
+    "@lawsynth/world-schema": "workspace:*"
+  },
+  "publishConfig": { "access": "public" }
+}

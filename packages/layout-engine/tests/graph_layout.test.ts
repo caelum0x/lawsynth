@@ -1,0 +1,2 @@
+import { edgeCrossings, layoutDag } from "../src/graph_layout.js"; import { equal, ok } from "./assert.js";
+export function runGraphLayoutTests(): void { const graph={nodes:[{id:"a",width:20,height:10},{id:"b",width:20,height:10}],edges:[{source:"a",target:"b"}]}; const result=layoutDag(graph); equal(result.nodes.length,2); ok(result.height>0); const crossings=edgeCrossings({nodes:[],edges:[{source:"a",target:"b"},{source:"c",target:"d"}]},new Map([["a",{x:0,y:0}],["b",{x:10,y:10}],["c",{x:0,y:10}],["d",{x:10,y:0}]])); equal(crossings,1); }

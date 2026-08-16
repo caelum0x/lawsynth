@@ -1,0 +1,5 @@
+{
+  "benchmark": "regime/hmm",
+  "status": "capability_boundary",
+  "feature": "regime segmentation and switching-system inference"
+}

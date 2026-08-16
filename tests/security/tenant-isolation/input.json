@@ -1,0 +1,5 @@
+{
+  "case_id": "tenant-isolation",
+  "kind": "tenant-isolation",
+  "command": "tenants"
+}

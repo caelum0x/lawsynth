@@ -1,0 +1,4 @@
+[case]
+id = "forward-fields"
+kind = "forward-fields"
+executor = "native-cli"

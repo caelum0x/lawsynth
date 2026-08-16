@@ -1,0 +1,4 @@
+[case]
+id = "import-time"
+operation = "sdk_import"
+max_seconds = 10

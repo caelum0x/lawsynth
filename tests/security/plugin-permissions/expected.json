@@ -1,0 +1,5 @@
+{
+  "case_id": "plugin-permissions",
+  "outcome": "rejected",
+  "error_contains": "usage:"
+}

@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-regime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deterministic change-point and state-regime inference for LawSynth"
+
+[lib]
+path = "src/lib.rs"
+
+[[example]]
+name = "transitions_basic"
+path = "examples/transitions_basic.rs"
+
+[[bench]]
+name = "bocpd_throughput"
+path = "benches/bocpd_throughput.rs"
+harness = false
+
+[[bench]]
+name = "hmm_latency"
+path = "benches/hmm_latency.rs"
+harness = false

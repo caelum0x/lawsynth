@@ -1,0 +1,5 @@
+{
+  "case_id": "ode-simulation",
+  "operation": "native_ode_simulation",
+  "size": 1000
+}

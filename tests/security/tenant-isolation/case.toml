@@ -1,0 +1,4 @@
+[case]
+id = "tenant-isolation"
+kind = "tenant-isolation"
+executor = "native-cli"

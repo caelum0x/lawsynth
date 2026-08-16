@@ -1,0 +1,5 @@
+{
+  "case_id": "memory-budget",
+  "operation": "sdk_dataset_allocation",
+  "size": 250000
+}

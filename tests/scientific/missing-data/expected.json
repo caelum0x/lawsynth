@@ -1,0 +1,1 @@
+{"case_id":"missing-data","kind":"capability-boundary","error_contains":"must be finite","boundary":"The current CLI numeric CSV reader accepts only finite scalar values; preprocessing imputation is not an implicit CLI operation."}

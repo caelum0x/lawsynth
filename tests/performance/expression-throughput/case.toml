@@ -1,0 +1,4 @@
+[case]
+id = "expression-throughput"
+operation = "sdk_candidate_frontier"
+max_seconds = 10

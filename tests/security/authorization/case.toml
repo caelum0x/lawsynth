@@ -1,0 +1,4 @@
+[case]
+id = "authorization"
+kind = "authorization"
+executor = "native-cli"

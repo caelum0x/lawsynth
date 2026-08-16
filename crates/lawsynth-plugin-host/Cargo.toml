@@ -1,0 +1,28 @@
+[package]
+name = "lawsynth-plugin-host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Safe host-side registry, process, permission, and RPC controls for LawSynth plugins."
+autoexamples = false
+
+[dependencies]
+lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
+
+[lib]
+path = "src/lib.rs"
+
+[[example]]
+name = "resources_basic"
+path = "examples/resources_basic.rs"
+
+[[bench]]
+name = "permissions_latency"
+path = "benches/permissions_latency.rs"
+harness = false
+
+[[bench]]
+name = "rpc_throughput"
+path = "benches/rpc_throughput.rs"
+harness = false

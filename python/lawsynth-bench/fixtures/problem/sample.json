@@ -1,0 +1,1 @@
+{"name":"linear_decay","category":"ode","description":"One-state exponential decay with known derivative.","tags":["deterministic","continuous"],"metadata":{"dimension":"1"}}

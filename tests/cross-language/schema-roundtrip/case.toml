@@ -1,0 +1,4 @@
+[case]
+id = "schema-roundtrip"
+workflow = "simulate"
+description = "Validate the manifest schema and binary world encoding across the wire boundary."

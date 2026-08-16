@@ -1,0 +1,5 @@
+{
+  "benchmark": "uncertainty/trajectory-coverage",
+  "status": "capability_boundary",
+  "feature": "calibrated uncertainty estimation and coverage scoring"
+}

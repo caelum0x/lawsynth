@@ -1,0 +1,5 @@
+{
+  "linear_domain": { "min": -2, "max": 8 },
+  "pixel_range": { "min": 0, "max": 600 },
+  "expected_ticks": [-2, 0, 2, 4, 6, 8]
+}

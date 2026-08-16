@@ -1,0 +1,21 @@
+{
+  "name": "@lawsynth/world-schema",
+  "version": "0.1.0",
+  "description": "Dependency-free TypeScript schema types and Rust-core boundary validation for LawSynth worlds.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node dist/tests/run.js"
+  },
+  "engines": { "node": ">=20" }
+}

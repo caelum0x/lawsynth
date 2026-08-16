@@ -1,0 +1,1 @@
+{"case_id":"uncertainty-coverage","kind":"capability-boundary","stdout_contains":"discovered world: mse=","inspect_contains":"continuous world: 1 states, 1 variables","boundary":"The CLI can request bootstrap estimation, but it does not serialize trajectory intervals or calculate empirical coverage."}

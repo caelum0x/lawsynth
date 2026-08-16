@@ -1,0 +1,5 @@
+{
+  "case_id": "profile-million",
+  "operation": "sdk_dataset_profile_boundary",
+  "size": 1000000
+}

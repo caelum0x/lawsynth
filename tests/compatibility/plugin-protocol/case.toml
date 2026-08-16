@@ -1,0 +1,4 @@
+[case]
+id = "plugin-protocol"
+kind = "plugin-protocol"
+executor = "native-cli"

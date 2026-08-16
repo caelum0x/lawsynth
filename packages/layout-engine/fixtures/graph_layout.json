@@ -1,0 +1,13 @@
+{
+  "description": "Dependency graph suitable for layered placement.",
+  "nodes": [
+    { "id": "temperature", "width": 150, "height": 48 },
+    { "id": "pressure", "width": 150, "height": 48 },
+    { "id": "reaction_rate", "width": 170, "height": 48 }
+  ],
+  "edges": [
+    { "source": "temperature", "target": "reaction_rate" },
+    { "source": "pressure", "target": "reaction_rate" }
+  ],
+  "options": { "direction": "TB", "rankGap": 72, "nodeGap": 28 }
+}

@@ -1,0 +1,7 @@
+{
+  "title": "Damped oscillator",
+  "series": [
+    { "id": "x", "label": "position", "unit": "m", "points": [{ "x": 0, "y": 1 }, { "x": 1, "y": 0.54 }, { "x": 2, "y": -0.42 }] },
+    { "id": "v", "label": "velocity", "unit": "m/s", "points": [{ "x": 0, "y": 0 }, { "x": 1, "y": -0.72 }, { "x": 2, "y": -0.45 }] }
+  ]
+}

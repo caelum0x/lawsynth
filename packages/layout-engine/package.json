@@ -1,0 +1,16 @@
+{
+  "name": "@lawsynth/layout-engine",
+  "version": "0.1.0",
+  "description": "Dependency-free deterministic graph, timeline, and viewport layout algorithms.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "sideEffects": false,
+  "exports": { ".": { "types": "./dist/src/index.d.ts", "import": "./dist/src/index.js" } },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsc -p tsconfig.json && node dist/tests/run.js"
+  },
+  "engines": { "node": ">=20" }
+}

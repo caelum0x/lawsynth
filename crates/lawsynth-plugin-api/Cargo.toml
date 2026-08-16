@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-plugin-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Stable, validated protocol surface for LawSynth extensions."
+autoexamples = false
+
+[lib]
+path = "src/lib.rs"
+
+[[example]]
+name = "limits_basic"
+path = "examples/limits_basic.rs"
+
+[[bench]]
+name = "protocol_latency"
+path = "benches/protocol_latency.rs"
+harness = false
+
+[[bench]]
+name = "simulator_throughput"
+path = "benches/simulator_throughput.rs"
+harness = false

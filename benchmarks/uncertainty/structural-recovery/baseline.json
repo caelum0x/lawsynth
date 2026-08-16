@@ -1,0 +1,6 @@
+{
+  "benchmark": "uncertainty/structural-recovery",
+  "measured_operation": "deterministic data generation plus public capability-boundary validation",
+  "available": false,
+  "interpretation": "No recovery, identification, segmentation, or coverage score is claimed until the corresponding engine exists."
+}

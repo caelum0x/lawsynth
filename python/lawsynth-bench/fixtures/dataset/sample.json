@@ -1,0 +1,1 @@
+{"schema":"lawsynth-bench/v1","observations":[{"problem":"harmonic_oscillator","implementation":"lawsynth","metric":"trajectory_mae","value":0.01,"unit":"state","run_id":"dataset-recorded","labels":{"integrator":"rk4"}}]}

@@ -1,0 +1,18 @@
+rust:
+  - changed-files:
+      - any-glob-to-any-file: "crates/**/*.rs"
+      - any-glob-to-any-file: "crates/**/Cargo.toml"
+python:
+  - changed-files:
+      - any-glob-to-any-file: "python/**/*.py"
+      - any-glob-to-any-file: "python/**/pyproject.toml"
+specification:
+  - changed-files:
+      - any-glob-to-any-file: "specs/**"
+tests:
+  - changed-files:
+      - any-glob-to-any-file: "tests/**"
+      - any-glob-to-any-file: "benchmarks/**"
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: "**/*.md"

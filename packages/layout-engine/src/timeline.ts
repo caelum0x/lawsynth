@@ -1,0 +1,9 @@
+import type { Rect } from "./layout.js";
+export interface TimelineEvent { readonly id: string; readonly start: number; readonly end?: number; readonly lane?: string; }
+export interface TimelineItem extends TimelineEvent { readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly laneIndex: number; }
+export interface TimelineOptions { readonly pixelsPerUnit?: number; readonly laneHeight?: number; readonly laneGap?: number; readonly origin?: number; }
+export function timelineLayout(events: readonly TimelineEvent[], options: TimelineOptions = {}): readonly TimelineItem[] {
+  const scale=options.pixelsPerUnit ?? 20, laneHeight=options.laneHeight ?? 24, laneGap=options.laneGap ?? 8, origin=options.origin ?? 0; if (scale <= 0 || laneHeight <= 0 || laneGap < 0) throw new RangeError("invalid timeline options"); const ids=new Set<string>(), lanes=[...new Set(events.map((event)=>event.lane ?? "default"))].sort();
+  return [...events].sort((a,b)=>a.start-b.start||a.id.localeCompare(b.id)).map((event)=>{ if (!event.id || ids.has(event.id) || !Number.isFinite(event.start) || (event.end !== undefined && (!Number.isFinite(event.end)||event.end<event.start))) throw new Error(`invalid timeline event ${event.id}`); ids.add(event.id); const laneIndex=lanes.indexOf(event.lane ?? "default"), end=event.end ?? event.start; return {...event,x:(event.start-origin)*scale,y:laneIndex*(laneHeight+laneGap),width:Math.max(1,(end-event.start)*scale),height:laneHeight,laneIndex}; });
+}
+export function timelineBounds(items: readonly TimelineItem[]): Rect { if (!items.length) return {x:0,y:0,width:0,height:0}; const left=Math.min(...items.map(i=>i.x)), top=Math.min(...items.map(i=>i.y)), right=Math.max(...items.map(i=>i.x+i.width)), bottom=Math.max(...items.map(i=>i.y+i.height)); return {x:left,y:top,width:right-left,height:bottom-top}; }

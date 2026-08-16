@@ -1,0 +1,5 @@
+{
+  "benchmark": "uncertainty/structural-recovery",
+  "status": "capability_boundary",
+  "feature": "calibrated uncertainty estimation and coverage scoring"
+}

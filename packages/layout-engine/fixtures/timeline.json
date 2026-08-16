@@ -1,0 +1,9 @@
+{
+  "description": "Chronological milestones grouped by lane.",
+  "events": [
+    { "id": "ingest", "start": 0, "end": 2, "lane": "data" },
+    { "id": "fit", "start": 2, "end": 7, "lane": "model" },
+    { "id": "validate", "start": 7, "end": 9, "lane": "model" }
+  ],
+  "options": { "pixelsPerUnit": 48, "laneHeight": 28 }
+}

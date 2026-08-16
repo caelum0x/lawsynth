@@ -1,0 +1,8 @@
+[case]
+id = "missing-data"
+kind = "capability-boundary"
+description = "NaN observations must be rejected by the current numeric CSV CLI rather than silently imputed."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

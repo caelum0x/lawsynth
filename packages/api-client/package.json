@@ -1,0 +1,22 @@
+{
+  "name": "@lawsynth/api-client",
+  "version": "0.1.0",
+  "description": "Dependency-free TypeScript client for the implemented LawSynth Server HTTP contract.",
+  "type": "module",
+  "sideEffects": false,
+  "files": ["dist"],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "@lawsynth/world-schema": "workspace:*"
+  },
+  "engines": { "node": ">=22.6" },
+  "license": "Apache-2.0",
+  "publishConfig": { "access": "public" }
+}

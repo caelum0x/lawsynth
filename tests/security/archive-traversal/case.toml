@@ -1,0 +1,4 @@
+[case]
+id = "archive-traversal"
+kind = "archive-traversal"
+executor = "native-cli"

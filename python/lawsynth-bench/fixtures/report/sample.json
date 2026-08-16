@@ -1,0 +1,1 @@
+{"schema":"lawsynth-bench/report-v1","observation_count":1,"summaries":[{"problem":"linear_decay","implementation":"lawsynth","metric":"wall_time","unit":"ms","count":1,"mean":4.0,"median":4.0,"minimum":4.0,"maximum":4.0}],"changes":[],"regression_count":0}

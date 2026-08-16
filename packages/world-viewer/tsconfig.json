@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmitOnError": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "outDir": "dist",
+    "skipLibCheck": true,
+    "paths": {
+      "@lawsynth/chart-core": ["../chart-core/dist/src/index.d.ts"],
+      "@lawsynth/layout-engine": ["../layout-engine/dist/src/index.d.ts"],
+      "@lawsynth/world-schema": ["../world-schema/dist/src/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "examples/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

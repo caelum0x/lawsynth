@@ -1,0 +1,4 @@
+[case]
+id = "storage-timeout"
+kind = "storage-timeout"
+executor = "native-cli"

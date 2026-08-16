@@ -1,0 +1,4 @@
+family = "regime"
+name = "markov-switching"
+samples = 128
+status = "capability_boundary"

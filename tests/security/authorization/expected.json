@@ -1,0 +1,5 @@
+{
+  "case_id": "authorization",
+  "outcome": "rejected",
+  "error_contains": "usage:"
+}

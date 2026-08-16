@@ -1,0 +1,1 @@
+{"case_id":"regime-recovery","kind":"capability-boundary","inspect_contains":"continuous world: 1 states, 1 variables","boundary":"P1/P2 native discovery emits a continuous World and does not expose change-point or regime inference."}

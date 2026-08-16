@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-causal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deterministic causal graph and time-series diagnostics for LawSynth"
+
+[lib]
+path = "src/lib.rs"
+
+[[example]]
+name = "equivalence_basic"
+path = "examples/equivalence_basic.rs"
+
+[[bench]]
+name = "granger_throughput"
+path = "benches/granger_throughput.rs"
+harness = false
+
+[[bench]]
+name = "independence_latency"
+path = "benches/independence_latency.rs"
+harness = false

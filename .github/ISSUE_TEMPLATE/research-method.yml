@@ -1,0 +1,26 @@
+name: Research-method proposal
+description: Propose a numerical or scientific method with reproducible evidence.
+title: "[method] "
+labels: ["research"]
+body:
+  - type: textarea
+    id: method
+    attributes:
+      label: Method and assumptions
+      description: State equations, data assumptions, numerical method, and known failure modes.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Reproducible evidence
+      description: Link or attach open data, code, expected outputs, and evaluation criteria.
+    validations:
+      required: true
+  - type: textarea
+    id: integration
+    attributes:
+      label: Integration boundary
+      description: Identify the affected crate/API and compatibility or resource limits.
+    validations:
+      required: true

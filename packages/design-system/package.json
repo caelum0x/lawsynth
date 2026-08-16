@@ -1,0 +1,21 @@
+{
+  "name": "@lawsynth/design-system",
+  "version": "0.1.0",
+  "description": "Framework-agnostic accessible design tokens and portable component contracts for LawSynth.",
+  "type": "module",
+  "sideEffects": false,
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.6" },
+  "files": ["dist", "README.md"],
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/tests/*.test.js"
+  }
+}

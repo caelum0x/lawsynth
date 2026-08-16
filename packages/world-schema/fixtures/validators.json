@@ -1,0 +1,11 @@
+{
+  "accepted": "world.json",
+  "rejected": {
+    "formatVersion": "0.1.0",
+    "id": "invalid-world",
+    "time": { "kind": "continuous" },
+    "variables": [{ "id": "x", "role": "state" }],
+    "laws": [{ "kind": "stochastic", "target": "x", "expression": { "kind": "constant", "value": 0 } }]
+  },
+  "reason": "stochastic laws are intentionally not encoded by the current Rust bundle format"
+}

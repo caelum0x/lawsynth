@@ -1,0 +1,5 @@
+{
+  "case_id": "archive-traversal",
+  "outcome": "rejected",
+  "error_contains": "invalid archive path"
+}

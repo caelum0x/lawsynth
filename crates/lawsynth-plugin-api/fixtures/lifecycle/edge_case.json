@@ -1,0 +1,1 @@
+{"id":"validator","state":"running","event":"fail","expected_state":"failed","note":"all nonterminal lifecycle states can fail"}

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "state": {
+    "workspace": { "projectId": "project:climate", "worldId": "world:energy-balance", "route": "/projects/climate/worlds/energy-balance" },
+    "selection": { "ids": ["variable:temperature"], "primaryId": "variable:temperature" },
+    "panels": { "navigator": { "id": "navigator", "side": "left", "open": true, "size": 320 } },
+    "preferences": { "theme": "system", "density": "comfortable", "reducedMotion": false, "telemetryEnabled": false }
+  }
+}

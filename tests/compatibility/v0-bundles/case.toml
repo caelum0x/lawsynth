@@ -1,0 +1,4 @@
+[case]
+id = "v0-bundles"
+kind = "v0-bundles"
+executor = "native-cli"

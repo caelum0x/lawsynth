@@ -1,0 +1,1 @@
+{"startup":"build_services","shutdown":"database.close","scope":"single-process local service"}

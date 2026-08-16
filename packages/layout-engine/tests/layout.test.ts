@@ -1,0 +1,2 @@
+import { bounds, validateGraph } from "../src/layout.js"; import { equal, throws } from "./assert.js";
+export function runLayoutTests(): void { const nodes=[{id:"a",width:10,height:20,x:-3,y:5},{id:"b",width:5,height:5,x:20,y:-2}] as const; const box=bounds(nodes); equal(box.x,-3); equal(box.y,-2); equal(box.width,28); equal(box.height,27); throws(()=>validateGraph({nodes:[{id:"a",width:-1,height:2}],edges:[]}),/non-negative/); }

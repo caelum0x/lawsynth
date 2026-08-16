@@ -1,0 +1,5 @@
+{
+  "case_id": "v1-migrations",
+  "outcome": "rejected",
+  "error_contains": "unsupported manifest"
+}

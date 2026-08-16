@@ -1,0 +1,5 @@
+{
+  "case_id": "worker-loss",
+  "kind": "worker-loss",
+  "command": "workers"
+}

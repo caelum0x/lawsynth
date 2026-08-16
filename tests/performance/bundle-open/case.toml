@@ -1,0 +1,4 @@
+[case]
+id = "bundle-open"
+operation = "native_bundle_open"
+max_seconds = 120

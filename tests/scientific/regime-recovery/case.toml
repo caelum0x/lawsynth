@@ -1,0 +1,8 @@
+[case]
+id = "regime-recovery"
+kind = "capability-boundary"
+description = "A switched growth trajectory is fitted as one continuous world; no regime recovery claim is made."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

@@ -1,0 +1,4 @@
+[case]
+id = "import"
+workflow = "discover"
+description = "Import CSV observations through CLI discovery and persist a world."

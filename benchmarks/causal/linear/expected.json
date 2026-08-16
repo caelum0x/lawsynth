@@ -1,0 +1,5 @@
+{
+  "benchmark": "causal/linear",
+  "status": "capability_boundary",
+  "feature": "causal identification and effect estimation"
+}

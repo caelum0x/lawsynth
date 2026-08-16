@@ -1,0 +1,1 @@
+{"case_id":"unit-consistency","kind":"capability-boundary","inspect_contains":"continuous world: 1 states, 1 variables","boundary":"CSV column identifiers are symbols, not a units schema; unit consistency must be supplied through the typed API/world format rather than inferred here."}

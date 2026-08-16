@@ -1,0 +1,1 @@
+{"case_id":"adversarial-noise","kind":"supported-with-boundary","inspect_contains":"continuous world: 1 states, 1 variables","boundary":"A valid finite candidate is required; no robustness radius or exact coefficient recovery is claimed under adversarial noise."}

@@ -1,0 +1,15 @@
+repos:
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        language: system
+        pass_filenames: false
+        entry: cargo fmt --all -- --check
+        files: '\.rs$'
+      - id: python-compile
+        name: Python syntax
+        language: system
+        pass_filenames: false
+        entry: python3 -m compileall -q python/lawsynth/src python/lawsynth/tests
+        files: '\.py$'

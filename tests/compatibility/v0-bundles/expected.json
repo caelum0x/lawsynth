@@ -1,0 +1,5 @@
+{
+  "case_id": "v0-bundles",
+  "outcome": "rejected",
+  "error_contains": "unsupported manifest"
+}

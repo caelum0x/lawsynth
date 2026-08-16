@@ -1,0 +1,9 @@
+{
+  "id": "discard-changes",
+  "title": "Discard unsaved changes?",
+  "open": true,
+  "modal": true,
+  "initialFocusId": "discard-cancel",
+  "returnFocusId": "world-menu",
+  "dismissAction": "world.discard.cancel"
+}

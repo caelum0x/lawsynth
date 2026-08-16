@@ -1,0 +1,8 @@
+[case]
+id = "unit-consistency"
+kind = "capability-boundary"
+description = "The native numeric CSV discovery path does not encode physical unit metadata."
+
+[execution]
+runner = "python3 run.py"
+native_cli = true

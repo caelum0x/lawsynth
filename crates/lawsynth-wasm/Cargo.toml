@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Portable validated LawSynth world and trajectory surface."
+autoexamples = false
+
+[[example]]
+name = "memory_basic"
+path = "examples/memory_basic.rs"
+
+[[bench]]
+name = "trajectory_throughput"
+path = "benches/trajectory_throughput.rs"
+harness = false
+
+[[bench]]
+name = "events_latency"
+path = "benches/events_latency.rs"
+harness = false
+
+[lib]
+path = "src/lib.rs"

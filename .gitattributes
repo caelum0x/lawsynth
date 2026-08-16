@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.rs text diff=rust
+*.toml text
+*.yml text
+*.yaml text
+*.json text
+*.lsworld binary

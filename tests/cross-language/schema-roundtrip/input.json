@@ -1,0 +1,1 @@
+{"case_id":"schema-roundtrip","world":{"variables":[{"id":"x","role":"state"}],"parameters":[],"laws":[{"target":"x","expression":{"constant":1.0}}]}}

@@ -1,0 +1,5 @@
+{
+  "case_id":"uncertainty-coverage", "kind":"capability-boundary",
+  "fixture":{"system":"linear_growth","parameters":{"rate":0.25},"initial":[1.0],"stop":1.5,"integration_step":0.05},
+  "bootstrap_replicates":8
+}

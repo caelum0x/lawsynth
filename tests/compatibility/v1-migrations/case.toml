@@ -1,0 +1,4 @@
+[case]
+id = "v1-migrations"
+kind = "v1-migrations"
+executor = "native-cli"

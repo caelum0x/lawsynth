@@ -1,0 +1,2 @@
+import { forceLayout } from "../src/force.js"; import { equal, ok } from "./assert.js";
+export function runForceTests(): void { const graph={nodes:[{id:"a",width:10,height:10},{id:"b",width:10,height:10}],edges:[{source:"a",target:"b"}]}; const first=forceLayout(graph,{seed:9,iterations:30}), second=forceLayout(graph,{seed:9,iterations:30}); equal(JSON.stringify(first),JSON.stringify(second)); ok(first.nodes[0]!.x>=0); }

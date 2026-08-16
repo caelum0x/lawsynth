@@ -1,0 +1,4 @@
+[case]
+id = "cancellation-latency"
+operation = "native_pre_cancelled_discovery"
+max_seconds = 120

@@ -1,0 +1,4 @@
+family = "uncertainty"
+name = "trajectory-coverage"
+samples = 128
+status = "capability_boundary"

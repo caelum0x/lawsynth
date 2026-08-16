@@ -1,0 +1,1 @@
+{"id":"external-simulator","host_enabled":true,"kind":"process","max_requests":100,"transitions":["validate","start","ready","drain","stop"],"result":"stopped"}

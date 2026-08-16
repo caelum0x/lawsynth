@@ -1,26 +1,72 @@
 # LawSynth
 
-Discover governing laws from data. Run them as executable worlds.
+LawSynth is a local, deterministic toolkit for turning time-series observations
+into executable mathematical worlds.  The Rust workspace validates a compact
+World IR, evaluates scalar expressions, discovers sparse state laws from CSV
+data, serializes worlds as `.lsworld` bundles, and simulates continuous or
+discrete worlds.
 
-## Current engine slice
+## What is implemented
 
-The initial Rust workspace implements the correctness-sensitive execution path:
+- validated identifiers, units, expressions, variables, parameters, and state
+  transition laws;
+- deterministic numerical simulation (RK4 for continuous worlds and a
+  discrete stepping path), scheduled parameter/input interventions, and CSV
+  trajectory output;
+- CSV numeric data ingestion, profiling, finite-difference/smoothed
+  derivatives, polynomial/trigonometric/rational feature libraries, sparse
+  regression, scoring, and symbolic candidate rendering;
+- canonical `.lsworld` bundle read/write with integrity checks;
+- a `lawsynth` CLI and a Python package whose native module is built with
+  maturin.
 
-- portable, validated World IR identifiers;
-- deterministic scalar expression evaluation;
-- continuous state variables, parameters, and transition laws;
-- fourth-order Runge-Kutta simulation;
-- constant scenario inputs and parameter interventions.
+The repository deliberately does **not** present unimplemented service,
+plugin, Studio, causal-inference, regime, or uncertainty packages as working
+products.  Those directories describe later architectural scope; their
+capability boundaries are explicit in code and tests.
 
-The first public surface is intentionally small while the World IR and bundle
-specifications are refined. Discovery, Python bindings, persistence, and Studio
-are the next layers.
+## Quick start
 
-## Verify
+Install the Rust toolchain pinned in `rust-toolchain.toml`, then run:
 
-Run `cargo test --workspace` from the repository root.
+```sh
+cargo test --workspace
+cargo run -p lawsynth-cli -- --help
+```
+
+Discover a continuous world from a numeric CSV file:
+
+```sh
+cargo run -p lawsynth-cli -- discover observations.csv \
+  --time time --state x,y --output recovered.lsworld
+cargo run -p lawsynth-cli -- inspect recovered.lsworld
+```
+
+See the CLI usage text for supported discovery and simulation options.  The
+checked-in examples and conformance cases are executable and are the source of
+truth for supported inputs.
+
+## Python package
+
+The pure-Python data and configuration layer is under `python/lawsynth`; the
+native extension is built from `crates/lawsynth-python`:
+
+```sh
+cd python/lawsynth
+python -m pip install maturin
+maturin develop
+python -m pytest -q tests
+```
+
+## Development
+
+The project keeps Cargo network access offline by default for reproducible
+local checks.  Run `cargo fetch` in an environment that permits registry
+access before enabling a clean machine build.  See
+[CONTRIBUTING.md](CONTRIBUTING.md) for the verification matrix and
+[ARCHITECTURE.md](ARCHITECTURE.md) for the implementation boundary.
 
 ## License
 
-Apache-2.0.
-# lawsynth
+Licensed under [Apache-2.0](LICENSE).  Third-party notices, when required, are
+recorded in [NOTICE](NOTICE).

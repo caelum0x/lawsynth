@@ -1,0 +1,4 @@
+[case]
+id = "memory-budget"
+operation = "sdk_dataset_allocation"
+max_seconds = 20

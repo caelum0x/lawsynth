@@ -1,0 +1,6 @@
+{
+  "id": "equation-help",
+  "triggerId": "equation-help-button",
+  "open": false,
+  "dismissAction": "help.close"
+}

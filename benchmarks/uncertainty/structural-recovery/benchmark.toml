@@ -1,0 +1,4 @@
+family = "uncertainty"
+name = "structural-recovery"
+samples = 128
+status = "capability_boundary"

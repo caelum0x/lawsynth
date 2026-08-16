@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-api-types"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Validated API domain types for LawSynth services."
+autoexamples = false
+
+[lib]
+path = "src/lib.rs"
+
+[[example]]
+name = "pagination_basic"
+path = "examples/pagination_basic.rs"
+
+[[bench]]
+name = "simulation_throughput"
+path = "benches/simulation_throughput.rs"
+harness = false
+
+[[bench]]
+name = "artifact_latency"
+path = "benches/artifact_latency.rs"
+harness = false

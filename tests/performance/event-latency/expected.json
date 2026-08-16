@@ -1,0 +1,4 @@
+{
+  "case_id": "event-latency",
+  "minimum_samples": 20000
+}

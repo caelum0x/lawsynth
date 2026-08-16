@@ -1,0 +1,5 @@
+{
+  "case_id": "duplicate-delivery",
+  "outcome": "deterministic",
+  "stdout_contains": "time,x"
+}

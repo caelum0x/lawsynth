@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-runner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Bounded, cancellable execution primitives for LawSynth work."
+autoexamples = false
+
+[lib]
+path = "src/lib.rs"
+
+[[example]]
+name = "checkpoint_basic"
+path = "examples/checkpoint_basic.rs"
+
+[[bench]]
+name = "limits_throughput"
+path = "benches/limits_throughput.rs"
+harness = false
+
+[[bench]]
+name = "heartbeat_latency"
+path = "benches/heartbeat_latency.rs"
+harness = false

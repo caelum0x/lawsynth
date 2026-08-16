@@ -1,0 +1,5 @@
+{
+  "case_id": "plugin-permissions",
+  "kind": "plugin-permissions",
+  "command": "plugins"
+}

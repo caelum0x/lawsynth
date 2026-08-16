@@ -1,0 +1,4 @@
+[case]
+id = "profile-million"
+operation = "sdk_dataset_profile_boundary"
+max_seconds = 35

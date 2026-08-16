@@ -1,0 +1,17 @@
+{
+  "formatVersion": "0.1.0",
+  "id": "decay-world",
+  "time": { "kind": "continuous", "symbol": "t", "unit": "s" },
+  "variables": [{ "id": "x", "role": "state", "unit": "1" }],
+  "parameters": [{ "id": "rate", "value": 0.25, "unit": "1/s" }],
+  "laws": [{
+    "kind": "continuous",
+    "target": "x",
+    "expression": {
+      "kind": "binary",
+      "operator": "mul",
+      "left": { "kind": "unary", "operator": "neg", "operand": { "kind": "symbol", "id": "rate" } },
+      "right": { "kind": "symbol", "id": "x" }
+    }
+  }]
+}

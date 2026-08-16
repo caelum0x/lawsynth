@@ -1,0 +1,23 @@
+id = "performance/symbolic-search"
+title = "Native trigonometric library search"
+version = 1
+
+[capability]
+status = "supported"
+
+[workload]
+workflow = "native-cli"
+
+[generation]
+kind = "harmonic"
+samples = 401
+step = 0.01
+
+[generation.parameters]
+omega = 1.0
+
+[discovery]
+states = ["x", "v"]
+degree = 2
+threshold = 0.05
+trigonometric = true

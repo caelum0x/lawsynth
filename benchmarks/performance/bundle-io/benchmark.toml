@@ -1,0 +1,23 @@
+id = "performance/bundle-io"
+title = "Native bundle creation and inspection"
+version = 1
+
+[capability]
+status = "supported"
+
+[workload]
+workflow = "native-cli"
+
+[generation]
+kind = "exponential_decay"
+samples = 251
+step = 0.02
+
+[generation.parameters]
+rate = 0.3
+
+[discovery]
+states = ["x"]
+degree = 2
+threshold = 0.02
+trigonometric = false

@@ -1,0 +1,1 @@
+{"schema":"lawsynth-bench/v1","observations":[{"problem":"linear_decay","implementation":"lawsynth","metric":"wall_time","value":4.0,"unit":"ms","run_id":"baseline-001"}]}

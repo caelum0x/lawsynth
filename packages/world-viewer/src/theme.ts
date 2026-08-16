@@ -1,0 +1,4 @@
+export interface ViewerTheme { readonly name: string; readonly background: string; readonly foreground: string; readonly muted: string; readonly edge: string; readonly accent: string; readonly fontFamily: string; }
+export const lightTheme: ViewerTheme = { name: "light", background: "#ffffff", foreground: "#172033", muted: "#667085", edge: "#98a2b3", accent: "#175cd3", fontFamily: "ui-sans-serif, system-ui, sans-serif" };
+export const darkTheme: ViewerTheme = { name: "dark", background: "#101828", foreground: "#f9fafb", muted: "#98a2b3", edge: "#475467", accent: "#84adff", fontFamily: "ui-sans-serif, system-ui, sans-serif" };
+export function mergeTheme(base: ViewerTheme, override: Partial<ViewerTheme>): ViewerTheme { const merged = { ...base, ...override }; for (const [key, value] of Object.entries(merged)) if (!String(value).trim()) throw new TypeError(`theme ${key} must be non-empty`); return merged; }

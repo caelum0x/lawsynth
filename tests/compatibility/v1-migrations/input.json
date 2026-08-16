@@ -1,0 +1,5 @@
+{
+  "case_id": "v1-migrations",
+  "kind": "v1-migrations",
+  "manifest": "{\n  \"format\": \"lawsynth-world\",\n  \"format_version\": \"1.0.0\",\n  \"world_encoding\": \"lawsynth-world-binary-v1\"\n}\n"
+}

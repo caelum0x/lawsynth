@@ -1,0 +1,4 @@
+{
+  "xAxis": { "domain": { "min": 0, "max": 10 }, "label": "time (s)", "tickCount": 6 },
+  "annotation": { "id": "event-1", "kind": "line", "x": 4.5, "label": "intervention", "severity": "info" }
+}

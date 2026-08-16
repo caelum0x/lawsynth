@@ -22,6 +22,15 @@ members = [
   "crates/lawsynth-egraph",
   "crates/lawsynth-dynamics",
   "crates/lawsynth-discovery",
+  "crates/lawsynth-uncertainty",
+  "crates/lawsynth-api-types",
+  "crates/lawsynth-runner",
+  "crates/lawsynth-causal",
+  "crates/lawsynth-regime",
+  "crates/lawsynth-plugin-api",
+  "crates/lawsynth-plugin-host",
+  "crates/lawsynth-store",
+  "crates/lawsynth-wasm",
 ]
 
 [workspace.package]

@@ -1,0 +1,6 @@
+{
+  "id": "run-discovery",
+  "label": "Run discovery",
+  "variant": "primary",
+  "action": "discovery.run"
+}

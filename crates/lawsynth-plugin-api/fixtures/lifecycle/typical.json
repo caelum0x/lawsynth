@@ -1,0 +1,1 @@
+{"id":"simulator","version":"2.1.0","kind":"process","states":["discovered","validated","starting","running","draining","stopped"],"events":["validate","start","ready","drain","stop"]}

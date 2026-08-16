@@ -1,0 +1,4 @@
+family = "causal"
+name = "linear"
+samples = 128
+status = "capability_boundary"

@@ -1,0 +1,1 @@
+{"case_id":"cli-discover","dataset":{"columns":["time","x"],"rows":[{"time":0,"x":0},{"time":0.5,"x":0.5},{"time":1,"x":1},{"time":1.5,"x":1.5},{"time":2,"x":2}]}}

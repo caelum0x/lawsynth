@@ -1,0 +1,4 @@
+{
+  "case_id":"unit-consistency", "kind":"capability-boundary",
+  "fixture":{"system":"linear_growth","parameters":{"rate":0.1},"initial":[2.0],"stop":1.0,"integration_step":0.05}
+}

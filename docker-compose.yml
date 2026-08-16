@@ -1,0 +1,7 @@
+services:
+  lawsynth:
+    build:
+      context: .
+    image: lawsynth-cli:local
+    profiles: ["cli"]
+    command: ["--help"]

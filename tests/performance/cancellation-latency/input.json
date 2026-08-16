@@ -1,0 +1,5 @@
+{
+  "case_id": "cancellation-latency",
+  "operation": "native_pre_cancelled_discovery",
+  "size": 1
+}

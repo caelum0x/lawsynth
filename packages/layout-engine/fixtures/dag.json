@@ -1,0 +1,13 @@
+{
+  "nodes": [
+    { "id": "raw", "width": 80, "height": 32 },
+    { "id": "clean", "width": 80, "height": 32 },
+    { "id": "discover", "width": 100, "height": 32 },
+    { "id": "report", "width": 80, "height": 32 }
+  ],
+  "edges": [
+    { "source": "raw", "target": "clean" },
+    { "source": "clean", "target": "discover" },
+    { "source": "discover", "target": "report" }
+  ]
+}

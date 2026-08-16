@@ -1,0 +1,4 @@
+[case]
+id = "cli-discover"
+workflow = "discover"
+description = "Discover a constant-derivative world from a CSV through the CLI."

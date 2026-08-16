@@ -1,0 +1,26 @@
+[package]
+name = "lawsynth-uncertainty"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Deterministic uncertainty quantification primitives for LawSynth"
+
+[lib]
+name = "lawsynth_uncertainty"
+path = "src/lib.rs"
+
+[[example]]
+name = "structural_basic"
+path = "examples/structural_basic.rs"
+
+[[bench]]
+name = "bootstrap_latency"
+path = "benches/bootstrap_latency.rs"
+harness = false
+
+[[bench]]
+name = "profile_throughput"
+path = "benches/profile_throughput.rs"
+harness = false

@@ -1,0 +1,2 @@
+import { layeredLayout, topologicalLayers } from "../src/dag.js"; import { equal, throws } from "./assert.js";
+export function runDagTests(): void { const graph={nodes:[{id:"a",width:10,height:10},{id:"b",width:10,height:10},{id:"c",width:10,height:10}],edges:[{source:"a",target:"c"},{source:"b",target:"c"}]}; const layers=topologicalLayers(graph); equal(layers.layers.length,2); equal(layeredLayout(graph,{nodeGap:5})[1]!.x,15); throws(()=>topologicalLayers({nodes:graph.nodes,edges:[{source:"a",target:"b"},{source:"b",target:"a"}]}),/acyclic/); }

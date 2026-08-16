@@ -1,0 +1,6 @@
+{
+  "identifierExamples": ["x", "supply-demand_2", "_latent"],
+  "rejectedIdentifiers": ["", "2fast", "with space", "dotted.name"],
+  "supportedRoles": ["state", "control", "exogenous", "observed", "latent", "derived"],
+  "supportedUnits": ["1", "m", "km", "s", "min", "kg", "g", "m/s", "kg*m/s^2"]
+}

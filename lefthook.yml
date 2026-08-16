@@ -1,0 +1,9 @@
+pre-commit:
+  parallel: true
+  commands:
+    rustfmt:
+      glob: "*.rs"
+      run: cargo fmt --all -- --check
+    python-compile:
+      glob: "*.py"
+      run: python3 -m compileall -q python/lawsynth/src python/lawsynth/tests

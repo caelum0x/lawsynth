@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use LawSynth in academic work, please cite this software."
+title: "LawSynth"
+version: "0.1.0"
+type: software
+authors:
+  - name: "LawSynth contributors"
+repository-code: "https://github.com/caelum0x/lawsynth"
+license: Apache-2.0

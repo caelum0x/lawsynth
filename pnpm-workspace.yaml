@@ -1,0 +1,8 @@
+# Only implemented packages are enrolled. Planned apps and packages remain out
+# of the workspace until they have source and executable tests.
+packages:
+  - packages/world-schema
+  - packages/api-client
+  - packages/state-store
+  - packages/chart-core
+  - packages/design-system

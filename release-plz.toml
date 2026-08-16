@@ -1,0 +1,7 @@
+[workspace]
+git_release_enable = false
+git_tag_enable = false
+publish = false
+
+# Publishing is disabled until package ownership, credentials, and a release
+# policy are established.

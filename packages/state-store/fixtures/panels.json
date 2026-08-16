@@ -1,0 +1,1 @@
+{ "navigator": { "id": "navigator", "side": "left", "open": true, "size": 320 }, "inspector": { "id": "inspector", "side": "right", "open": true, "size": 360 }, "timeline": { "id": "timeline", "side": "bottom", "open": false, "size": 280 } }

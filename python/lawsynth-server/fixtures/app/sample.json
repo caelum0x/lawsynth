@@ -1,0 +1,1 @@
+{"method":"POST","path":"/projects","headers":{"Authorization":"Bearer development-token","Idempotency-Key":"project-climate-v1"},"body":{"name":"climate","metadata":{"region":"global"}}}

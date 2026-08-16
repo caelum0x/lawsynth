@@ -1,0 +1,9 @@
+{
+  "description": "Three cards laid out in a regular review grid.",
+  "nodes": [
+    { "id": "candidate-a", "width": 220, "height": 96 },
+    { "id": "candidate-b", "width": 220, "height": 96 },
+    { "id": "candidate-c", "width": 220, "height": 96 }
+  ],
+  "grid": { "columns": 2, "gap": 24, "margin": 32 }
+}

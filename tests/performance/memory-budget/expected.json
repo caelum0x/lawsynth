@@ -1,0 +1,5 @@
+{
+  "case_id": "memory-budget",
+  "minimum_samples": 250000,
+  "max_peak_bytes": 100000000
+}

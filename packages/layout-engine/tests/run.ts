@@ -1,0 +1,13 @@
+import { runCollisionTests } from "./collision.test.js";
+import { runDagTests } from "./dag.test.js";
+import { runForceTests } from "./force.test.js";
+import { runGraphLayoutTests } from "./graph_layout.test.js";
+import { runGridTests } from "./grid.test.js";
+import { runLabelTests } from "./labels.test.js";
+import { runLayoutTests } from "./layout.test.js";
+import { runMeasureTests } from "./measure.test.js";
+import { runRoutingTests } from "./routing.test.js";
+import { runTimelineTests } from "./timeline.test.js";
+import { runSupportTests } from "./support.test.js";
+for (const test of [runLayoutTests, runDagTests, runGraphLayoutTests, runForceTests, runTimelineTests, runGridTests, runMeasureTests, runCollisionTests, runRoutingTests, runLabelTests]) test();
+await runSupportTests();

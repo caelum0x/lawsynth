@@ -1,0 +1,4 @@
+[case]
+id = "cancellation"
+workflow = "boundary"
+description = "Document the absent public cancellation command."

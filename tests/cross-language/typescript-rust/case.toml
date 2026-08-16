@@ -1,0 +1,4 @@
+[case]
+id = "typescript-rust"
+workflow = "boundary"
+description = "Record that the current repository ships no TypeScript binding."

@@ -1,0 +1,6 @@
+{
+  "kind": "binary",
+  "operator": "add",
+  "left": { "kind": "symbol", "id": "x" },
+  "right": { "kind": "constant", "value": 2 }
+}

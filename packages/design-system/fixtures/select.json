@@ -1,0 +1,10 @@
+{
+  "id": "integrator",
+  "label": "Integrator",
+  "value": "rk4",
+  "options": [
+    { "value": "euler", "label": "Euler" },
+    { "value": "rk4", "label": "Runge–Kutta 4" }
+  ],
+  "changeAction": "simulation.setIntegrator"
+}

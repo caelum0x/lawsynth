@@ -1,0 +1,4 @@
+[case]
+id = "duplicate-delivery"
+kind = "duplicate-delivery"
+executor = "native-cli"

@@ -1,0 +1,4 @@
+[case]
+id = "expression-limits"
+kind = "expression-limits"
+executor = "native-cli"

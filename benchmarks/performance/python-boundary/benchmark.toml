@@ -1,0 +1,23 @@
+id = "performance/python-boundary"
+title = "Public Python SDK validation boundary"
+version = 1
+
+[capability]
+status = "supported"
+
+[workload]
+workflow = "python-sdk"
+
+[generation]
+kind = "exponential_decay"
+samples = 5
+step = 0.1
+
+[generation.parameters]
+rate = 1.0
+
+[discovery]
+states = ["x"]
+degree = 2
+threshold = 0.05
+trigonometric = false

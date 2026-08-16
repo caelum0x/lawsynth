@@ -1,0 +1,14 @@
+{
+  "description": "Small non-layered relationship graph with a fixed deterministic seed.",
+  "nodes": [
+    { "id": "a", "width": 48, "height": 32 },
+    { "id": "b", "width": 48, "height": 32 },
+    { "id": "c", "width": 48, "height": 32 }
+  ],
+  "edges": [
+    { "source": "a", "target": "b" },
+    { "source": "b", "target": "c" },
+    { "source": "c", "target": "a" }
+  ],
+  "options": { "seed": 42, "iterations": 300, "springLength": 100 }
+}

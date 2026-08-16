@@ -1,0 +1,7 @@
+LawSynth
+Copyright 2026 the LawSynth contributors.
+
+This product includes software developed by the LawSynth contributors.
+Third-party dependency licensing and attribution are recorded in the locked
+dependency metadata (`Cargo.lock`) and the respective upstream packages. This
+NOTICE contains no additional attribution requirements at this time.

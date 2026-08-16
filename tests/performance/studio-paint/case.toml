@@ -1,0 +1,4 @@
+[case]
+id = "studio-paint"
+operation = "sdk_render_payload_serialization"
+max_seconds = 10

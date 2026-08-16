@@ -1,0 +1,25 @@
+[package]
+name = "lawsynth-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic local and in-memory object storage for LawSynth artifacts."
+autoexamples = false
+
+[[example]]
+name = "cache_basic"
+path = "examples/cache_basic.rs"
+
+[[bench]]
+name = "s3_throughput"
+path = "benches/s3_throughput.rs"
+harness = false
+
+[[bench]]
+name = "multipart_latency"
+path = "benches/multipart_latency.rs"
+harness = false
+
+[lib]
+path = "src/lib.rs"

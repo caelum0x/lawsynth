@@ -1,0 +1,4 @@
+[case]
+id = "python-rust"
+workflow = "native-optional"
+description = "Exercise Python extension serialization and Rust CLI loading when installed."

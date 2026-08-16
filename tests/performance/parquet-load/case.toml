@@ -1,0 +1,4 @@
+[case]
+id = "parquet-load"
+operation = "native_parquet_codec"
+max_seconds = 120

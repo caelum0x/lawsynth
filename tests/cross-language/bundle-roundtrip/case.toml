@@ -1,0 +1,4 @@
+[case]
+id = "bundle-roundtrip"
+workflow = "simulate"
+description = "A language-neutral binary-v1 writer produces a bundle read by Rust."

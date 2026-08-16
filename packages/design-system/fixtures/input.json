@@ -1,0 +1,8 @@
+{
+  "id": "world-name",
+  "label": "World name",
+  "kind": "text",
+  "value": "Lotka–Volterra",
+  "required": true,
+  "changeAction": "world.rename"
+}

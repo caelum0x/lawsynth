@@ -1,0 +1,1 @@
+{"objects":["runs/a/output","runs/a/log","runs/b/output"],"retained":["runs/a/output","runs/b/output"],"prefix":"runs/a/","expected_deleted":["runs/a/log"]}

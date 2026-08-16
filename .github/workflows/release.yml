@@ -1,0 +1,30 @@
+name: Release-candidate verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or commit to verify"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_NET_OFFLINE: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.94.0
+      - run: cargo test --workspace
+      - run: cargo build --locked --release -p lawsynth-cli
+
+# This workflow validates a candidate only. It does not publish packages,
+# create releases, upload artifacts, or deploy services.

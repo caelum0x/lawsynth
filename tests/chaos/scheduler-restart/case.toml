@@ -1,0 +1,4 @@
+[case]
+id = "scheduler-restart"
+kind = "scheduler-restart"
+executor = "native-cli"

@@ -1,0 +1,4 @@
+[case]
+id = "local-library"
+workflow = "native-optional"
+description = "Exercise the installed Python SDK/native extension when available."
