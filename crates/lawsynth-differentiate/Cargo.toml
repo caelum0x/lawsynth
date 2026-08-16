@@ -9,3 +9,6 @@ autoexamples = false
 
 [dependencies]
 lawsynth-data = { path = "../lawsynth-data" }
+
+[dev-dependencies]
+lawsynth-core = { path = "../lawsynth-core" }

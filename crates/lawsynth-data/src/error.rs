@@ -26,6 +26,7 @@ pub enum DataError {
     },
     InvalidBatchSize,
     InvalidWindowConfig,
+    Parquet(String),
 }
 
 impl fmt::Display for DataError {
@@ -76,6 +77,7 @@ impl fmt::Display for DataError {
                     "window width and step must be positive and fit the dataset"
                 )
             }
+            Self::Parquet(reason) => write!(formatter, "Parquet decoding failed: {reason}"),
         }
     }
 }
