@@ -139,6 +139,10 @@ def __getattr__(name):
         from . import lineage as _lineage
 
         return getattr(_lineage, name)
+    if name in {"stream_discover", "StreamHistory", "StreamModel", "ChangeRecord", "TermChange"}:
+        from . import streaming as _streaming
+
+        return getattr(_streaming, name)
     if name in {"AuditLog", "AuditEntry"}:
         from . import audit as _audit
 
@@ -159,6 +163,7 @@ __all__ = [
     "Project", "ProjectEntry",
     "Ensemble", "ForecastBand", "TermStat",
     "monitor", "MonitorReport", "StateResidual", "Anomaly",
+    "stream_discover", "StreamHistory", "StreamModel", "ChangeRecord", "TermChange",
     "validate", "Validation",
     "model_card", "ModelCard", "Lineage", "LineageLink", "AuditLog", "AuditEntry",
     "__version__",

@@ -44,7 +44,13 @@ DEFAULT_RETENTION = 1024
 
 
 class EventKind(str, Enum):
-    """The seven event kinds defined by the Rust ``EventKind`` enum.
+    """Streaming event kinds.
+
+    The first seven mirror the Rust ``EventKind`` enum
+    (``crates/lawsynth-api-types``).  ``REVISION_REVIEWED`` is an additive,
+    API-local audit kind for the P6 collaboration surface: an approval/review
+    transition on a revision (``specs/collaboration/README.md``).  It is not run
+    scoped, so it carries no ``run_id`` -- like ``ARTIFACT_CREATED``.
 
     ``value`` is the wire form used in the SSE ``event:`` field and in JSON.
     """
@@ -56,6 +62,7 @@ class EventKind(str, Enum):
     RUN_FAILED = "run_failed"
     RUN_CANCELLED = "run_cancelled"
     ARTIFACT_CREATED = "artifact_created"
+    REVISION_REVIEWED = "revision_reviewed"
 
 
 # Kinds that describe a specific run and therefore require a ``run_id``.

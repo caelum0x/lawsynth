@@ -1137,6 +1137,45 @@ class Study:
             state=self._states, threshold=threshold, name=self._name,
         )
 
+    # -- streaming / online discovery --------------------------------------- #
+
+    def stream(
+        self,
+        *,
+        window: int = 60,
+        step: int | None = None,
+        threshold: float = 4.0,
+        sustain: int = 2,
+        config: DiscoveryConfig | None = None,
+        growing: bool = False,
+    ):
+        """Process this study's series as a stream, maintaining models over it.
+
+        Advances a window across the time column, keeps a current model, and
+        re-discovers only on a *sustained* standardized-residual drift (a regime
+        change) over ``sustain`` consecutive windows — distinct from a transient
+        outlier. Every update emits an immutable change record (prior/new world
+        revision hash, triggering window, and a per-law term/coefficient diff).
+        Returns a :class:`~lawsynth.streaming.StreamHistory`. Deterministic and
+        offline: replaying the identical series yields identical models and change
+        records. Does not require a prior :meth:`discover` call — the first window
+        seeds the model.
+        """
+        from .streaming import stream_discover
+
+        return stream_discover(
+            self._dataset,
+            time="time",
+            state=self._states,
+            window=window,
+            step=step,
+            threshold=threshold,
+            sustain=sustain,
+            config=config,
+            growing=growing,
+            name=self._name,
+        )
+
     # -- scenario boards ---------------------------------------------------- #
 
     def add_scenario(self, label: str, *, interventions: Mapping[str, float]) -> "Study":

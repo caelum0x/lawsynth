@@ -37,14 +37,18 @@ struct MonitorArgs {
 }
 
 /// Per-state residual diagnostics over the monitored window.
-struct StateResidual {
-    state: String,
-    mean: f64,
-    rms: f64,
-    max_abs: f64,
-    scale: f64,
-    max_abs_z: f64,
-    flagged: Vec<usize>,
+///
+/// The struct and the residual/interpolation helpers below are `pub(crate)` so
+/// the streaming online-discovery command (`stream`) can reuse the *identical*
+/// robust standardized-residual logic instead of re-deriving it.
+pub(crate) struct StateResidual {
+    pub(crate) state: String,
+    pub(crate) mean: f64,
+    pub(crate) rms: f64,
+    pub(crate) max_abs: f64,
+    pub(crate) scale: f64,
+    pub(crate) max_abs_z: f64,
+    pub(crate) flagged: Vec<usize>,
 }
 
 /// Runs the `monitor` command.
@@ -112,7 +116,7 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
 /// hide itself the way a mean/std pair would. The spread is floored to a small
 /// fraction of the signal's own magnitude, so a near-perfect fit whose residuals
 /// sit at machine epsilon cannot be amplified into spurious anomalies.
-fn analyze_state(
+pub(crate) fn analyze_state(
     state: &str,
     predicted: &[f64],
     observed: &[f64],
@@ -221,14 +225,18 @@ fn render_report(
 }
 
 /// Chooses a fixed integration step from the local sample spacing.
-fn local_step(times: &[f64]) -> f64 {
+pub(crate) fn local_step(times: &[f64]) -> f64 {
     let spacing = times[1] - times[0];
     if spacing.is_finite() && spacing > 0.0 { spacing } else { 1.0 }
 }
 
 /// Linearly interpolates `(source_times, source_values)` onto `query_times`,
 /// clamping queries outside the source range to the nearest endpoint.
-fn interpolate_onto(source_times: &[f64], source_values: &[f64], query_times: &[f64]) -> Vec<f64> {
+pub(crate) fn interpolate_onto(
+    source_times: &[f64],
+    source_values: &[f64],
+    query_times: &[f64],
+) -> Vec<f64> {
     let mut cursor = 0;
     query_times
         .iter()

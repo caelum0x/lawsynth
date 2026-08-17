@@ -23,6 +23,7 @@ from lawsynth_server.errors import ServerError
 
 from . import artifacts, datasets, downloads, products, projects, runs, uploads, worlds
 from .auth import ApiAuthenticator
+from .collaboration_routes import CollaborationService
 from .discovery import DiscoveryService
 from .authorization import READ, WRITE, require_scope_or_problem
 from .database import ApiDatabase
@@ -74,6 +75,7 @@ class WsgiApplication:
         self._database = ApiDatabase(services.database)
         self._repositories = ApiRepositories(services)
         self._discovery = DiscoveryService(services, self._events, self._quota, self._metering)
+        self._collaboration = CollaborationService(self._auth, self._repositories, self._events)
 
     def close(self) -> None:
         self._discovery.close()
@@ -119,14 +121,19 @@ class WsgiApplication:
                 response = self._handle_run_world(request, parts, request_id)
             elif self._is_artifact_download(request, parts):
                 response = self._handle_artifact_download(request, parts, request_id)
+            elif self._collaboration.matches(request, parts):
+                response = self._collaboration.handle(request, parts, request_id)
             elif request["path"].startswith("/v1/worker/") or request["path"] == "/v1/worker":
                 response = error_envelope(501, "worker_transport_unavailable", "worker HTTP transport is not deployed by this API process", request_id)
             else:
+                self._collaboration.authorize_mutation_or_problem(request, parts)
                 response = self._lifespan.application.dispatch(request)
                 response.setdefault("headers", {}).setdefault("X-Request-ID", request_id)
                 self._emit_lifecycle(request, response)
                 self._decorate_download(request, response)
                 self._record_artifact_ownership(request, response)
+                self._collaboration.establish_owner(request, response)
+                self._collaboration.record_world_revision(request, response)
         except RequestProblem as error:
             response = error_envelope(error.status, error.code, error.message, request_id)
         except RuntimeError:
