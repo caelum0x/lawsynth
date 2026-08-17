@@ -31,10 +31,13 @@ lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }
 lawsynth-discovery = { path = "../lawsynth-discovery" }
 lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-expr = { path = "../lawsynth-expr" }
 lawsynth-profile = { path = "../lawsynth-profile" }
+lawsynth-report = { path = "../lawsynth-report" }
 lawsynth-sim = { path = "../lawsynth-sim" }
 lawsynth-stats = { path = "../lawsynth-stats" }
 lawsynth-symbolic = { path = "../lawsynth-symbolic" }
+lawsynth-world = { path = "../lawsynth-world" }
 
 [lib]
 path = "src/lib.rs"

@@ -22,6 +22,7 @@ from typing import Any
 
 from _common import read_config, repository_root, write_dataset
 from _engine import EngineUnavailable, ensure_binary, run_native_case
+from _families import is_family_executed, run_family_case
 from _scoring import (
     BOUNDARY,
     FAILED,
@@ -107,6 +108,16 @@ def run_case(
     config = read_config(case_dir)
     identifier = case_id(benchmarks_dir, case_dir)
     family = identifier.split("/", 1)[0]
+
+    if is_family_executed(config):
+        if binary is None:
+            return CaseOutcome(
+                identifier,
+                family,
+                "executed",
+                {"status": FAILED, "passed": False, "reason": "CLI binary unavailable"},
+            )
+        return CaseOutcome(identifier, family, "executed", run_family_case(case_dir, workdir, binary))
 
     if _is_contract_case(config):
         return CaseOutcome(identifier, family, "capability_boundary", _run_contract(case_dir))

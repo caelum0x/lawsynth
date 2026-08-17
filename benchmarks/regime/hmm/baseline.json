@@ -1,6 +1,6 @@
 {
   "benchmark": "regime/hmm",
-  "measured_operation": "deterministic data generation plus public capability-boundary validation",
-  "available": false,
-  "interpretation": "No recovery, identification, segmentation, or coverage score is claimed until the corresponding engine exists."
+  "measured_operation": "native discover --regimes (regime_segments from the compiled CLI)",
+  "available": true,
+  "interpretation": "Real partial regime structural signal produced by the compiled lawsynth CLI, scored against a ground-truth-derived minimum. Not a fabricated recovery or effect estimate."
 }

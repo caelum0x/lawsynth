@@ -1,0 +1,17 @@
+[package]
+name = "lawsynth-report"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Self-contained HTML report rendering for LawSynth executable worlds."
+autoexamples = false
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-world = { path = "../lawsynth-world" }
+lawsynth-sim = { path = "../lawsynth-sim" }
+
+[lib]
+path = "src/lib.rs"

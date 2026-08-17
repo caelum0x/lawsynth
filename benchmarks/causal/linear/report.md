@@ -2,8 +2,14 @@
 
 ## Method
 
-The generator creates 128 deterministic observations using a seed derived from the benchmark identity. The resulting data retain oracle fields solely to verify generation; they are never used as a LawSynth answer.
+The generator creates 128 deterministic observations from a seed derived from
+the benchmark identity, and writes the observed columns to a CSV. The compiled
+`lawsynth discover` command runs with `--causal` (plus `--pareto` and
+`--refine`) and emits a dependency_edges signal.
 
 ## Result
 
-The benchmark passes when LawSynth's public boundary refuses **causal identification and effect estimation** with a structured, explicit capability message. A rejection is the correct result until that engine is implemented and wired through its public API.
+The benchmark passes when discovery and inspection both succeed and the emitted
+dependency_edges meets the ground-truth-derived minimum in `[expect]`. This is a real
+partial execution signal for dependency-hypothesis edges; it does not claim exact recovery of the
+oracle structure.

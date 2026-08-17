@@ -27,6 +27,7 @@ members = [
   "crates/lawsynth-runner",
   "crates/lawsynth-causal",
   "crates/lawsynth-regime",
+  "crates/lawsynth-report",
   "crates/lawsynth-plugin-api",
   "crates/lawsynth-plugin-host",
   "crates/lawsynth-store",

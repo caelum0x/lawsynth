@@ -17,6 +17,7 @@
     "skipLibCheck": true,
     "paths": {
       "@lawsynth/api-client": ["../../packages/api-client/dist/index.d.ts"],
+      "@lawsynth/chart-core": ["../../packages/chart-core/dist/src/index.d.ts"],
       "@lawsynth/layout-engine": ["../../packages/layout-engine/dist/src/index.d.ts"],
       "@lawsynth/state-store": ["../../packages/state-store/dist/index.d.ts"],
       "@lawsynth/world-schema": ["../../packages/world-schema/dist/src/index.d.ts"],

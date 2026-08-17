@@ -1,4 +1,14 @@
 family = "causal"
 name = "linear"
 samples = 128
-status = "capability_boundary"
+status = "executed"
+
+[execution]
+flag = "causal"
+states = ["treatment", "outcome", "latent"]
+degree = 2
+threshold = 0.05
+
+[expect]
+signal = "dependency_edges"
+minimum = 1

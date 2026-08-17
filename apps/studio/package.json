@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@lawsynth/api-client": "workspace:*",
+    "@lawsynth/chart-core": "workspace:*",
+    "@lawsynth/layout-engine": "workspace:*",
     "@lawsynth/state-store": "workspace:*",
     "@lawsynth/world-schema": "workspace:*",
     "@lawsynth/world-viewer": "workspace:*"

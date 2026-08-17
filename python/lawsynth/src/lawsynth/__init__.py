@@ -64,10 +64,15 @@ def __getattr__(name):
                 "the lawsynth native extension is unavailable; install the built package"
             ) from error
         return getattr(_native, name)
+    if name in {"Study", "DiscoveryResult", "Explanation", "Forecast", "Law"}:
+        from . import study as _study
+
+        return getattr(_study, name)
     raise AttributeError(name)
 
 
 __all__ = [
     "Dataset", "DiscoveryConfig", "LawSynthError", "NativeError", "ValidationError",
-    "discover", "Scenario", "Trajectory", "World", "__version__",
+    "discover", "Scenario", "Trajectory", "World",
+    "Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "__version__",
 ]

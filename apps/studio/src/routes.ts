@@ -1,4 +1,6 @@
-export type StudioRouteName = "home" | "project" | "dataset" | "discovery" | "world" | "simulation" | "settings";
+import { isScreenId, type ScreenId } from "./screens/ids.js";
+
+export type StudioRouteName = "home" | "project" | "dataset" | "discovery" | "world" | "simulation" | "screen" | "settings";
 
 export type StudioRoute =
   | { readonly name: "home" }
@@ -7,7 +9,8 @@ export type StudioRoute =
   | { readonly name: "dataset"; readonly projectId: string; readonly datasetId: string }
   | { readonly name: "discovery"; readonly projectId: string; readonly runId?: string }
   | { readonly name: "world"; readonly projectId: string; readonly worldId: string; readonly panel?: string }
-  | { readonly name: "simulation"; readonly projectId: string; readonly simulationId: string };
+  | { readonly name: "simulation"; readonly projectId: string; readonly simulationId: string }
+  | { readonly name: "screen"; readonly projectId: string; readonly screen: ScreenId };
 
 const safeId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u;
 function id(value: string | undefined, label: string): string {
@@ -25,6 +28,7 @@ export function routePath(route: StudioRoute): string {
     case "discovery": return `/projects/${segment(route.projectId)}/discovery${route.runId === undefined ? "" : `/${segment(route.runId)}`}`;
     case "world": return `/projects/${segment(route.projectId)}/worlds/${segment(route.worldId)}${route.panel === undefined ? "" : `?panel=${encodeURIComponent(route.panel)}`}`;
     case "simulation": return `/projects/${segment(route.projectId)}/simulations/${segment(route.simulationId)}`;
+    case "screen": return `/projects/${segment(route.projectId)}/screens/${encodeURIComponent(route.screen)}`;
   }
 }
 
@@ -43,6 +47,11 @@ export function parseRoute(input: string | URL): StudioRoute {
     return { name: "world", projectId, worldId: id(parts[3], "world id"), ...(panel ? { panel } : {}) };
   }
   if (parts[2] === "simulations" && parts.length === 4) return { name: "simulation", projectId, simulationId: id(parts[3], "simulation id") };
+  if (parts[2] === "screens" && parts.length === 4) {
+    const screen = parts[3];
+    if (!isScreenId(screen)) throw new RangeError(`unknown Studio screen: ${String(screen)}`);
+    return { name: "screen", projectId, screen };
+  }
   throw new RangeError(`unknown Studio route: ${url.pathname}`);
 }
 
