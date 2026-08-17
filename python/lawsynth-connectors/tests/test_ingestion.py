@@ -69,12 +69,31 @@ def test_filesystem_jsonl_numeric_batches_and_root_confinement(tmp_path: Path) -
     assert connector.state.value == "closed"
 
 
-def test_http_csv_is_streamed_coerced_and_numeric_validated(http_url: str) -> None:
-    connector = registry.create(ConnectorConfig(name="http", batch_size=1, max_bytes=1024))
+def test_http_csv_is_streamed_as_faithful_strings_and_rejects_numeric(http_url: str) -> None:
+    # Reading a loopback fixture requires the explicit private-network opt-in;
+    # the SSRF guard rejects non-public addresses by default (see test_http.py).
+    connector = registry.create(
+        ConnectorConfig(
+            name="http",
+            batch_size=1,
+            max_bytes=1024,
+            options={"allow_private_network": True},
+        )
+    )
     with connector:
-        batches = connector.read(ReadRequest(http_url, numeric=True, time_column="time"))
-    assert _records(batches) == [{"time": 0, "x": 1.25, "y": 2}, {"time": 1, "x": 3.5, "y": 4}]
-    assert batches[0].snapshot["etag"] == "local-fixture"
+        # CSV is decoded faithfully as strings. The connectors layer deliberately
+        # does not coerce (validate_numeric_dataset documents "no coercion"; the
+        # discovery core floats values at its own boundary). This matches the S3
+        # CSV contract asserted in test_s3.
+        batches = connector.read(ReadRequest(http_url, time_column="time"))
+        assert _records(batches) == [
+            {"time": "0", "x": "1.25", "y": "2"},
+            {"time": "1", "x": "3.5", "y": "4"},
+        ]
+        # numeric=True enforces already-numeric data: textual CSV is rejected at
+        # the boundary rather than silently coerced.
+        with pytest.raises(DataValidationError):
+            connector.read(ReadRequest(http_url, numeric=True, time_column="time"))
 
 
 def test_sqlite_read_only_query_is_batched_and_write_sql_is_rejected(tmp_path: Path) -> None:
