@@ -22,9 +22,11 @@ path = "benches/candidate_throughput.rs"
 harness = false
 
 [dependencies]
+lawsynth-causal = { path = "../lawsynth-causal" }
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }
 lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-opt = { path = "../lawsynth-opt" }
 lawsynth-expr = { path = "../lawsynth-expr" }
 lawsynth-features = { path = "../lawsynth-features" }
 lawsynth-profile = { path = "../lawsynth-profile" }

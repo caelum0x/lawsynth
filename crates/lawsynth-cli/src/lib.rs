@@ -70,6 +70,8 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     let mut sparse_method = SparseMethod::Stlsq;
     let mut enable_regimes = false;
     let mut report_pareto = false;
+    let mut enable_refine = false;
+    let mut enable_causal = false;
     let mut index = 1;
     while index < arguments.len() {
         let option = &arguments[index];
@@ -79,6 +81,8 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
             || option == "--spectral"
             || option == "--regimes"
             || option == "--pareto"
+            || option == "--refine"
+            || option == "--causal"
         {
             match option.as_str() {
                 "--trigonometric" => include_trigonometric = true,
@@ -87,6 +91,8 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
                 "--spline" => use_spline = true,
                 "--regimes" => enable_regimes = true,
                 "--pareto" => report_pareto = true,
+                "--refine" => enable_refine = true,
+                "--causal" => enable_causal = true,
                 _ => unreachable!(),
             }
             index += 1;
@@ -153,9 +159,16 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     if enable_regimes {
         config.enable_regimes();
     }
+    if enable_refine {
+        config.enable_refinement();
+    }
+    if enable_causal {
+        config.enable_causal_hypothesis();
+    }
     let result = discover(&dataset, &config).map_err(|error| error.to_string())?;
     let frontier_size = result.frontier.len();
     let regime_segments = result.regimes.as_ref().map(|segmentation| segmentation.segments.len());
+    let dependency_edges = result.dependency_hypothesis.as_ref().map(|graph| graph.edges().count());
     let candidate = result
         .candidates
         .into_iter()
@@ -171,6 +184,18 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     }
     if let Some(segments) = regime_segments {
         writeln!(&mut summary, "regimes: {segments} segment(s)").unwrap();
+    }
+    if let Some(refinement) = &candidate.refinement {
+        writeln!(
+            &mut summary,
+            "refinement: improvement={:.6e}, iterations={}",
+            refinement.improvement(),
+            refinement.iterations
+        )
+        .unwrap();
+    }
+    if let Some(edges) = dependency_edges {
+        writeln!(&mut summary, "dependency hypothesis: {edges} edge(s)").unwrap();
     }
     Ok(summary)
 }
@@ -390,5 +415,5 @@ fn parse_steps(value: &str) -> Result<usize, String> {
 }
 
 fn usage() -> String {
-    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N] [--regimes] [--pareto]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]".to_owned()
+    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N] [--regimes] [--pareto] [--refine] [--causal]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]".to_owned()
 }

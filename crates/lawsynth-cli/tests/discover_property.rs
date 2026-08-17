@@ -174,6 +174,72 @@ fn discover_command_reports_pareto_frontier_and_regimes() {
 }
 
 #[test]
+fn discover_command_reports_refinement_and_dependency_hypothesis() {
+    let directory = std::env::temp_dir().join(format!(
+        "lawsynth-cli-refine-causal-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    fs::create_dir_all(&directory).unwrap();
+    let csv = directory.join("coupled.csv");
+    // A driver `x` and its one-sample lag `y`, so the causal pass hypothesizes a
+    // single directed edge and the refinement pass has a numeric constant to tune.
+    let mut x = vec![0.0_f64];
+    let mut state: u64 = 0x2545_F491_4F6C_DD1D;
+    for _ in 1..80 {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let innovation = ((state >> 33) as f64 / (1u64 << 31) as f64) - 0.5;
+        x.push(0.6 * x.last().unwrap() + innovation);
+    }
+    let contents = (0..80)
+        .map(|step| {
+            let y = if step == 0 { x[0] } else { x[step - 1] };
+            format!("{step},{:.17e},{:.17e}", x[step], y)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&csv, format!("t,x,y\n{contents}\n")).unwrap();
+    let bundle = directory.join("coupled.lsworld");
+
+    let output = run(&[
+        "discover".to_owned(),
+        csv.display().to_string(),
+        "--time".to_owned(),
+        "t".to_owned(),
+        "--state".to_owned(),
+        "y".to_owned(),
+        "--output".to_owned(),
+        bundle.display().to_string(),
+        "--refine".to_owned(),
+        "--causal".to_owned(),
+    ])
+    .unwrap();
+
+    assert!(output.starts_with("discovered world:"));
+    assert!(output.contains("refinement: improvement="));
+    assert!(output.contains("dependency hypothesis: 1 edge(s)"));
+    assert!(read_world(&bundle).is_ok());
+
+    // Without the flags, neither line appears — the default output is unchanged.
+    let plain = run(&[
+        "discover".to_owned(),
+        csv.display().to_string(),
+        "--time".to_owned(),
+        "t".to_owned(),
+        "--state".to_owned(),
+        "y".to_owned(),
+        "--output".to_owned(),
+        bundle.display().to_string(),
+    ])
+    .unwrap();
+    assert!(plain.starts_with("discovered world:"));
+    assert!(!plain.contains("refinement:"));
+    assert!(!plain.contains("dependency hypothesis:"));
+
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn discover_command_accepts_tv_regularized_differentiation() {
     let directory = std::env::temp_dir().join(format!(
         "lawsynth-cli-tvreg-{}-{}",

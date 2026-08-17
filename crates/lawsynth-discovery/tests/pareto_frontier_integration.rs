@@ -21,6 +21,7 @@ fn candidate(error: f64, complexity: usize, stability: Option<f64>) -> Discovery
         metrics: CandidateMetrics { mean_squared_error: error, complexity },
         bootstrap_mse: None,
         stability,
+        refinement: None,
     }
 }
 

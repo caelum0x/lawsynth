@@ -69,8 +69,16 @@ def write_world_bundle(path: Path, world: dict[str, object]) -> None:
 
 
 def cli(*args: str) -> subprocess.CompletedProcess[str]:
+    # Prefer the binary built once via ``cargo build -p lawsynth-cli`` so the
+    # suites do not recompile on every invocation. Fall back to ``cargo run``
+    # when the binary is absent so a case still runs against the real engine.
+    binary = ROOT / "target" / "debug" / "lawsynth"
+    if binary.exists():
+        command = [str(binary), *args]
+    else:
+        command = ["cargo", "run", "--quiet", "-p", "lawsynth-cli", "--bin", "lawsynth", "--", *args]
     return subprocess.run(
-        ["cargo", "run", "--quiet", "-p", "lawsynth-cli", "--bin", "lawsynth", "--", *args],
+        command,
         cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
     )
 

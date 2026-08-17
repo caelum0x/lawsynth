@@ -17,6 +17,7 @@ pub enum DiscoveryError {
     Graph(String),
     Score(String),
     Regime(String),
+    Refine(String),
     Resource(String),
 }
 
@@ -38,6 +39,7 @@ impl fmt::Display for DiscoveryError {
             | Self::Graph(error)
             | Self::Score(error) => error.fmt(formatter),
             Self::Regime(error) => write!(formatter, "regime segmentation error: {error}"),
+            Self::Refine(error) => write!(formatter, "parameter refinement error: {error}"),
             Self::Resource(error) => write!(formatter, "resource limit: {error}"),
         }
     }

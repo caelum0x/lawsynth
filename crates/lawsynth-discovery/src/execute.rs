@@ -180,6 +180,7 @@ pub fn discover_cancellable_with_checkpoint(
         },
         bootstrap_mse: bootstrap.as_ref().map(|summary| summary.mse_interval),
         stability: bootstrap.as_ref().map(|summary| summary.stability),
+        refinement: None,
     }];
     if let Some(symbolic_config) = &config.symbolic {
         candidates.push(symbolic_candidate(
@@ -195,9 +196,30 @@ pub fn discover_cancellable_with_checkpoint(
         .resource_limits
         .validate_candidate_count(candidates.len())
         .map_err(|error| DiscoveryError::Resource(error.to_string()))?;
+    if let Some(refine_config) = &config.refine {
+        for candidate in &mut candidates {
+            ensure_active(cancellation)?;
+            crate::refine::refine_candidate(
+                candidate,
+                &working_dataset,
+                &config.state,
+                refine_config,
+            )?;
+        }
+    }
     let frontier = DiscoveryResult::compute_frontier(&candidates);
     let regimes = discover_regimes(&working_dataset, &config.state, config.regime.as_ref())?;
-    Ok(DiscoveryResult { profile: input_profile, preprocessing, candidates, frontier, regimes })
+    let (dependency_hypothesis, dependency_assumptions) =
+        crate::causal::discover_dependency_hypothesis(&working_dataset, config.causal.as_ref())?;
+    Ok(DiscoveryResult {
+        profile: input_profile,
+        preprocessing,
+        candidates,
+        frontier,
+        regimes,
+        dependency_hypothesis,
+        dependency_assumptions,
+    })
 }
 
 /// Runs the opt-in regime segmentation pass over the primary state's window.
@@ -275,6 +297,7 @@ fn symbolic_candidate(
         },
         bootstrap_mse: None,
         stability: None,
+        refinement: None,
     })
 }
 
@@ -586,6 +609,8 @@ mod tests {
                 preprocessing: None,
                 bootstrap: None,
                 regime: None,
+                refine: None,
+                causal: None,
                 resource_limits: Default::default(),
             },
         )
@@ -640,6 +665,8 @@ mod tests {
                 preprocessing: None,
                 bootstrap: None,
                 regime: None,
+                refine: None,
+                causal: None,
                 resource_limits: Default::default(),
             },
         )

@@ -1,3 +1,4 @@
+use lawsynth_causal::{CausalAssumption, CausalGraph};
 use lawsynth_preprocess::AppliedTransform;
 use lawsynth_profile::DatasetProfile;
 use lawsynth_regime::Segmentation;
@@ -6,6 +7,32 @@ use lawsynth_stats::PercentileInterval;
 use lawsynth_world::World;
 
 use crate::pareto::{CandidateScore, pareto_frontier};
+
+/// Outcome of the opt-in joint parameter refinement pass (§8.5).
+///
+/// The mean-squared errors are measured over the *simulated trajectory* (the
+/// candidate integrated forward from the first observation), which is the
+/// quantity the refinement optimizes. Because the optimizer starts from the
+/// discovered constants and only accepts improvements, `mse_after` never exceeds
+/// `mse_before`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ParameterRefinement {
+    /// Refined constants in the candidate's deterministic pre-order.
+    pub parameters: Vec<f64>,
+    /// Trajectory mean-squared error at the discovered (pre-refinement) constants.
+    pub mse_before: f64,
+    /// Trajectory mean-squared error at the refined constants.
+    pub mse_after: f64,
+    /// Coordinate-search iterations actually consumed.
+    pub iterations: usize,
+}
+
+impl ParameterRefinement {
+    /// Non-negative fit improvement `mse_before - mse_after`.
+    pub fn improvement(&self) -> f64 {
+        self.mse_before - self.mse_after
+    }
+}
 
 /// An executable equation system fitted from one discovery branch.
 #[derive(Clone, Debug, PartialEq)]
@@ -18,6 +45,11 @@ pub struct DiscoveryCandidate {
     /// Populated only when bootstrap uncertainty is enabled in the
     /// [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on the default path.
     pub stability: Option<f64>,
+    /// Joint parameter-refinement outcome (§8.5). Populated only when refinement
+    /// is enabled in the [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on
+    /// the default path. When refinement strictly improves the trajectory fit,
+    /// [`world`](Self::world) already carries the refined constants.
+    pub refinement: Option<ParameterRefinement>,
 }
 
 impl DiscoveryCandidate {
@@ -45,6 +77,19 @@ pub struct DiscoveryResult {
     /// Regime segmentation of the primary state, present only when the opt-in
     /// regime pass is enabled in the [`DiscoveryConfig`](crate::DiscoveryConfig).
     pub regimes: Option<Segmentation>,
+    /// Candidate dependency/causal structure (§8.6), present only when the
+    /// opt-in causal pass is enabled in the
+    /// [`DiscoveryConfig`](crate::DiscoveryConfig).
+    ///
+    /// This is a **hypothesis**, not a proven-causation claim: edges are
+    /// Granger-style predictive directions retained under a time-order gate and a
+    /// marginal-independence prune. The assumptions the hypothesis relies on are
+    /// reported alongside in [`dependency_assumptions`](Self::dependency_assumptions).
+    pub dependency_hypothesis: Option<CausalGraph>,
+    /// The causal assumptions under which [`dependency_hypothesis`](Self::dependency_hypothesis)
+    /// would license a causal reading (e.g. faithfulness, causal sufficiency).
+    /// Set together with the hypothesis; `None` on the default path.
+    pub dependency_assumptions: Option<Vec<CausalAssumption>>,
 }
 
 impl DiscoveryResult {
