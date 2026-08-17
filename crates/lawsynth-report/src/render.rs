@@ -181,6 +181,120 @@ fn render_python(
     if this_precedence < parent_precedence { format!("({text})") } else { text }
 }
 
+// --- C emitter -----------------------------------------------------------
+
+/// Renders an expression as C `double` arithmetic.
+///
+/// Each symbol is resolved through `resolve`, letting the caller map state
+/// variables and parameters onto whatever C bindings the generated source uses
+/// (for example `state[0]` or the `K` macro). Powers become `pow(base, exp)`
+/// (C has no `^` operator) and the transcendental unary operators map onto the
+/// `<math.h>` functions `exp`, `log`, `sin`, and `cos`.
+pub fn render_c_expression(expression: &Expr, resolve: &dyn Fn(&Identifier) -> String) -> String {
+    render_c(expression, 0, resolve)
+}
+
+fn render_c(
+    expression: &Expr,
+    parent_precedence: u8,
+    resolve: &dyn Fn(&Identifier) -> String,
+) -> String {
+    let this_precedence = precedence(expression);
+    let text = match expression {
+        Expr::Constant(value) => python_number(*value),
+        Expr::Symbol(id) => resolve(id),
+        Expr::Unary { operator, operand } => match operator {
+            UnaryOperator::Negate => format!("-{}", render_c(operand, PREC_ATOM, resolve)),
+            UnaryOperator::Exp => format!("exp({})", render_c(operand, 0, resolve)),
+            UnaryOperator::Log => format!("log({})", render_c(operand, 0, resolve)),
+            UnaryOperator::Sin => format!("sin({})", render_c(operand, 0, resolve)),
+            UnaryOperator::Cos => format!("cos({})", render_c(operand, 0, resolve)),
+        },
+        // C has no exponent operator; `pow` is a self-delimiting call, so its
+        // arguments never need outer parentheses.
+        Expr::Binary { operator: BinaryOperator::Power, left, right } => {
+            format!("pow({}, {})", render_c(left, 0, resolve), render_c(right, 0, resolve))
+        }
+        Expr::Binary { operator, left, right } => {
+            let (symbol, precedence) = match operator {
+                BinaryOperator::Add => ("+", PREC_ADD),
+                BinaryOperator::Subtract => ("-", PREC_ADD),
+                BinaryOperator::Multiply => ("*", PREC_MUL),
+                BinaryOperator::Divide => ("/", PREC_MUL),
+                BinaryOperator::Power => unreachable!("power handled above"),
+            };
+            let (left_precedence, right_precedence) = match operator {
+                BinaryOperator::Subtract | BinaryOperator::Divide => (precedence, precedence + 1),
+                _ => (precedence, precedence),
+            };
+            format!(
+                "{} {symbol} {}",
+                render_c(left, left_precedence, resolve),
+                render_c(right, right_precedence, resolve)
+            )
+        }
+    };
+    if this_precedence < parent_precedence { format!("({text})") } else { text }
+}
+
+// --- MATLAB / Octave emitter ---------------------------------------------
+
+/// Renders an expression as MATLAB/Octave arithmetic.
+///
+/// Each symbol is resolved through `resolve` (for example `state(1)` or a
+/// parameter macro). Powers use the scalar `^` operator and the transcendental
+/// unary operators map onto MATLAB's `exp`, `log` (natural log), `sin`, and
+/// `cos`. Structure-preserving parentheses are emitted so the rendered form is
+/// independent of MATLAB's operator associativity.
+pub fn render_matlab_expression(
+    expression: &Expr,
+    resolve: &dyn Fn(&Identifier) -> String,
+) -> String {
+    render_matlab(expression, 0, resolve)
+}
+
+fn render_matlab(
+    expression: &Expr,
+    parent_precedence: u8,
+    resolve: &dyn Fn(&Identifier) -> String,
+) -> String {
+    let this_precedence = precedence(expression);
+    let text = match expression {
+        Expr::Constant(value) => python_number(*value),
+        Expr::Symbol(id) => resolve(id),
+        Expr::Unary { operator, operand } => match operator {
+            UnaryOperator::Negate => format!("-{}", render_matlab(operand, PREC_ATOM, resolve)),
+            UnaryOperator::Exp => format!("exp({})", render_matlab(operand, 0, resolve)),
+            UnaryOperator::Log => format!("log({})", render_matlab(operand, 0, resolve)),
+            UnaryOperator::Sin => format!("sin({})", render_matlab(operand, 0, resolve)),
+            UnaryOperator::Cos => format!("cos({})", render_matlab(operand, 0, resolve)),
+        },
+        Expr::Binary { operator, left, right } => {
+            let (symbol, precedence) = match operator {
+                BinaryOperator::Add => ("+", PREC_ADD),
+                BinaryOperator::Subtract => ("-", PREC_ADD),
+                BinaryOperator::Multiply => ("*", PREC_MUL),
+                BinaryOperator::Divide => ("/", PREC_MUL),
+                BinaryOperator::Power => ("^", PREC_POW),
+            };
+            // Parenthesize both operands of a non-associative operator one level
+            // tighter so the rendered form preserves the expression tree
+            // regardless of MATLAB's left-associative `^`.
+            let (left_precedence, right_precedence) = match operator {
+                BinaryOperator::Power => (precedence + 1, precedence + 1),
+                BinaryOperator::Subtract | BinaryOperator::Divide => (precedence, precedence + 1),
+                _ => (precedence, precedence),
+            };
+            format!(
+                "{} {symbol} {}",
+                render_matlab(left, left_precedence, resolve),
+                render_matlab(right, right_precedence, resolve)
+            )
+        }
+    };
+    if this_precedence < parent_precedence { format!("({text})") } else { text }
+}
+
 // --- LaTeX emitter -------------------------------------------------------
 
 /// Renders a continuous law as a LaTeX `\dot{target} = ...` equation body.
@@ -336,5 +450,47 @@ mod tests {
     fn renders_latex_law_with_dot_notation() {
         let law = render_latex_law("x", &Expr::product(Expr::constant(-1.0), sym("x")));
         assert_eq!(law, "\\dot{x} &= -x");
+    }
+
+    #[test]
+    fn renders_c_arithmetic_with_pow_and_precedence() {
+        // (alpha * x - x*y) with a power term x^2.
+        let expression = Expr::difference(
+            Expr::product(Expr::symbol(Identifier::new("alpha").unwrap()), sym("x")),
+            Expr::binary(BinaryOperator::Power, sym("x"), Expr::constant(2.0)),
+        );
+        let rendered = render_c_expression(&expression, &|id| match id.as_str() {
+            "alpha" => "P_alpha".to_owned(),
+            other => format!("state[{other}]"),
+        });
+        assert_eq!(rendered, "P_alpha * state[x] - pow(state[x], 2.0)");
+    }
+
+    #[test]
+    fn renders_c_keeps_parentheses_and_math_calls() {
+        let expression =
+            Expr::product(Expr::sum(sym("x"), sym("y")), Expr::unary(UnaryOperator::Sin, sym("z")));
+        let rendered = render_c_expression(&expression, &|id| id.as_str().to_owned());
+        assert_eq!(rendered, "(x + y) * sin(z)");
+    }
+
+    #[test]
+    fn renders_matlab_arithmetic_with_caret_power() {
+        let expression = Expr::difference(
+            Expr::product(Expr::symbol(Identifier::new("alpha").unwrap()), sym("x")),
+            Expr::binary(BinaryOperator::Power, sym("x"), Expr::constant(2.0)),
+        );
+        let rendered = render_matlab_expression(&expression, &|id| match id.as_str() {
+            "alpha" => "P_alpha".to_owned(),
+            other => format!("state({other})"),
+        });
+        assert_eq!(rendered, "P_alpha * state(x) - state(x) ^ 2.0");
+    }
+
+    #[test]
+    fn renders_matlab_preserves_structure_with_parentheses() {
+        let expression = Expr::product(Expr::sum(sym("x"), sym("y")), sym("z"));
+        let rendered = render_matlab_expression(&expression, &|id| id.as_str().to_owned());
+        assert_eq!(rendered, "(x + y) * z");
     }
 }

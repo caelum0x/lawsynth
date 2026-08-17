@@ -8,12 +8,14 @@ import { routesTests } from "./routes.test.js";
 import { scenarioBoardTests } from "./scenario-board.test.js";
 import { simulationTests } from "./simulation.test.js";
 import { structureTests } from "./structure.test.js";
+import { wiredDiscoveryTests } from "./wired-discovery.test.js";
 import { workspaceTests } from "./workspace.test.js";
 
 const tests: readonly [string, () => Promise<void>][] = [
   ["app lifecycle", appTests], ["dataset profiling", datasetTests], ["discovery observation", discoveryTests],
   ["equation comparison", equationsTests], ["provider lifecycle", providersTests], ["regime planning", regimesTests],
-  ["routes", routesTests], ["scenario board", scenarioBoardTests], ["simulation execution", simulationTests], ["structure filtering", structureTests], ["workspace selection", workspaceTests],
+  ["routes", routesTests], ["scenario board", scenarioBoardTests], ["simulation execution", simulationTests], ["structure filtering", structureTests],
+  ["wired discovery", wiredDiscoveryTests], ["workspace selection", workspaceTests],
 ];
 
 for (const [name, run] of tests) {

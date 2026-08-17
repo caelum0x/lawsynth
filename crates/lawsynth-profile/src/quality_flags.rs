@@ -23,10 +23,7 @@ pub fn quality_flags(values: &[f64]) -> Result<ColumnQuality, ProfileError> {
             .filter_map(|(index, value)| (*value < lower || *value > upper).then_some(index))
             .collect()
     };
-    Ok(ColumnQuality {
-        is_constant,
-        outlier_indices,
-    })
+    Ok(ColumnQuality { is_constant, outlier_indices })
 }
 
 #[cfg(test)]
@@ -36,11 +33,6 @@ mod tests {
     #[test]
     fn detects_constant_columns_and_tukey_outliers() {
         assert!(quality_flags(&[2.0, 2.0, 2.0]).unwrap().is_constant);
-        assert_eq!(
-            quality_flags(&[1.0, 1.0, 2.0, 2.0, 100.0])
-                .unwrap()
-                .outlier_indices,
-            vec![4]
-        );
+        assert_eq!(quality_flags(&[1.0, 1.0, 2.0, 2.0, 100.0]).unwrap().outlier_indices, vec![4]);
     }
 }

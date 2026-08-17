@@ -20,48 +20,35 @@ impl fmt::Display for PreprocessError {
         match self {
             Self::ZeroRadius => write!(formatter, "smoothing radius must be positive"),
             Self::ResampleOutOfBounds => {
-                write!(
-                    formatter,
-                    "resampling target is outside the source time range"
-                )
+                write!(formatter, "resampling target is outside the source time range")
             }
             Self::ConstantColumn(column) => {
                 write!(formatter, "cannot standardize constant column '{column}'")
             }
             Self::MissingScaleColumn(column) => {
-                write!(
-                    formatter,
-                    "scale report has no constants for column '{column}'"
-                )
+                write!(formatter, "scale report has no constants for column '{column}'")
             }
             Self::InvalidTargetTime => {
                 write!(formatter, "pipeline resampling time axis is invalid")
             }
-            Self::ImputationLengthMismatch => write!(
-                formatter,
-                "imputation time and values must have equal lengths"
-            ),
+            Self::ImputationLengthMismatch => {
+                write!(formatter, "imputation time and values must have equal lengths")
+            }
             Self::NoObservedValues => {
                 write!(formatter, "imputation requires at least one observed value")
             }
-            Self::MissingBoundaryValue => write!(
-                formatter,
-                "linear interpolation cannot impute an unbounded edge gap"
-            ),
-            Self::NonFiniteImputationValue => write!(
-                formatter,
-                "imputation observations and time values must be finite"
-            ),
-            Self::AlignmentLengthMismatch => {
-                write!(
-                    formatter,
-                    "alignment source time and values must have equal lengths"
-                )
+            Self::MissingBoundaryValue => {
+                write!(formatter, "linear interpolation cannot impute an unbounded edge gap")
             }
-            Self::InvalidAlignmentSource => write!(
-                formatter,
-                "alignment source time must be finite and strictly increasing"
-            ),
+            Self::NonFiniteImputationValue => {
+                write!(formatter, "imputation observations and time values must be finite")
+            }
+            Self::AlignmentLengthMismatch => {
+                write!(formatter, "alignment source time and values must have equal lengths")
+            }
+            Self::InvalidAlignmentSource => {
+                write!(formatter, "alignment source time must be finite and strictly increasing")
+            }
         }
     }
 }

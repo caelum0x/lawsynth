@@ -26,11 +26,6 @@ impl ColumnProfile {
             mean += delta / count;
             sum_of_squares += delta * (value - mean);
         }
-        Ok(Self {
-            minimum,
-            maximum,
-            mean,
-            variance: sum_of_squares / values.len() as f64,
-        })
+        Ok(Self { minimum, maximum, mean, variance: sum_of_squares / values.len() as f64 })
     }
 }

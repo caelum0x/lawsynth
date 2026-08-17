@@ -1,4 +1,4 @@
-import type { CandidateSummary, CreateRunRequest, RunStatus } from "@lawsynth/api-client";
+import type { CandidateSummary, CreateRunRequest, DiscoveryConfig, DiscoveryRunRequest, RunStatus } from "@lawsynth/api-client";
 import { compareCandidates } from "../equations.js";
 import type { ControlField, Metric, Notice, NoticeTone, ScreenModel, ScreenSection, TableRow } from "./types.js";
 
@@ -64,6 +64,30 @@ export function discoveryRunRequest(config: DiscoveryCanvasConfig, projectId: st
       seed: config.seed,
       toggles: { pareto: config.pareto, regimes: config.regimes, refine: config.refine, causal: config.causal },
     },
+  };
+}
+
+/**
+ * Maps the canvas configuration onto the live discovery-run contract
+ * (`POST /v1/runs` naming a dataset). `states` are the modeled columns (target
+ * plus any state columns); only the native-recognised knobs are forwarded as
+ * the `discovery` object.
+ */
+export function discoverySubmitRequest(config: DiscoveryCanvasConfig, projectId: string): DiscoveryRunRequest {
+  const seen = new Set<string>();
+  const states: string[] = [];
+  for (const column of [config.target, ...config.stateColumns]) {
+    const name = column.trim();
+    if (name !== "" && !seen.has(name)) { seen.add(name); states.push(name); }
+  }
+  const discovery: DiscoveryConfig = { polynomial_degree: config.degree, threshold: config.threshold };
+  return {
+    name: `Discover ${config.target || "target"}`,
+    world_name: `${config.target || "world"} world`,
+    project_id: projectId,
+    dataset_id: config.datasetId,
+    states: Object.freeze(states),
+    discovery,
   };
 }
 

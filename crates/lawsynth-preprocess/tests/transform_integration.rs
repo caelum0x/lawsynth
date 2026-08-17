@@ -11,11 +11,7 @@ fn imputation_is_explicit_about_method_and_boundary_evidence() {
     let (mean, _) = impute_series(&time, &values, ImputationMethod::Mean).unwrap();
     assert_eq!(mean, vec![0.0, 14.0 / 3.0, 6.0, 8.0]);
     assert_eq!(
-        impute_series(
-            &time,
-            &[None, Some(1.0), Some(2.0), Some(3.0)],
-            ImputationMethod::Linear
-        ),
+        impute_series(&time, &[None, Some(1.0), Some(2.0), Some(3.0)], ImputationMethod::Linear),
         Err(PreprocessError::MissingBoundaryValue)
     );
 }

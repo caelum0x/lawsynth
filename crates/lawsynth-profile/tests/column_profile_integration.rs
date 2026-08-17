@@ -13,14 +13,8 @@ fn dataset_profile_agrees_with_column_distribution_and_quality_diagnostics() {
     .unwrap();
     let result = profile(&dataset).unwrap();
     let profile_column = &result.columns[&id];
-    assert_eq!(
-        profile_column.minimum,
-        distribution(&values).unwrap().minimum
-    );
-    assert_eq!(
-        profile_column.maximum,
-        distribution(&values).unwrap().maximum
-    );
+    assert_eq!(profile_column.minimum, distribution(&values).unwrap().minimum);
+    assert_eq!(profile_column.maximum, distribution(&values).unwrap().maximum);
     assert_eq!(result.quality[&id], quality_flags(&values).unwrap());
     assert_eq!(result.quality[&id].outlier_indices, vec![4]);
 }

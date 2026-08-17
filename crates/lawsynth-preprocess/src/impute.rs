@@ -41,14 +41,8 @@ pub fn impute_series(
         .collect::<Vec<_>>();
     if imputed_indices.is_empty() {
         return Ok((
-            values
-                .iter()
-                .map(|value| value.expect("checked complete"))
-                .collect(),
-            ImputationReport {
-                method,
-                imputed_indices,
-            },
+            values.iter().map(|value| value.expect("checked complete")).collect(),
+            ImputationReport { method, imputed_indices },
         ));
     }
     let observed = values.iter().flatten().copied().collect::<Vec<_>>();
@@ -63,13 +57,7 @@ pub fn impute_series(
         ImputationMethod::ForwardFill => forward_fill(values)?,
         ImputationMethod::Linear => linear_interpolate(time, values)?,
     };
-    Ok((
-        output,
-        ImputationReport {
-            method,
-            imputed_indices,
-        },
-    ))
+    Ok((output, ImputationReport { method, imputed_indices }))
 }
 
 fn forward_fill(values: &[Option<f64>]) -> Result<Vec<f64>, PreprocessError> {
@@ -91,10 +79,7 @@ fn linear_interpolate(time: &[f64], values: &[Option<f64>]) -> Result<Vec<f64>, 
     if values.first().is_none_or(Option::is_none) || values.last().is_none_or(Option::is_none) {
         return Err(PreprocessError::MissingBoundaryValue);
     }
-    let mut output = values
-        .iter()
-        .map(|value| value.unwrap_or(0.0))
-        .collect::<Vec<_>>();
+    let mut output = values.iter().map(|value| value.unwrap_or(0.0)).collect::<Vec<_>>();
     let mut index = 0;
     while index < values.len() {
         if values[index].is_some() {

@@ -9,9 +9,7 @@ pub struct ProfileConfig {
 
 impl Default for ProfileConfig {
     fn default() -> Self {
-        Self {
-            regularity_tolerance: 1e-9,
-        }
+        Self { regularity_tolerance: 1e-9 }
     }
 }
 

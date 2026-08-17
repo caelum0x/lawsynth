@@ -27,17 +27,14 @@ pub fn align_series_linear(
     target_time
         .values()
         .iter()
-        .map(
-            |target| match source_time.binary_search_by(|time| time.total_cmp(target)) {
-                Ok(index) => Ok(source_values[index]),
-                Err(upper) => {
-                    let lower = upper - 1;
-                    let fraction =
-                        (target - source_time[lower]) / (source_time[upper] - source_time[lower]);
-                    Ok(source_values[lower]
-                        + fraction * (source_values[upper] - source_values[lower]))
-                }
-            },
-        )
+        .map(|target| match source_time.binary_search_by(|time| time.total_cmp(target)) {
+            Ok(index) => Ok(source_values[index]),
+            Err(upper) => {
+                let lower = upper - 1;
+                let fraction =
+                    (target - source_time[lower]) / (source_time[upper] - source_time[lower]);
+                Ok(source_values[lower] + fraction * (source_values[upper] - source_values[lower]))
+            }
+        })
         .collect()
 }

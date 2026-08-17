@@ -13,9 +13,7 @@ pub struct PreprocessPipeline {
 
 impl PreprocessPipeline {
     pub fn new(steps: impl IntoIterator<Item = PreprocessStep>) -> Self {
-        Self {
-            steps: steps.into_iter().collect(),
-        }
+        Self { steps: steps.into_iter().collect() }
     }
 
     pub fn steps(&self) -> &[PreprocessStep] {
@@ -69,16 +67,11 @@ mod tests {
     fn applies_transforms_in_order_with_chained_provenance() {
         let input = Dataset::new(
             TimeAxis::new(vec![0.0, 2.0]).unwrap(),
-            [NumericColumn::new(
-                Identifier::new("x").unwrap(),
-                vec![0.0, 4.0],
-            )],
+            [NumericColumn::new(Identifier::new("x").unwrap(), vec![0.0, 4.0])],
         )
         .unwrap();
         let pipeline = PreprocessPipeline::new([
-            PreprocessStep::ResampleLinear {
-                target_time: vec![0.0, 1.0, 2.0],
-            },
+            PreprocessStep::ResampleLinear { target_time: vec![0.0, 1.0, 2.0] },
             PreprocessStep::Standardize,
         ]);
         let (output, reports) = pipeline.apply(&input).unwrap();

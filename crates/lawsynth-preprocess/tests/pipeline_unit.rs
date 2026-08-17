@@ -6,10 +6,7 @@ use lawsynth_preprocess::{AppliedTransform, PreprocessPipeline, PreprocessStep};
 fn pipeline_runs_all_steps_in_order_and_retains_provenance_chain() {
     let dataset = Dataset::new(
         TimeAxis::new(vec![0.0, 1.0, 2.0]).unwrap(),
-        [NumericColumn::new(
-            Identifier::new("x").unwrap(),
-            vec![1.0, 3.0, 5.0],
-        )],
+        [NumericColumn::new(Identifier::new("x").unwrap(), vec![1.0, 3.0, 5.0])],
     )
     .unwrap();
     let pipeline = PreprocessPipeline::new([
@@ -21,9 +18,7 @@ fn pipeline_runs_all_steps_in_order_and_retains_provenance_chain() {
     let AppliedTransform::MovingAverage(smooth) = &reports[0] else {
         panic!("expected smoothing report")
     };
-    let AppliedTransform::Standardize(scale) = &reports[1] else {
-        panic!("expected scale report")
-    };
+    let AppliedTransform::Standardize(scale) = &reports[1] else { panic!("expected scale report") };
     assert_eq!(smooth.output_fingerprint, scale.input_fingerprint);
     assert_eq!(scale.output_fingerprint, output.fingerprint());
 }

@@ -18,10 +18,7 @@ pub fn detrend_linear(dataset: &Dataset) -> Result<(Dataset, DetrendReport), Pre
     let time = dataset.time().values();
     let count = time.len() as f64;
     let time_mean = time.iter().sum::<f64>() / count;
-    let time_variance = time
-        .iter()
-        .map(|value| (value - time_mean).powi(2))
-        .sum::<f64>();
+    let time_variance = time.iter().map(|value| (value - time_mean).powi(2)).sum::<f64>();
     if time_variance <= f64::EPSILON {
         return Err(PreprocessError::InvalidTargetTime);
     }
@@ -52,11 +49,9 @@ pub fn detrend_linear(dataset: &Dataset) -> Result<(Dataset, DetrendReport), Pre
             }
         })
         .collect::<Vec<_>>();
-    let output = Dataset::new(
-        TimeAxis::new(time.to_vec()).expect("source time axis is valid"),
-        columns,
-    )
-    .expect("detrending preserves valid aligned data");
+    let output =
+        Dataset::new(TimeAxis::new(time.to_vec()).expect("source time axis is valid"), columns)
+            .expect("detrending preserves valid aligned data");
     let report = DetrendReport {
         input_fingerprint: dataset.fingerprint(),
         output_fingerprint: output.fingerprint(),
@@ -77,10 +72,7 @@ mod tests {
     fn removes_a_linear_trend_and_records_coefficients() {
         let dataset = Dataset::new(
             TimeAxis::new(vec![0.0, 1.0, 2.0]).unwrap(),
-            [NumericColumn::new(
-                Identifier::new("x").unwrap(),
-                vec![2.0, 5.0, 8.0],
-            )],
+            [NumericColumn::new(Identifier::new("x").unwrap(), vec![2.0, 5.0, 8.0])],
         )
         .unwrap();
         let (detrended, report) = detrend_linear(&dataset).unwrap();

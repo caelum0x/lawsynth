@@ -33,9 +33,12 @@ impl Dataset {
                     return Err(DataError::NonFiniteValue { column: column.id, index, value });
                 }
             }
-            if column_map.insert(column.id.clone(), column.clone()).is_some() {
+            // Move the column into the map without copying its values; only the
+            // lightweight identifier key is cloned.
+            if column_map.contains_key(&column.id) {
                 return Err(DataError::DuplicateColumn(column.id));
             }
+            column_map.insert(column.id.clone(), column);
         }
         if column_map.is_empty() {
             return Err(DataError::NoColumns);

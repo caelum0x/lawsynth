@@ -29,11 +29,7 @@ pub fn moving_average(
                     column.values[start..end].iter().sum::<f64>() / (end - start) as f64
                 })
                 .collect();
-            NumericColumn {
-                id: column.id.clone(),
-                values,
-                unit: column.unit.clone(),
-            }
+            NumericColumn { id: column.id.clone(), values, unit: column.unit.clone() }
         })
         .collect::<Vec<_>>();
     let output = Dataset::new(
@@ -60,17 +56,11 @@ mod tests {
     fn smooths_with_short_endpoint_windows_and_records_provenance() {
         let data = Dataset::new(
             TimeAxis::new(vec![0.0, 1.0, 2.0]).unwrap(),
-            [NumericColumn::new(
-                Identifier::new("x").unwrap(),
-                vec![0.0, 3.0, 0.0],
-            )],
+            [NumericColumn::new(Identifier::new("x").unwrap(), vec![0.0, 3.0, 0.0])],
         )
         .unwrap();
         let (smoothed, report) = moving_average(&data, 1).unwrap();
-        assert_eq!(
-            smoothed.columns()[&Identifier::new("x").unwrap()].values,
-            vec![1.5, 1.0, 1.5]
-        );
+        assert_eq!(smoothed.columns()[&Identifier::new("x").unwrap()].values, vec![1.5, 1.0, 1.5]);
         assert_eq!(report.input_fingerprint, data.fingerprint());
         assert_eq!(report.output_fingerprint, smoothed.fingerprint());
     }

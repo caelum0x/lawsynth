@@ -21,8 +21,16 @@ name = "window_throughput"
 path = "benches/window_throughput.rs"
 harness = false
 
+[[bench]]
+name = "ingest_scale"
+path = "benches/ingest_scale.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
+
+[dev-dependencies]
+lawsynth-profile = { path = "../lawsynth-profile" }
 
 [lib]
 path = "src/lib.rs"

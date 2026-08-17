@@ -74,19 +74,13 @@ mod tests {
     fn interpolates_columns_on_a_new_axis() {
         let data = Dataset::new(
             TimeAxis::new(vec![0.0, 2.0]).unwrap(),
-            [NumericColumn::new(
-                Identifier::new("x").unwrap(),
-                vec![0.0, 4.0],
-            )],
+            [NumericColumn::new(Identifier::new("x").unwrap(), vec![0.0, 4.0])],
         )
         .unwrap();
         let (result, report) =
             resample_linear_with_report(&data, TimeAxis::new(vec![0.0, 1.0, 2.0]).unwrap())
                 .unwrap();
-        assert_eq!(
-            result.columns()[&Identifier::new("x").unwrap()].values,
-            vec![0.0, 2.0, 4.0]
-        );
+        assert_eq!(result.columns()[&Identifier::new("x").unwrap()].values, vec![0.0, 2.0, 4.0]);
         assert_eq!(report.input_fingerprint, data.fingerprint());
         assert_eq!(report.output_fingerprint, result.fingerprint());
         assert_eq!(report.target_time, vec![0.0, 1.0, 2.0]);

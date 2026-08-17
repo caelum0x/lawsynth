@@ -68,10 +68,7 @@ mod tests {
     fn profiles_sampling_and_population_moments() {
         let data = Dataset::new(
             TimeAxis::new(vec![0.0, 0.5, 1.0]).unwrap(),
-            [NumericColumn::new(
-                Identifier::new("x").unwrap(),
-                vec![1.0, 2.0, 3.0],
-            )],
+            [NumericColumn::new(Identifier::new("x").unwrap(), vec![1.0, 2.0, 3.0])],
         )
         .unwrap();
         let result = profile(&data).unwrap();
@@ -83,9 +80,6 @@ mod tests {
         assert_eq!(column.mean, 2.0);
         assert!((column.variance - 2.0 / 3.0).abs() < 1e-12);
         assert!(!result.quality[&Identifier::new("x").unwrap()].is_constant);
-        assert_eq!(
-            result.missingness[&Identifier::new("x").unwrap()].missing,
-            0
-        );
+        assert_eq!(result.missingness[&Identifier::new("x").unwrap()].missing, 0);
     }
 }

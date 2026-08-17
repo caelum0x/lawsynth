@@ -25,8 +25,5 @@ fn main() {
             .map(|batch| batch.time.len())
             .sum::<usize>();
     }
-    println!(
-        "materialized {rows} aligned batch rows in {:?}",
-        started.elapsed()
-    );
+    println!("materialized {rows} aligned batch rows in {:?}", started.elapsed());
 }

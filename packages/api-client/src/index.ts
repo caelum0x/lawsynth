@@ -10,6 +10,7 @@ export * from "./pagination.js";
 export * from "./projects.js";
 export * from "./runs.js";
 export * from "./simulations.js";
+export * from "./testing.js";
 export * from "./transport.js";
 export * from "./uploads.js";
 export * from "./worlds.js";

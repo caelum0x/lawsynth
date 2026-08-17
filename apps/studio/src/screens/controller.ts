@@ -1,11 +1,21 @@
-import type { CandidateSummary, LawSynthClient, RunStatus } from "@lawsynth/api-client";
+import type {
+  CandidateSummary,
+  ForecastRequest,
+  LawSynthClient,
+  RunStatus,
+  RunSummary,
+  WorldComparison,
+  WorldExplanation,
+  WorldForecast,
+} from "@lawsynth/api-client";
 import type { TrajectoryInput } from "@lawsynth/chart-core";
 import { primarySelection, type StateStore } from "@lawsynth/state-store";
 import type { WorldDefinition } from "@lawsynth/world-schema";
+import { worldFromRecord } from "../world-adapter.js";
 import {
   defaultDiscoveryConfig,
   discoveryCanvasModel,
-  discoveryRunRequest,
+  discoverySubmitRequest,
   SOLVERS,
   type DiscoveryCanvasConfig,
   type DiscoverySolver,
@@ -27,6 +37,21 @@ import type { Notice, ScreenId, ScreenModel, ScreenSection } from "./types.js";
 import { uncertaintyLensModel } from "./uncertainty-lens.js";
 import { worldLabModel } from "./world-lab.js";
 
+/** Bounded polling of a live discovery run, injectable so tests avoid wall-clock waits. */
+export interface DiscoveryPollOptions {
+  readonly waitMs?: number;
+  readonly maxAttempts?: number;
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+interface ResolvedPoll {
+  readonly waitMs: number;
+  readonly maxAttempts: number;
+  readonly sleep: (ms: number) => Promise<void>;
+}
+
+const TERMINAL: ReadonlySet<RunStatus> = new Set<RunStatus>(["succeeded", "failed", "cancelled"]);
+
 export interface ScreensControllerOptions {
   readonly store: StateStore;
   readonly api?: LawSynthClient;
@@ -36,6 +61,7 @@ export interface ScreensControllerOptions {
   readonly candidates?: readonly CandidateSummary[];
   readonly datasets?: readonly { readonly id: string; readonly name: string }[];
   readonly columns?: readonly string[];
+  readonly poll?: DiscoveryPollOptions;
 }
 
 interface LabState {
@@ -83,7 +109,13 @@ export class ScreensController extends EventTarget {
   readonly #randomId: () => string;
   readonly #columns: readonly string[];
   readonly #datasets: readonly { readonly id: string; readonly name: string }[];
+  readonly #poll: ResolvedPoll;
   readonly #unsubscribe: () => void;
+  #worldId: string | undefined;
+  #explanation: WorldExplanation | undefined;
+  #forecast: WorldForecast | undefined;
+  #comparison: WorldComparison | undefined;
+  #report: string | undefined;
 
   #screen: ScreenId = "discovery-canvas";
   #world: WorldDefinition;
@@ -110,6 +142,11 @@ export class ScreensController extends EventTarget {
     this.#candidates = options.candidates ?? [];
     this.#datasets = options.datasets ?? [{ id: "dataset-demo", name: "Demo dataset" }];
     this.#columns = options.columns ?? [this.#world.time.symbol ?? "t", ...this.#world.variables.map((variable) => variable.id)];
+    this.#poll = {
+      waitMs: options.poll?.waitMs ?? 250,
+      maxAttempts: options.poll?.maxAttempts ?? 40,
+      sleep: options.poll?.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
+    };
     this.#discovery = defaultDiscoveryConfig(this.#datasets[0]?.id ?? "", this.#columns);
     this.#lab = {
       overrides: {},
@@ -132,6 +169,27 @@ export class ScreensController extends EventTarget {
   }
   get world(): WorldDefinition {
     return this.#world;
+  }
+  get runStatus(): RunStatus | undefined {
+    return this.#runStatus;
+  }
+  get worldId(): string | undefined {
+    return this.#worldId;
+  }
+  get explanation(): WorldExplanation | undefined {
+    return this.#explanation;
+  }
+  get forecast(): WorldForecast | undefined {
+    return this.#forecast;
+  }
+  get comparison(): WorldComparison | undefined {
+    return this.#comparison;
+  }
+  get report(): string | undefined {
+    return this.#report;
+  }
+  get lastError(): string | undefined {
+    return this.#lastError;
   }
 
   setScreen(screen: ScreenId): void {
@@ -271,6 +329,12 @@ export class ScreensController extends EventTarget {
     }
     if (actionId === "discovery:run") return this.#runDiscovery();
     if (actionId === "lab:simulate") return this.#runSimulation();
+    if (actionId === "world:explain") { await this.explainWorld(); return; }
+    if (actionId === "world:report") { await this.reportWorld(); return; }
+    if (actionId === "world:forecast") {
+      await this.forecastWorld({ horizon: this.#lab.horizon, step: this.#lab.step, initial: this.#trajectoryInitial() });
+      return;
+    }
   }
 
   #trajectoryInitial(): Readonly<Record<string, number>> {
@@ -362,29 +426,131 @@ export class ScreensController extends EventTarget {
     this.#store.dispatch({ kind: "selection.set", ids: [] });
   }
 
+  /**
+   * Drives a LIVE discovery run against the API client when one is present:
+   * submit -> bounded poll to a terminal status -> load the discovered world and
+   * hand it to every screen. Falls back to the offline fixture candidates only
+   * when no client is configured.
+   */
   async #runDiscovery(): Promise<void> {
     this.#running = true;
-    this.#runStatus = "running";
-    this.#runProgress = 0.15;
+    this.#runStatus = "queued";
+    this.#runProgress = 0.1;
     this.#emit();
     try {
-      if (this.#api !== undefined) {
-        const projectId = this.#store.state.workspace.projectId ?? "project-demo";
-        const run = await this.#api.runs.create(discoveryRunRequest(this.#discovery, projectId), this.#randomId());
-        const page = await this.#api.runs.candidates(run.id, { limit: 100 });
-        this.#candidates = Object.freeze([...page.items].sort((a, b) => b.score - a.score));
-        this.#runStatus = run.status;
-      } else {
+      if (this.#api === undefined) {
         this.#candidates = fixtureCandidates();
         this.#runStatus = "succeeded";
+        this.#runProgress = 1;
+        return;
       }
-      this.#runProgress = 1;
+      const projectId = this.#store.state.workspace.projectId ?? "project-demo";
+      const submitted = await this.#api.runs.submitDiscovery(discoverySubmitRequest(this.#discovery, projectId), this.#randomId());
+      this.#runStatus = submitted.status;
+      this.#runProgress = 0.25;
+      this.#emit();
+      const settled = await this.#pollRun(submitted.id);
+      this.#runStatus = settled.status;
+      if (settled.status === "succeeded") {
+        this.#runProgress = 0.85;
+        this.#emit();
+        const runWorld = await this.#api.runs.getWorld(settled.id);
+        this.#worldId = runWorld.world_id;
+        this.#candidates = Object.freeze([]);
+        this.setWorld(worldFromRecord(runWorld.world)); // hands the live world to every screen
+        this.#runProgress = 1;
+      } else if (settled.status === "failed" || settled.status === "cancelled") {
+        this.#runProgress = 1;
+        this.#lastError = this.#failureReason(settled) ?? `Discovery run ${settled.status}.`;
+      } else {
+        this.#runProgress = 1;
+        this.#lastError = "Discovery run did not complete within the polling budget.";
+      }
     } catch (error) {
       this.#runStatus = "failed";
       this.#lastError = error instanceof Error ? error.message : "Discovery run failed.";
     } finally {
       this.#running = false;
       this.#emit();
+    }
+  }
+
+  /** Poll `runs.get` until a terminal status or the attempt budget is exhausted. */
+  async #pollRun(runId: string): Promise<RunSummary> {
+    let last: RunSummary | undefined;
+    for (let attempt = 0; attempt < this.#poll.maxAttempts; attempt += 1) {
+      const run = await this.#api!.runs.get(runId);
+      last = run;
+      this.#runStatus = run.status;
+      this.#runProgress = Math.min(0.8, 0.25 + ((attempt + 1) / this.#poll.maxAttempts) * 0.5);
+      this.#emit();
+      if (TERMINAL.has(run.status)) return run;
+      await this.#poll.sleep(this.#poll.waitMs);
+    }
+    if (last === undefined) throw new Error("Discovery run could not be polled.");
+    return last;
+  }
+
+  #failureReason(run: RunSummary): string | undefined {
+    const metadata = run.metadata;
+    if (metadata === undefined) return undefined;
+    const error = (metadata as Record<string, unknown>)["error"];
+    return typeof error === "string" ? error : undefined;
+  }
+
+  #currentWorldId(): string | undefined {
+    return this.#worldId ?? this.#store.state.workspace.worldId ?? this.#world.id;
+  }
+
+  /** Load a plain-language explanation of the current world (`worlds.explain`). */
+  async explainWorld(): Promise<WorldExplanation | undefined> {
+    return this.#withWorld("explain", async (api, worldId) => {
+      this.#explanation = await api.worlds.explain(worldId);
+      return this.#explanation;
+    });
+  }
+
+  /** Fetch the self-contained HTML report of the current world (`worlds.report`). */
+  async reportWorld(): Promise<string | undefined> {
+    return this.#withWorld("report", async (api, worldId) => {
+      this.#report = await api.worlds.report(worldId);
+      return this.#report;
+    });
+  }
+
+  /** Forecast the current world forward (`worlds.forecast`). */
+  async forecastWorld(request: ForecastRequest): Promise<WorldForecast | undefined> {
+    return this.#withWorld("forecast", async (api, worldId) => {
+      this.#forecast = await api.worlds.forecast(worldId, request, this.#randomId());
+      return this.#forecast;
+    });
+  }
+
+  /** Diff the current world against another (`worlds.compare`). */
+  async compareWorlds(otherWorldId: string): Promise<WorldComparison | undefined> {
+    return this.#withWorld("compare", async (api, worldId) => {
+      this.#comparison = await api.worlds.compare(worldId, otherWorldId, this.#randomId());
+      return this.#comparison;
+    });
+  }
+
+  async #withWorld<T>(action: string, run: (api: LawSynthClient, worldId: string) => Promise<T>): Promise<T | undefined> {
+    this.#lastError = undefined;
+    const api = this.#api;
+    const worldId = this.#currentWorldId();
+    if (api === undefined || worldId === undefined) {
+      this.#lastError = `No live service configured for ${action}.`;
+      this.#emit();
+      return undefined;
+    }
+    try {
+      const result = await run(api, worldId);
+      this.#emit();
+      return result;
+    } catch (error) {
+      this.#lastError = error instanceof Error ? error.message : `World ${action} failed.`;
+      this.#emit();
+      return undefined;
     }
   }
 

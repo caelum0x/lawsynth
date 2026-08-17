@@ -22,11 +22,7 @@ pub fn standardize(dataset: &Dataset) -> Result<(Dataset, ScaleReport), Preproce
     let mut columns = Vec::new();
     for column in dataset.columns().values() {
         let column_mean = column.values.iter().sum::<f64>() / column.values.len() as f64;
-        let variance = column
-            .values
-            .iter()
-            .map(|value| (value - column_mean).powi(2))
-            .sum::<f64>()
+        let variance = column.values.iter().map(|value| (value - column_mean).powi(2)).sum::<f64>()
             / column.values.len() as f64;
         let deviation = variance.sqrt();
         if deviation <= f64::EPSILON {
@@ -37,11 +33,7 @@ pub fn standardize(dataset: &Dataset) -> Result<(Dataset, ScaleReport), Preproce
         original_units.insert(column.id.to_string(), column.unit.clone());
         columns.push(NumericColumn {
             id: column.id.clone(),
-            values: column
-                .values
-                .iter()
-                .map(|value| (value - column_mean) / deviation)
-                .collect(),
+            values: column.values.iter().map(|value| (value - column_mean) / deviation).collect(),
             unit: None,
         });
     }
@@ -77,11 +69,7 @@ pub fn unstandardize(dataset: &Dataset, report: &ScaleReport) -> Result<Dataset,
                 .ok_or_else(|| PreprocessError::MissingScaleColumn(name.clone()))?;
             Ok(NumericColumn {
                 id: column.id.clone(),
-                values: column
-                    .values
-                    .iter()
-                    .map(|value| value * deviation + mean)
-                    .collect(),
+                values: column.values.iter().map(|value| value * deviation + mean).collect(),
                 unit: report
                     .original_units
                     .get(&name)
@@ -113,10 +101,7 @@ mod tests {
         .unwrap();
         let (scaled, report) = standardize(&data).unwrap();
         assert_eq!(report.mean["x"], 2.0);
-        assert_eq!(
-            scaled.columns()[&Identifier::new("x").unwrap()].values,
-            vec![-1.0, 1.0]
-        );
+        assert_eq!(scaled.columns()[&Identifier::new("x").unwrap()].values, vec![-1.0, 1.0]);
         assert_eq!(scaled.columns()[&Identifier::new("x").unwrap()].unit, None);
         let restored = unstandardize(&scaled, &report).unwrap();
         assert_eq!(restored, data);

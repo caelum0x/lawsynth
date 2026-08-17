@@ -12,18 +12,12 @@ fn resampling_and_scale_roundtrip_preserve_interpolated_values_and_units() {
     let (resampled, report) =
         resample_linear_with_report(&original, TimeAxis::new(vec![0.0, 1.0, 2.0]).unwrap())
             .unwrap();
-    assert_eq!(
-        resampled.columns()[&Identifier::new("x").unwrap()].values,
-        vec![1.0, 3.0, 5.0]
-    );
+    assert_eq!(resampled.columns()[&Identifier::new("x").unwrap()].values, vec![1.0, 3.0, 5.0]);
     assert_eq!(report.target_time, resampled.time().values());
     let (scaled, scale_report) = standardize(&resampled).unwrap();
     let restored = unstandardize(&scaled, &scale_report).unwrap();
     assert_eq!(restored.time(), resampled.time());
-    assert_eq!(
-        restored.columns()[&Identifier::new("x").unwrap()].unit,
-        Some("m".into())
-    );
+    assert_eq!(restored.columns()[&Identifier::new("x").unwrap()].unit, Some("m".into()));
     assert!(
         restored.columns()[&Identifier::new("x").unwrap()]
             .values

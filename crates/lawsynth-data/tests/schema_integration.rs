@@ -12,12 +12,7 @@ fn schema_is_independent_of_input_column_order() {
     )
     .unwrap();
     assert_eq!(
-        dataset
-            .schema()
-            .columns
-            .iter()
-            .map(Identifier::as_str)
-            .collect::<Vec<_>>(),
+        dataset.schema().columns.iter().map(Identifier::as_str).collect::<Vec<_>>(),
         ["a", "z"]
     );
 }

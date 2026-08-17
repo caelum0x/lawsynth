@@ -56,9 +56,6 @@ mod tests {
 
     #[test]
     fn rejects_non_finite_values() {
-        assert_eq!(
-            distribution(&[1.0, f64::NAN]),
-            Err(ProfileError::NonFiniteValues)
-        );
+        assert_eq!(distribution(&[1.0, f64::NAN]), Err(ProfileError::NonFiniteValues));
     }
 }

@@ -9,8 +9,5 @@ fn main() {
     for _ in 0..1_000 {
         sum += black_box(pearson_correlation(&left, &right).unwrap());
     }
-    println!(
-        "computed correlations ({sum:.1}) in {:?}",
-        started.elapsed()
-    );
+    println!("computed correlations ({sum:.1}) in {:?}", started.elapsed());
 }

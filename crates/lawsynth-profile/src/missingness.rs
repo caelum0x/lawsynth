@@ -14,11 +14,7 @@ impl MissingnessProfile {
     }
 
     pub fn fraction(&self) -> f64 {
-        if self.total == 0 {
-            0.0
-        } else {
-            self.missing as f64 / self.total as f64
-        }
+        if self.total == 0 { 0.0 } else { self.missing as f64 / self.total as f64 }
     }
 }
 
@@ -47,9 +43,6 @@ pub fn profile_missingness<T>(values: &[Option<T>]) -> MissingnessProfile {
 /// Treats non-finite floating values as missing in pre-ingestion sources.
 pub fn profile_f64_missingness(values: &[f64]) -> MissingnessProfile {
     profile_missingness(
-        &values
-            .iter()
-            .map(|value| value.is_finite().then_some(()))
-            .collect::<Vec<_>>(),
+        &values.iter().map(|value| value.is_finite().then_some(())).collect::<Vec<_>>(),
     )
 }

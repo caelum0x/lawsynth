@@ -35,9 +35,6 @@ mod tests {
 
     #[test]
     fn identifies_perfect_anti_correlation() {
-        assert_eq!(
-            pearson_correlation(&[1.0, 2.0, 3.0], &[3.0, 2.0, 1.0]).unwrap(),
-            -1.0
-        );
+        assert_eq!(pearson_correlation(&[1.0, 2.0, 3.0], &[3.0, 2.0, 1.0]).unwrap(), -1.0);
     }
 }

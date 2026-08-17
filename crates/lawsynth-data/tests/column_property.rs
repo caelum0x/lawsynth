@@ -11,16 +11,7 @@ fn fingerprints_change_when_values_or_unit_metadata_change() {
         .unwrap()
     };
     let baseline = make(vec![1.0, 2.0], "m");
-    assert_eq!(
-        baseline.content_fingerprint(),
-        baseline.content_fingerprint()
-    );
-    assert_ne!(
-        baseline.content_fingerprint(),
-        make(vec![1.0, 3.0], "m").content_fingerprint()
-    );
-    assert_ne!(
-        baseline.content_fingerprint(),
-        make(vec![1.0, 2.0], "s").content_fingerprint()
-    );
+    assert_eq!(baseline.content_fingerprint(), baseline.content_fingerprint());
+    assert_ne!(baseline.content_fingerprint(), make(vec![1.0, 3.0], "m").content_fingerprint());
+    assert_ne!(baseline.content_fingerprint(), make(vec![1.0, 2.0], "s").content_fingerprint());
 }
