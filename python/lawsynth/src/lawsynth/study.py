@@ -827,6 +827,18 @@ class Study:
     def states(self) -> tuple[str, ...]:
         return self._states
 
+    def profile(self):
+        """Profile the study's dataset (quality report before discovery).
+
+        Returns a :class:`~lawsynth.profile.DataProfile` with per-column
+        statistics, time monotonicity and sampling regularity, degenerate
+        columns, and quality warnings. Pure standard library and deterministic;
+        works before :meth:`discover`.
+        """
+        from .profile import profile as _profile
+
+        return _profile(self._dataset, name=self._name)
+
     @property
     def world(self) -> object:
         self._require_world()

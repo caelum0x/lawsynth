@@ -17,6 +17,7 @@ mod pipeline;
 mod presets;
 mod profile;
 mod report;
+mod runs;
 mod scenarios;
 mod serve;
 mod simulate;
@@ -64,6 +65,8 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
         "scenarios" => scenarios::run(&arguments[1..]),
         "doctor" => doctor::run(&arguments[1..]),
         "library" => library::run(&arguments[1..]),
+        "runs" => runs::run(&arguments[1..]),
+        "profile" => profile::run(&arguments[1..]),
         "presets" => presets::run(&arguments[1..]),
         "export" => export::run(&arguments[1..]),
         "new" => templates::run_new(&arguments[1..]),
@@ -77,6 +80,9 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
 fn discover_command(arguments: &[String]) -> Result<String, String> {
     // A `--preset <name>` seeds the discovery defaults for this run; explicit
     // flags below override those seeds because they are parsed afterwards.
+    // Capture the preset name before `extract` consumes the flag, so run
+    // tracking can record which preset seeded the configuration.
+    let preset_name = preset_name_of(arguments);
     let (preset, arguments) = presets::extract(arguments)?;
     let seed = preset.unwrap_or_default();
     let Some(input) = arguments.first() else {
@@ -102,6 +108,9 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     let mut report_pareto = false;
     let mut enable_refine = seed.enable_refine;
     let mut enable_causal = false;
+    let mut track = false;
+    let mut label = None;
+    let mut runs_dir = None;
     let mut index = 1;
     while index < arguments.len() {
         let option = &arguments[index];
@@ -113,6 +122,7 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
             || option == "--pareto"
             || option == "--refine"
             || option == "--causal"
+            || option == "--track"
         {
             match option.as_str() {
                 "--trigonometric" => include_trigonometric = true,
@@ -123,6 +133,7 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
                 "--pareto" => report_pareto = true,
                 "--refine" => enable_refine = true,
                 "--causal" => enable_causal = true,
+                "--track" => track = true,
                 _ => unreachable!(),
             }
             index += 1;
@@ -131,6 +142,8 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
         let value = arguments.get(index + 1).ok_or_else(usage)?;
         match option.as_str() {
             "--time" => time = Some(value.clone()),
+            "--label" => label = Some(value.clone()),
+            "--runs-dir" => runs_dir = Some(value.clone()),
             "--state" => state = Some(parse_identifiers(value)?),
             "--output" => output = Some(value.clone()),
             "--degree" => degree = parse_steps(value)?,
@@ -227,7 +240,74 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     if let Some(edges) = dependency_edges {
         writeln!(&mut summary, "dependency hypothesis: {edges} edge(s)").unwrap();
     }
+    if track {
+        // Record this run deterministically. The data hash is a content anchor
+        // (no clock is read); the run's id is derived from it plus the config.
+        let time_column = time.as_deref().unwrap_or("time");
+        let derivative = if use_spline {
+            "spline".to_owned()
+        } else if use_spectral {
+            "spectral".to_owned()
+        } else if let Some(window) = savgol_window {
+            format!("savgol:{window}")
+        } else if let Some(lambda) = tvreg_lambda {
+            format!("tvreg:{lambda:.6e}@{tvreg_iterations}")
+        } else {
+            "finite-difference".to_owned()
+        };
+        let solver = match sparse_method {
+            SparseMethod::Stlsq => "stlsq",
+            SparseMethod::Sr3 => "sr3",
+        };
+        let mut columns = vec![time_column.to_owned()];
+        columns.extend(dataset.columns().keys().map(|id| id.as_str().to_owned()));
+        let data_bytes = fs::read(input).map_err(|error| error.to_string())?;
+        let record = runs::RunBuilder::new()
+            .field("label", label.as_deref().unwrap_or("-"))
+            .field("data.hash", lawsynth_bundle::sha256_hex(&data_bytes))
+            .field("data.columns", columns.join(","))
+            .field("data.samples", dataset.time().len().to_string())
+            .field("config.preset", preset_name.as_str())
+            .field("config.degree", degree.to_string())
+            .field("config.threshold", format!("{threshold:.6e}"))
+            .field("config.solver", solver)
+            .field("config.derivative", derivative)
+            .field(
+                "config.smoothing",
+                smoothing_radius.map(|radius| radius.to_string()).unwrap_or_else(|| "-".to_owned()),
+            )
+            .toggle("config.trigonometric", include_trigonometric)
+            .toggle("config.rational", include_rational)
+            .toggle("config.regimes", enable_regimes)
+            .toggle("config.refine", enable_refine)
+            .toggle("config.causal", enable_causal)
+            .toggle("config.pareto", report_pareto)
+            .field("result.mse", format!("{:.6e}", candidate.metrics.mean_squared_error))
+            .field("result.complexity", candidate.metrics.complexity.to_string())
+            .field("result.laws", config.state.len().to_string())
+            .field("result.pareto_size", frontier_size.to_string())
+            .field(
+                "result.regime_segments",
+                regime_segments.map(|count| count.to_string()).unwrap_or_else(|| "-".to_owned()),
+            )
+            .build();
+        let message = runs::record_run(runs_dir.as_deref(), &record)?;
+        summary.push_str(&message);
+    }
     Ok(summary)
+}
+
+/// Extracts the `--preset NAME` value from raw arguments, or `"none"` if absent.
+///
+/// Read before `presets::extract` consumes the flag so run tracking can record
+/// which preset seeded a configuration.
+fn preset_name_of(arguments: &[String]) -> String {
+    arguments
+        .iter()
+        .position(|argument| argument == "--preset")
+        .and_then(|index| arguments.get(index + 1))
+        .cloned()
+        .unwrap_or_else(|| "none".to_owned())
 }
 
 /// Reads observations through the native CSV, TSV, or Parquet data boundary.
@@ -445,5 +525,5 @@ fn parse_steps(value: &str) -> Result<usize, String> {
 }
 
 fn usage() -> String {
-    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--preset NAME] [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N] [--regimes] [--pareto] [--refine] [--causal]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|search|compare|remove> [--dir DIR] ...\n  lawsynth presets\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n\nRun any command with --help for details.".to_owned()
+    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--preset NAME] [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N] [--regimes] [--pareto] [--refine] [--causal] [--track [--label TEXT] [--runs-dir DIR]]\n  lawsynth profile OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] [--json]\n  lawsynth runs <list|show|compare> [--dir DIR] ...\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|search|compare|remove> [--dir DIR] ...\n  lawsynth presets\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n\nRun any command with --help for details.".to_owned()
 }

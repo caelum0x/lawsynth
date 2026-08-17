@@ -14,11 +14,24 @@ use lawsynth_world::World;
 
 use crate::html::{document, escape};
 use crate::render::{format_number, render_continuous_law};
+use crate::theme::Theme;
 
 /// Renders a self-contained side-by-side comparison of two worlds.
 ///
 /// `label_a` and `label_b` head the two columns (typically the source paths).
+/// Themed with the brand light theme; see [`render_comparison_with_theme`].
 pub fn render_comparison(world_a: &World, label_a: &str, world_b: &World, label_b: &str) -> String {
+    render_comparison_with_theme(world_a, label_a, world_b, label_b, Theme::default())
+}
+
+/// [`render_comparison`] with an explicit [`Theme`].
+pub fn render_comparison_with_theme(
+    world_a: &World,
+    label_a: &str,
+    world_b: &World,
+    label_b: &str,
+    theme: Theme,
+) -> String {
     let title = format!("LawSynth comparison: {label_a} vs {label_b}");
     let mut body = String::new();
 
@@ -49,7 +62,7 @@ pub fn render_comparison(world_a: &World, label_a: &str, world_b: &World, label_
     laws_diff_section(&mut body, world_a, world_b);
     parameters_diff_section(&mut body, world_a, world_b);
 
-    document(&title, &body)
+    document(&title, &body, &theme)
 }
 
 fn summary_row(body: &mut String, label: &str, a: usize, b: usize) {
@@ -128,9 +141,8 @@ fn parameters_diff_section(body: &mut String, world_a: &World, world_b: &World) 
         );
     }
     body.push_str("      </tbody>\n    </table>\n  </section>\n");
-    body.push_str(
-        "  <style>.added{color:#059669;font-weight:600}.removed{color:#dc2626;font-weight:600}.changed{color:#d97706;font-weight:600}.neutral{color:#64748b}.equation-cell{font-family:'SFMono-Regular',Consolas,monospace;font-size:0.9rem}</style>\n",
-    );
+    // Diff-status classes (.added/.removed/.changed/.neutral/.equation-cell) are
+    // defined once in the themed stylesheet, so no inline <style> is needed here.
 }
 
 fn union_ids<'a>(

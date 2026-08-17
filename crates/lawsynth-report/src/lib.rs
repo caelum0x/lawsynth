@@ -8,6 +8,9 @@
 mod html;
 mod render;
 mod svg;
+mod theme;
+
+pub use theme::Theme;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -20,13 +23,20 @@ pub use render::{
     format_number, python_number, render_continuous_law, render_discrete_law, render_expression,
     render_latex_expression, render_latex_law, render_python_expression,
 };
-pub use svg::RegimeSpan;
+pub use svg::{
+    FitSeries, RegimeSpan, fit_overlay_chart, fit_overlay_chart_themed, line_chart,
+    line_chart_themed, phase_portrait, phase_portrait_themed, regime_timeline,
+    regime_timeline_themed, residual_strip, residual_strip_themed, series_color,
+    uncertainty_band_chart, uncertainty_band_chart_themed,
+};
 
 mod comparison;
-pub use comparison::render_comparison;
+pub use comparison::{render_comparison, render_comparison_with_theme};
 
 mod scenarios;
-pub use scenarios::{ScenarioOutcome, ScenarioReport, render_scenarios};
+pub use scenarios::{
+    ScenarioOutcome, ScenarioReport, render_scenarios, render_scenarios_with_theme,
+};
 
 /// Observed samples overlaid on a report to show fit quality.
 ///
@@ -77,6 +87,11 @@ pub struct ReportOptions {
     pub regimes: Option<Vec<RegimeSpan>>,
     /// Optional per-state uncertainty bands.
     pub uncertainty: Option<Vec<UncertaintyBand>>,
+    /// Brand theme applied to the document and its charts.
+    ///
+    /// Defaults to [`Theme::default`] (brand light), so existing callers that
+    /// build `ReportOptions` via `..Default::default()` inherit the brand.
+    pub theme: Theme,
 }
 
 impl Default for ReportOptions {
@@ -91,6 +106,7 @@ impl Default for ReportOptions {
             observations: None,
             regimes: None,
             uncertainty: None,
+            theme: Theme::default(),
         }
     }
 }
@@ -132,9 +148,24 @@ pub fn simulate_default(world: &World, options: &ReportOptions) -> Result<Trajec
 }
 
 /// Renders a complete standalone HTML report for a world.
+///
+/// The report is themed by [`ReportOptions::theme`] (brand light by default).
 pub fn render_report(world: &World, options: &ReportOptions) -> Result<String, ReportError> {
     let trajectory = simulate_default(world, options)?;
     Ok(html::page(&options.title, world, &trajectory, options))
+}
+
+/// Renders a report with an explicit [`Theme`], overriding `options.theme`.
+///
+/// Convenience wrapper for callers that hold a base [`ReportOptions`] and want
+/// to swap only the theme without rebuilding the struct.
+pub fn render_report_with_theme(
+    world: &World,
+    options: &ReportOptions,
+    theme: Theme,
+) -> Result<String, ReportError> {
+    let themed = ReportOptions { theme, ..options.clone() };
+    render_report(world, &themed)
 }
 
 #[cfg(test)]
@@ -168,6 +199,21 @@ mod tests {
         // No external assets.
         assert!(!html.contains("src=\"http"));
         assert!(!html.contains("<script"));
+    }
+
+    #[test]
+    fn default_report_carries_brand_theme() {
+        let html = render_report(&decay_world(), &ReportOptions::default()).unwrap();
+        // Brand tokens in the inline stylesheet and charts.
+        assert!(html.contains("#18201d"), "brand ink absent"); // ink
+        assert!(html.contains("#f3f0e8"), "brand paper absent"); // paper
+        assert!(html.contains("#b54b2a"), "brand accent absent"); // accent (primary series + header)
+        // Brand font stacks (no external fonts, stacks only).
+        assert!(html.contains("Georgia"), "serif display stack absent");
+        assert!(html.contains("Inter, system-ui"), "sans interface stack absent");
+        assert!(html.contains("ui-monospace"), "mono stack absent");
+        // Not the old ad-hoc blue palette.
+        assert!(!html.contains("#2563eb"), "legacy blue accent leaked");
     }
 
     #[test]

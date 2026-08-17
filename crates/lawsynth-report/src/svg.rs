@@ -6,14 +6,14 @@
 use std::fmt::Write;
 
 use crate::render::format_number;
+use crate::theme::{BRAND_SERIES, Theme};
 
-/// Deterministic categorical palette (colour-blind friendly ordering).
-const PALETTE: [&str; 8] =
-    ["#2563eb", "#dc2626", "#059669", "#d97706", "#7c3aed", "#0891b2", "#db2777", "#65a30d"];
-
-/// Returns the stable series colour for a given series index.
+/// Returns the stable brand series colour for a given series index.
+///
+/// Kept for backward compatibility; new code should prefer
+/// [`Theme::series_color`], which honours a caller-supplied theme.
 pub fn series_color(index: usize) -> &'static str {
-    PALETTE[index % PALETTE.len()]
+    BRAND_SERIES[index % BRAND_SERIES.len()]
 }
 
 struct Bounds {
@@ -82,17 +82,29 @@ impl Frame {
 /// Renders a multi-series line chart of state trajectories against time.
 ///
 /// `series` is a slice of `(label, values)` pairs sharing the `time` axis.
+/// Uses the brand theme; see [`line_chart_themed`] to supply a [`Theme`].
 pub fn line_chart(time: &[f64], series: &[(String, Vec<f64>)], width: f64, height: f64) -> String {
+    line_chart_themed(time, series, width, height, &Theme::default())
+}
+
+/// [`line_chart`] with an explicit [`Theme`] for series and axis colours.
+pub fn line_chart_themed(
+    time: &[f64],
+    series: &[(String, Vec<f64>)],
+    width: f64,
+    height: f64,
+    theme: &Theme,
+) -> String {
     let frame = Frame::new(width, height);
     let x_bounds = Bounds::of(time.iter().copied());
     let y_bounds = Bounds::of(series.iter().flat_map(|(_, values)| values.iter().copied()));
 
     let mut svg = String::new();
-    open_svg(&mut svg, width, height);
-    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+    open_svg(&mut svg, width, height, theme);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds, theme);
 
     for (index, (label, values)) in series.iter().enumerate() {
-        let color = series_color(index);
+        let color = theme.series_color(index);
         let mut points = String::new();
         for (position, value) in values.iter().enumerate() {
             let time_value = time.get(position).copied().unwrap_or(0.0);
@@ -110,15 +122,17 @@ pub fn line_chart(time: &[f64], series: &[(String, Vec<f64>)], width: f64, heigh
             svg,
             "  <polyline fill=\"none\" stroke=\"{color}\" stroke-width=\"1.8\" points=\"{points}\" />"
         );
-        legend_swatch(&mut svg, &frame, index, label, color);
+        legend_swatch(&mut svg, &frame, index, label, color, theme);
     }
 
-    axis_label(&mut svg, &frame, "time");
+    axis_label(&mut svg, &frame, "time", theme);
     svg.push_str("</svg>\n");
     svg
 }
 
 /// Renders a 2-D phase portrait of one state against another.
+///
+/// Uses the brand theme; see [`phase_portrait_themed`] to supply a [`Theme`].
 pub fn phase_portrait(
     x_label: &str,
     x_values: &[f64],
@@ -127,13 +141,28 @@ pub fn phase_portrait(
     width: f64,
     height: f64,
 ) -> String {
+    phase_portrait_themed(x_label, x_values, y_label, y_values, width, height, &Theme::default())
+}
+
+/// [`phase_portrait`] with an explicit [`Theme`]; the accent draws the path and
+/// success/danger mark the start/end.
+#[allow(clippy::too_many_arguments)]
+pub fn phase_portrait_themed(
+    x_label: &str,
+    x_values: &[f64],
+    y_label: &str,
+    y_values: &[f64],
+    width: f64,
+    height: f64,
+    theme: &Theme,
+) -> String {
     let frame = Frame::new(width, height);
     let x_bounds = Bounds::of(x_values.iter().copied());
     let y_bounds = Bounds::of(y_values.iter().copied());
 
     let mut svg = String::new();
-    open_svg(&mut svg, width, height);
-    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+    open_svg(&mut svg, width, height, theme);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds, theme);
 
     let mut points = String::new();
     for (x_value, y_value) in x_values.iter().zip(y_values.iter()) {
@@ -150,18 +179,18 @@ pub fn phase_portrait(
     let _ = writeln!(
         svg,
         "  <polyline fill=\"none\" stroke=\"{}\" stroke-width=\"1.6\" points=\"{points}\" />",
-        series_color(4)
+        theme.accent
     );
     // Mark the trajectory start and end.
     if let (Some(first_x), Some(first_y)) = (x_values.first(), y_values.first()) {
-        marker(&mut svg, &frame, &x_bounds, &y_bounds, *first_x, *first_y, "#059669");
+        marker(&mut svg, &frame, &x_bounds, &y_bounds, *first_x, *first_y, theme.success);
     }
     if let (Some(last_x), Some(last_y)) = (x_values.last(), y_values.last()) {
-        marker(&mut svg, &frame, &x_bounds, &y_bounds, *last_x, *last_y, "#dc2626");
+        marker(&mut svg, &frame, &x_bounds, &y_bounds, *last_x, *last_y, theme.danger);
     }
 
-    axis_label(&mut svg, &frame, x_label);
-    vertical_axis_label(&mut svg, &frame, y_label);
+    axis_label(&mut svg, &frame, x_label, theme);
+    vertical_axis_label(&mut svg, &frame, y_label, theme);
     svg.push_str("</svg>\n");
     svg
 }
@@ -191,6 +220,19 @@ pub fn fit_overlay_chart(
     width: f64,
     height: f64,
 ) -> String {
+    fit_overlay_chart_themed(sim_time, obs_time, series, width, height, &Theme::default())
+}
+
+/// [`fit_overlay_chart`] with an explicit [`Theme`].
+#[allow(clippy::too_many_arguments)]
+pub fn fit_overlay_chart_themed(
+    sim_time: &[f64],
+    obs_time: &[f64],
+    series: &[FitSeries],
+    width: f64,
+    height: f64,
+    theme: &Theme,
+) -> String {
     let frame = Frame::new(width, height);
     let x_bounds = Bounds::of(sim_time.iter().chain(obs_time.iter()).copied());
     let y_bounds = Bounds::of(
@@ -200,11 +242,11 @@ pub fn fit_overlay_chart(
     );
 
     let mut svg = String::new();
-    open_svg(&mut svg, width, height);
-    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+    open_svg(&mut svg, width, height, theme);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds, theme);
 
     for (index, entry) in series.iter().enumerate() {
-        let color = series_color(index);
+        let color = theme.series_color(index);
         // Simulated trajectory as a solid line.
         let mut points = String::new();
         for (position, value) in entry.simulated.iter().enumerate() {
@@ -233,13 +275,14 @@ pub fn fit_overlay_chart(
             let y = frame.y(y_bounds.normalize(*value));
             let _ = writeln!(
                 svg,
-                "  <circle cx=\"{x:.2}\" cy=\"{y:.2}\" r=\"2.1\" fill=\"#ffffff\" stroke=\"{color}\" stroke-width=\"1\" />"
+                "  <circle cx=\"{x:.2}\" cy=\"{y:.2}\" r=\"2.1\" fill=\"{}\" stroke=\"{color}\" stroke-width=\"1\" />",
+                theme.surface
             );
         }
-        legend_swatch(&mut svg, &frame, index, &entry.label, color);
+        legend_swatch(&mut svg, &frame, index, &entry.label, color, theme);
     }
 
-    axis_label(&mut svg, &frame, "time");
+    axis_label(&mut svg, &frame, "time", theme);
     svg.push_str("</svg>\n");
     svg
 }
@@ -247,12 +290,24 @@ pub fn fit_overlay_chart(
 /// Renders a residual strip: per-state `simulated - observed` against a zero line.
 ///
 /// Residuals are drawn as vertical stems from the zero baseline, so both the
-/// magnitude and the sign of the misfit are legible.
+/// magnitude and the sign of the misfit are legible. Uses the brand theme; see
+/// [`residual_strip_themed`] to supply a [`Theme`].
 pub fn residual_strip(
     obs_time: &[f64],
     residuals: &[(String, Vec<f64>)],
     width: f64,
     height: f64,
+) -> String {
+    residual_strip_themed(obs_time, residuals, width, height, &Theme::default())
+}
+
+/// [`residual_strip`] with an explicit [`Theme`].
+pub fn residual_strip_themed(
+    obs_time: &[f64],
+    residuals: &[(String, Vec<f64>)],
+    width: f64,
+    height: f64,
+    theme: &Theme,
 ) -> String {
     let frame = Frame::new(width, height);
     let x_bounds = Bounds::of(obs_time.iter().copied());
@@ -266,20 +321,21 @@ pub fn residual_strip(
     let y_bounds = Bounds { min: -extent, max: extent };
 
     let mut svg = String::new();
-    open_svg(&mut svg, width, height);
-    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+    open_svg(&mut svg, width, height, theme);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds, theme);
 
     // Emphasised zero baseline.
     let zero_y = frame.y(y_bounds.normalize(0.0));
     let _ = writeln!(
         svg,
-        "  <line x1=\"{:.1}\" y1=\"{zero_y:.1}\" x2=\"{:.1}\" y2=\"{zero_y:.1}\" stroke=\"#94a3b8\" stroke-width=\"1.2\" />",
+        "  <line x1=\"{:.1}\" y1=\"{zero_y:.1}\" x2=\"{:.1}\" y2=\"{zero_y:.1}\" stroke=\"{}\" stroke-width=\"1.2\" />",
         frame.x(0.0),
-        frame.x(1.0)
+        frame.x(1.0),
+        theme.muted
     );
 
     for (index, (label, values)) in residuals.iter().enumerate() {
-        let color = series_color(index);
+        let color = theme.series_color(index);
         for (position, value) in values.iter().enumerate() {
             let time_value = obs_time.get(position).copied().unwrap_or(0.0);
             if !value.is_finite() {
@@ -292,10 +348,10 @@ pub fn residual_strip(
                 "  <line x1=\"{x:.2}\" y1=\"{zero_y:.2}\" x2=\"{x:.2}\" y2=\"{y:.2}\" stroke=\"{color}\" stroke-width=\"1.1\" />"
             );
         }
-        legend_swatch(&mut svg, &frame, index, &format!("{label} residual"), color);
+        legend_swatch(&mut svg, &frame, index, &format!("{label} residual"), color, theme);
     }
 
-    axis_label(&mut svg, &frame, "time");
+    axis_label(&mut svg, &frame, "time", theme);
     svg.push_str("</svg>\n");
     svg
 }
@@ -316,9 +372,20 @@ pub struct RegimeSpan {
 /// `total` is the number of samples the spans partition; empty input yields an
 /// empty (but still self-contained) SVG so callers can degrade gracefully.
 pub fn regime_timeline(spans: &[RegimeSpan], total: usize, width: f64, height: f64) -> String {
+    regime_timeline_themed(spans, total, width, height, &Theme::default())
+}
+
+/// [`regime_timeline`] with an explicit [`Theme`].
+pub fn regime_timeline_themed(
+    spans: &[RegimeSpan],
+    total: usize,
+    width: f64,
+    height: f64,
+    theme: &Theme,
+) -> String {
     let frame = Frame::new(width, height);
     let mut svg = String::new();
-    open_svg(&mut svg, width, height);
+    open_svg(&mut svg, width, height, theme);
     if spans.is_empty() || total == 0 {
         svg.push_str("</svg>\n");
         return svg;
@@ -330,7 +397,7 @@ pub fn regime_timeline(spans: &[RegimeSpan], total: usize, width: f64, height: f
     for (order, regime) in spans.iter().enumerate() {
         let x0 = span(regime.start);
         let x1 = span(regime.end.min(total));
-        let color = series_color(order);
+        let color = theme.series_color(order);
         let _ = writeln!(
             svg,
             "  <rect x=\"{x0:.2}\" y=\"{bar_top:.2}\" width=\"{:.2}\" height=\"{bar_height:.2}\" fill=\"{color}\" fill-opacity=\"0.55\" stroke=\"{color}\" stroke-width=\"1\" />",
@@ -338,23 +405,26 @@ pub fn regime_timeline(spans: &[RegimeSpan], total: usize, width: f64, height: f
         );
         let _ = writeln!(
             svg,
-            "  <text x=\"{:.2}\" y=\"{:.2}\" font-size=\"10\" text-anchor=\"middle\" fill=\"#0f172a\">{}</text>",
+            "  <text x=\"{:.2}\" y=\"{:.2}\" font-size=\"10\" text-anchor=\"middle\" fill=\"{}\">{}</text>",
             (x0 + x1) / 2.0,
             bar_top + bar_height / 2.0 + 3.0,
+            theme.ink,
             escape_text(&regime.label)
         );
         // Change-point tick + sample index at each internal boundary.
         if order + 1 < spans.len() {
             let _ = writeln!(
                 svg,
-                "  <line x1=\"{x1:.2}\" y1=\"{:.2}\" x2=\"{x1:.2}\" y2=\"{:.2}\" stroke=\"#0f172a\" stroke-width=\"1.2\" />",
+                "  <line x1=\"{x1:.2}\" y1=\"{:.2}\" x2=\"{x1:.2}\" y2=\"{:.2}\" stroke=\"{}\" stroke-width=\"1.2\" />",
                 bar_top - 4.0,
-                bar_top + bar_height + 4.0
+                bar_top + bar_height + 4.0,
+                theme.ink
             );
             let _ = writeln!(
                 svg,
-                "  <text x=\"{x1:.2}\" y=\"{:.2}\" font-size=\"9\" text-anchor=\"middle\" fill=\"#475569\">t={}</text>",
+                "  <text x=\"{x1:.2}\" y=\"{:.2}\" font-size=\"9\" text-anchor=\"middle\" fill=\"{}\">t={}</text>",
                 bar_top + bar_height + 16.0,
+                theme.muted,
                 regime.end
             );
         }
@@ -377,13 +447,38 @@ pub fn uncertainty_band_chart(
     width: f64,
     height: f64,
 ) -> String {
+    uncertainty_band_chart_themed(
+        time,
+        lower,
+        median,
+        upper,
+        label,
+        width,
+        height,
+        &Theme::default(),
+    )
+}
+
+/// [`uncertainty_band_chart`] with an explicit [`Theme`]; the accent draws the
+/// median and its translucent envelope.
+#[allow(clippy::too_many_arguments)]
+pub fn uncertainty_band_chart_themed(
+    time: &[f64],
+    lower: &[f64],
+    median: &[f64],
+    upper: &[f64],
+    label: &str,
+    width: f64,
+    height: f64,
+    theme: &Theme,
+) -> String {
     let frame = Frame::new(width, height);
     let x_bounds = Bounds::of(time.iter().copied());
     let y_bounds = Bounds::of(lower.iter().chain(median.iter()).chain(upper.iter()).copied());
 
     let mut svg = String::new();
-    open_svg(&mut svg, width, height);
-    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+    open_svg(&mut svg, width, height, theme);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds, theme);
 
     let count = time.len().min(lower.len()).min(upper.len());
     if count >= 2 {
@@ -402,7 +497,7 @@ pub fn uncertainty_band_chart(
             let y = frame.y(y_bounds.normalize(lower[position]));
             let _ = write!(polygon, " {x:.2},{y:.2}");
         }
-        let color = series_color(0);
+        let color = theme.series_color(0);
         let _ = writeln!(
             svg,
             "  <polygon fill=\"{color}\" fill-opacity=\"0.18\" stroke=\"none\" points=\"{polygon}\" />"
@@ -425,27 +520,28 @@ pub fn uncertainty_band_chart(
     let _ = writeln!(
         svg,
         "  <polyline fill=\"none\" stroke=\"{}\" stroke-width=\"1.8\" points=\"{points}\" />",
-        series_color(0)
+        theme.series_color(0)
     );
-    legend_swatch(&mut svg, &frame, 0, label, series_color(0));
+    legend_swatch(&mut svg, &frame, 0, label, theme.series_color(0), theme);
 
-    axis_label(&mut svg, &frame, "time");
+    axis_label(&mut svg, &frame, "time", theme);
     svg.push_str("</svg>\n");
     svg
 }
 
-fn open_svg(svg: &mut String, width: f64, height: f64) {
+fn open_svg(svg: &mut String, width: f64, height: f64, theme: &Theme) {
     let _ = writeln!(
         svg,
         "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {width} {height}\" width=\"{width}\" height=\"{height}\" role=\"img\">"
     );
     let _ = writeln!(
         svg,
-        "  <rect x=\"0\" y=\"0\" width=\"{width}\" height=\"{height}\" fill=\"#ffffff\" />"
+        "  <rect x=\"0\" y=\"0\" width=\"{width}\" height=\"{height}\" fill=\"{}\" />",
+        theme.surface
     );
 }
 
-fn axes(svg: &mut String, frame: &Frame, x_bounds: &Bounds, y_bounds: &Bounds) {
+fn axes(svg: &mut String, frame: &Frame, x_bounds: &Bounds, y_bounds: &Bounds, theme: &Theme) {
     let x0 = frame.x(0.0);
     let x1 = frame.x(1.0);
     let y0 = frame.y(0.0);
@@ -453,9 +549,11 @@ fn axes(svg: &mut String, frame: &Frame, x_bounds: &Bounds, y_bounds: &Bounds) {
     // Plot border.
     let _ = writeln!(
         svg,
-        "  <rect x=\"{x0:.1}\" y=\"{y1:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"#f8fafc\" stroke=\"#cbd5e1\" stroke-width=\"1\" />",
+        "  <rect x=\"{x0:.1}\" y=\"{y1:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"{}\" stroke=\"{}\" stroke-width=\"1\" />",
         x1 - x0,
-        y0 - y1
+        y0 - y1,
+        theme.paper,
+        theme.line
     );
     // Horizontal gridlines with y tick labels.
     for step in 0..=4 {
@@ -464,13 +562,15 @@ fn axes(svg: &mut String, frame: &Frame, x_bounds: &Bounds, y_bounds: &Bounds) {
         let value = y_bounds.min + fraction * (y_bounds.max - y_bounds.min);
         let _ = writeln!(
             svg,
-            "  <line x1=\"{x0:.1}\" y1=\"{y:.1}\" x2=\"{x1:.1}\" y2=\"{y:.1}\" stroke=\"#e2e8f0\" stroke-width=\"1\" />"
+            "  <line x1=\"{x0:.1}\" y1=\"{y:.1}\" x2=\"{x1:.1}\" y2=\"{y:.1}\" stroke=\"{}\" stroke-width=\"1\" />",
+            theme.line
         );
         let _ = writeln!(
             svg,
-            "  <text x=\"{:.1}\" y=\"{:.1}\" font-size=\"10\" text-anchor=\"end\" fill=\"#475569\">{}</text>",
+            "  <text x=\"{:.1}\" y=\"{:.1}\" font-size=\"10\" text-anchor=\"end\" fill=\"{}\">{}</text>",
             x0 - 6.0,
             y + 3.0,
+            theme.ink,
             format_number(value)
         );
     }
@@ -480,8 +580,9 @@ fn axes(svg: &mut String, frame: &Frame, x_bounds: &Bounds, y_bounds: &Bounds) {
         let value = x_bounds.min + fraction * (x_bounds.max - x_bounds.min);
         let _ = writeln!(
             svg,
-            "  <text x=\"{x:.1}\" y=\"{:.1}\" font-size=\"10\" text-anchor=\"{anchor}\" fill=\"#475569\">{}</text>",
+            "  <text x=\"{x:.1}\" y=\"{:.1}\" font-size=\"10\" text-anchor=\"{anchor}\" fill=\"{}\">{}</text>",
             frame.y(0.0) + 16.0,
+            theme.ink,
             format_number(value)
         );
     }
@@ -504,7 +605,14 @@ fn marker(
     let _ = writeln!(svg, "  <circle cx=\"{x:.2}\" cy=\"{y:.2}\" r=\"3.2\" fill=\"{color}\" />");
 }
 
-fn legend_swatch(svg: &mut String, frame: &Frame, index: usize, label: &str, color: &str) {
+fn legend_swatch(
+    svg: &mut String,
+    frame: &Frame,
+    index: usize,
+    label: &str,
+    color: &str,
+    theme: &Theme,
+) {
     let x = frame.left + 8.0;
     let y = frame.top + 14.0 + index as f64 * 16.0;
     let _ = writeln!(
@@ -514,28 +622,31 @@ fn legend_swatch(svg: &mut String, frame: &Frame, index: usize, label: &str, col
     );
     let _ = writeln!(
         svg,
-        "  <text x=\"{:.1}\" y=\"{y:.1}\" font-size=\"11\" fill=\"#0f172a\">{}</text>",
+        "  <text x=\"{:.1}\" y=\"{y:.1}\" font-size=\"11\" fill=\"{}\">{}</text>",
         x + 15.0,
+        theme.ink,
         escape_text(label)
     );
 }
 
-fn axis_label(svg: &mut String, frame: &Frame, label: &str) {
+fn axis_label(svg: &mut String, frame: &Frame, label: &str, theme: &Theme) {
     let _ = writeln!(
         svg,
-        "  <text x=\"{:.1}\" y=\"{:.1}\" font-size=\"11\" text-anchor=\"middle\" fill=\"#0f172a\">{}</text>",
+        "  <text x=\"{:.1}\" y=\"{:.1}\" font-size=\"11\" text-anchor=\"middle\" fill=\"{}\">{}</text>",
         frame.left + frame.plot_width() / 2.0,
         frame.height - 6.0,
+        theme.ink,
         escape_text(label)
     );
 }
 
-fn vertical_axis_label(svg: &mut String, frame: &Frame, label: &str) {
+fn vertical_axis_label(svg: &mut String, frame: &Frame, label: &str, theme: &Theme) {
     let x = 14.0;
     let y = frame.top + frame.plot_height() / 2.0;
     let _ = writeln!(
         svg,
-        "  <text x=\"{x:.1}\" y=\"{y:.1}\" font-size=\"11\" text-anchor=\"middle\" fill=\"#0f172a\" transform=\"rotate(-90 {x:.1} {y:.1})\">{}</text>",
+        "  <text x=\"{x:.1}\" y=\"{y:.1}\" font-size=\"11\" text-anchor=\"middle\" fill=\"{}\" transform=\"rotate(-90 {x:.1} {y:.1})\">{}</text>",
+        theme.ink,
         escape_text(label)
     );
 }

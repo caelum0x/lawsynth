@@ -8,9 +8,10 @@ use lawsynth_world::{VariableRole, World};
 
 use crate::render::{format_number, render_continuous_law};
 use crate::svg::{
-    FitSeries, fit_overlay_chart, line_chart, phase_portrait, regime_timeline, residual_strip,
-    series_color, uncertainty_band_chart,
+    FitSeries, fit_overlay_chart_themed, line_chart_themed, phase_portrait_themed,
+    regime_timeline_themed, residual_strip_themed, uncertainty_band_chart_themed,
 };
+use crate::theme::{Theme, stylesheet};
 use crate::{ReportObservations, ReportOptions, UncertaintyBand};
 
 /// Escapes text for safe inclusion in HTML element content or attributes.
@@ -46,6 +47,7 @@ pub fn page(
     options: &ReportOptions,
 ) -> String {
     let mut body = String::new();
+    let theme = &options.theme;
     let total_complexity: usize =
         world.laws().values().map(|law| complexity(&law.expression)).sum();
 
@@ -60,19 +62,19 @@ pub fn page(
     laws_section(&mut body, world);
     variables_section(&mut body, world);
     parameters_section(&mut body, world);
-    trajectory_section(&mut body, world, trajectory);
+    trajectory_section(&mut body, world, trajectory, theme);
     if let Some(observations) = &options.observations {
-        fit_section(&mut body, world, trajectory, observations);
+        fit_section(&mut body, world, trajectory, observations, theme);
     }
     if let Some(regimes) = &options.regimes {
-        regime_section(&mut body, regimes);
+        regime_section(&mut body, regimes, theme);
     }
     if let Some(bands) = &options.uncertainty {
-        uncertainty_section(&mut body, bands);
+        uncertainty_section(&mut body, bands, theme);
     }
-    phase_section(&mut body, world, trajectory);
+    phase_section(&mut body, world, trajectory, theme);
 
-    document(title, &body)
+    document(title, &body, theme)
 }
 
 /// Linearly interpolates `(source_times, source_values)` onto `query_times`.
@@ -115,6 +117,7 @@ fn fit_section(
     world: &World,
     trajectory: &Trajectory,
     observations: &ReportObservations,
+    theme: &Theme,
 ) {
     let mut fit_series: Vec<FitSeries> = Vec::new();
     let mut residuals: Vec<(String, Vec<f64>)> = Vec::new();
@@ -161,22 +164,23 @@ fn fit_section(
         format_number(rmse)
     );
     body.push_str("    <div class=\"chart\">\n");
-    body.push_str(&fit_overlay_chart(
+    body.push_str(&fit_overlay_chart_themed(
         &trajectory.time,
         &observations.time,
         &fit_series,
         720.0,
         340.0,
+        theme,
     ));
     body.push_str("    </div>\n");
     body.push_str("    <p class=\"muted\">Residuals (simulated &minus; observed); stems above the line overpredict, below underpredict.</p>\n");
     body.push_str("    <div class=\"chart\">\n");
-    body.push_str(&residual_strip(&observations.time, &residuals, 720.0, 170.0));
+    body.push_str(&residual_strip_themed(&observations.time, &residuals, 720.0, 170.0, theme));
     body.push_str("    </div>\n  </section>\n");
 }
 
 /// Regime timeline for a discovery that carries a segmentation.
-fn regime_section(body: &mut String, regimes: &[crate::RegimeSpan]) {
+fn regime_section(body: &mut String, regimes: &[crate::RegimeSpan], theme: &Theme) {
     if regimes.is_empty() {
         return;
     }
@@ -189,12 +193,12 @@ fn regime_section(body: &mut String, regimes: &[crate::RegimeSpan]) {
         total
     );
     body.push_str("    <div class=\"chart\">\n");
-    body.push_str(&regime_timeline(regimes, total, 720.0, 110.0));
+    body.push_str(&regime_timeline_themed(regimes, total, 720.0, 110.0, theme));
     body.push_str("    </div>\n  </section>\n");
 }
 
 /// Per-state uncertainty bands for a discovery that carries an envelope.
-fn uncertainty_section(body: &mut String, bands: &[UncertaintyBand]) {
+fn uncertainty_section(body: &mut String, bands: &[UncertaintyBand], theme: &Theme) {
     let bands: Vec<&UncertaintyBand> = bands.iter().filter(|band| band.time.len() >= 2).collect();
     if bands.is_empty() {
         return;
@@ -206,7 +210,7 @@ fn uncertainty_section(body: &mut String, bands: &[UncertaintyBand]) {
     for band in bands {
         let _ = writeln!(body, "    <h3 class=\"mono\">{}</h3>", escape(band.state.as_str()));
         body.push_str("    <div class=\"chart\">\n");
-        body.push_str(&uncertainty_band_chart(
+        body.push_str(&uncertainty_band_chart_themed(
             &band.time,
             &band.lower,
             &band.median,
@@ -214,6 +218,7 @@ fn uncertainty_section(body: &mut String, bands: &[UncertaintyBand]) {
             band.state.as_str(),
             720.0,
             300.0,
+            theme,
         ));
         body.push_str("    </div>\n");
     }
@@ -275,7 +280,7 @@ fn parameters_section(body: &mut String, world: &World) {
     body.push_str("      </tbody>\n    </table>\n  </section>\n");
 }
 
-fn trajectory_section(body: &mut String, world: &World, trajectory: &Trajectory) {
+fn trajectory_section(body: &mut String, world: &World, trajectory: &Trajectory, theme: &Theme) {
     let series: Vec<(String, Vec<f64>)> = world
         .state_ids()
         .filter_map(|id| {
@@ -291,11 +296,11 @@ fn trajectory_section(body: &mut String, world: &World, trajectory: &Trajectory)
         trajectory.samples()
     );
     body.push_str("    <div class=\"chart\">\n");
-    body.push_str(&line_chart(&trajectory.time, &series, 720.0, 340.0));
+    body.push_str(&line_chart_themed(&trajectory.time, &series, 720.0, 340.0, theme));
     body.push_str("    </div>\n  </section>\n");
 }
 
-fn phase_section(body: &mut String, world: &World, trajectory: &Trajectory) {
+fn phase_section(body: &mut String, world: &World, trajectory: &Trajectory, theme: &Theme) {
     let states: Vec<_> = world.state_ids().collect();
     if states.len() < 2 {
         return;
@@ -309,48 +314,33 @@ fn phase_section(body: &mut String, world: &World, trajectory: &Trajectory) {
     body.push_str("  <section>\n    <h2>Phase portrait</h2>\n");
     let _ = writeln!(
         body,
-        "    <p class=\"muted\">Trajectory in <span class=\"mono\">{}</span>&ndash;<span class=\"mono\">{}</span> space. <span style=\"color:{}\">&#9679;</span> start, <span style=\"color:#dc2626\">&#9679;</span> end.</p>",
+        "    <p class=\"muted\">Trajectory in <span class=\"mono\">{}</span>&ndash;<span class=\"mono\">{}</span> space. <span style=\"color:{}\">&#9679;</span> start, <span style=\"color:{}\">&#9679;</span> end.</p>",
         escape(x_id.as_str()),
         escape(y_id.as_str()),
-        series_color(2)
+        theme.success,
+        theme.danger
     );
     body.push_str("    <div class=\"chart\">\n");
-    body.push_str(&phase_portrait(x_id.as_str(), x_values, y_id.as_str(), y_values, 420.0, 420.0));
+    body.push_str(&phase_portrait_themed(
+        x_id.as_str(),
+        x_values,
+        y_id.as_str(),
+        y_values,
+        420.0,
+        420.0,
+        theme,
+    ));
     body.push_str("    </div>\n  </section>\n");
 }
 
-pub(crate) fn document(title: &str, body: &str) -> String {
+pub(crate) fn document(title: &str, body: &str, theme: &Theme) -> String {
     format!(
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n<title>{}</title>\n<style>\n{}\n</style>\n</head>\n<body>\n<main>\n{}</main>\n</body>\n</html>\n",
         escape(title),
-        STYLE,
+        stylesheet(theme),
         body
     )
 }
-
-pub(crate) const STYLE: &str = "* { box-sizing: border-box; }
-body { margin: 0; background: #f1f5f9; color: #0f172a;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-main { max-width: 820px; margin: 0 auto; padding: 32px 20px 64px; }
-header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 8px; }
-h1 { font-size: 1.7rem; margin: 0 0 4px; }
-h2 { font-size: 1.15rem; margin: 0 0 12px; color: #1e293b; }
-h3 { font-size: 0.95rem; margin: 16px 0 6px; color: #334155; }
-.subtitle { margin: 0; color: #475569; font-size: 0.9rem; }
-section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;
-  padding: 20px 24px; margin-top: 20px; }
-.equations { display: flex; flex-direction: column; gap: 8px; }
-.equation { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.98rem; background: #f8fafc; border-left: 3px solid #2563eb;
-  padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
-th { color: #475569; font-weight: 600; }
-.mono { font-family: 'SFMono-Regular', Consolas, monospace; }
-.muted { color: #64748b; font-size: 0.85rem; }
-.chart { overflow-x: auto; }
-svg { max-width: 100%; height: auto; border-radius: 6px; }
-";
 
 #[cfg(test)]
 mod tests {

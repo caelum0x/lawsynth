@@ -12,7 +12,8 @@ use std::fmt::Write;
 
 use crate::html::{document, escape};
 use crate::render::format_number;
-use crate::svg::line_chart;
+use crate::svg::line_chart_themed;
+use crate::theme::Theme;
 
 /// One simulated scenario over the report's shared time axis.
 #[derive(Clone, Debug, PartialEq)]
@@ -58,7 +59,14 @@ impl ScenarioReport {
 }
 
 /// Renders a self-contained multi-scenario decision report as HTML.
+///
+/// Themed with the brand light theme; see [`render_scenarios_with_theme`].
 pub fn render_scenarios(report: &ScenarioReport) -> String {
+    render_scenarios_with_theme(report, Theme::default())
+}
+
+/// [`render_scenarios`] with an explicit [`Theme`].
+pub fn render_scenarios_with_theme(report: &ScenarioReport, theme: Theme) -> String {
     let mut body = String::new();
     let sample_count = report.time.len();
 
@@ -75,10 +83,10 @@ pub fn render_scenarios(report: &ScenarioReport) -> String {
 
     divergence_section(&mut body, report);
     for state in &report.states {
-        chart_section(&mut body, report, state);
+        chart_section(&mut body, report, state, &theme);
     }
 
-    document(&report.title, &body)
+    document(&report.title, &body, &theme)
 }
 
 /// Final-state and baseline-divergence table, plus the interventions column.
@@ -130,13 +138,11 @@ fn divergence_section(body: &mut String, report: &ScenarioReport) {
         body.push_str("</tr>\n");
     }
     body.push_str("      </tbody>\n    </table>\n  </section>\n");
-    body.push_str(
-        "  <style>.up{color:#059669;font-weight:600}.down{color:#dc2626;font-weight:600}.flat{color:#64748b}</style>\n",
-    );
+    // Divergence classes (.up/.down/.flat) live in the themed stylesheet.
 }
 
 /// One overlaid multi-series chart for a single state across all scenarios.
-fn chart_section(body: &mut String, report: &ScenarioReport, state: &str) {
+fn chart_section(body: &mut String, report: &ScenarioReport, state: &str, theme: &Theme) {
     let series: Vec<(String, Vec<f64>)> = report
         .scenarios
         .iter()
@@ -154,7 +160,7 @@ fn chart_section(body: &mut String, report: &ScenarioReport, state: &str) {
         "    <p class=\"muted\">Every scenario's trajectory overlaid; see the legend for the mapping.</p>\n",
     );
     body.push_str("    <div class=\"chart\">\n");
-    body.push_str(&line_chart(&report.time, &series, 720.0, 340.0));
+    body.push_str(&line_chart_themed(&report.time, &series, 720.0, 340.0, theme));
     body.push_str("    </div>\n  </section>\n");
 }
 
