@@ -1,6 +1,7 @@
 import type { PlotGeometry } from "@lawsynth/world-viewer";
 import type {
   BandOverlay,
+  ChartLegendEntry,
   CodeBlock,
   ControlField,
   GraphView,
@@ -76,6 +77,23 @@ function renderChart(document: Document, geometry: PlotGeometry, bands: readonly
     root.append(svg(document, "path", { d: path.d, fill: "none", stroke: path.color ?? "#b54b2a", "stroke-width": 2 }));
   }
   return root;
+}
+
+/**
+ * Renders a swatch + label per series so an N-series chart is legible. Kept as a
+ * standalone HTML block appended beneath the SVG so single-series charts (which
+ * pass no `legend`) render exactly as before.
+ */
+function renderChartLegend(document: Document, entries: readonly ChartLegendEntry[]): HTMLElement {
+  const list = el(document, "div", "lss-scr-legend");
+  for (const entry of entries) {
+    const item = el(document, "span", `lss-scr-legend-item${entry.emphasis === true ? " lss-emphasis" : ""}`);
+    const swatch = el(document, "span", "lss-scr-legend-swatch");
+    swatch.style.background = entry.color;
+    item.append(swatch, el(document, "span", "lss-scr-legend-label", entry.label));
+    list.append(item);
+  }
+  return list;
 }
 
 function renderTimeline(document: Document, view: TimelineView, sectionId: string, actions: ScreenActions): SVGElement {
@@ -237,6 +255,7 @@ function renderSection(document: Document, section: ScreenSection, actions: Scre
     }
     case "chart":
       container.append(renderChart(document, section.geometry, section.bands ?? []));
+      if (section.legend !== undefined && section.legend.length > 0) container.append(renderChartLegend(document, section.legend));
       break;
     case "timeline":
       container.append(renderTimeline(document, section.timeline, section.id, actions));

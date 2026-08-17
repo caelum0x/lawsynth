@@ -47,12 +47,25 @@ def svg_line_chart(
     title: str = "",
     theme: str = "light",
     x_label: str = "t",
+    sort_series: bool = True,
 ) -> str:
-    """Render one or more aligned numeric series as a standalone SVG line chart."""
+    """Render one or more aligned numeric series as a standalone SVG line chart.
+
+    Handles an arbitrary number of labeled series: the legend wraps across as
+    many rows as needed so N-series overlays (e.g. scenario comparisons) stay
+    readable. Single-series callers are unaffected — ``sort_series`` keeps the
+    original deterministic ordering by default.
+    """
     if not time or not series:
         return '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>'
     colors = _theme(theme)
-    pad_l, pad_r, pad_t, pad_b = 52, 16, 28 if title else 12, 34
+    ordered = sorted(series.items()) if sort_series else list(series.items())
+    # Reserve extra vertical room for a wrapping legend when there are many
+    # labeled series so the plot area never collides with the legend rows.
+    legend_cols = max(1, (width - 52 - 16) // 150)
+    legend_rows = 0 if len(ordered) <= 1 else (len(ordered) + legend_cols - 1) // legend_cols
+    legend_h = legend_rows * 16
+    pad_l, pad_r, pad_t, pad_b = 52, 16, (28 if title else 12) + legend_h, 34
     plot_w = max(width - pad_l - pad_r, 1)
     plot_h = max(height - pad_t - pad_b, 1)
 
@@ -116,7 +129,8 @@ def svg_line_chart(
 
     # Series polylines.
     legend: list[str] = []
-    for index, (name, column) in enumerate(sorted(series.items())):
+    legend_top = (16 if title else 4)
+    for index, (name, column) in enumerate(ordered):
         color = _SERIES_COLORS[index % len(_SERIES_COLORS)]
         points = " ".join(
             f"{px(t):.2f},{py(v):.2f}"
@@ -128,16 +142,17 @@ def svg_line_chart(
                 f'<polyline points="{points}" fill="none" stroke="{color}" '
                 f'stroke-width="2" stroke-linejoin="round"/>'
             )
-        lx = pad_l + index * 96
+        col = index % legend_cols
+        row = index // legend_cols
+        lx = pad_l + col * 150
+        ly = legend_top + row * 16
         legend.append(
-            f'<rect x="{lx}" y="{pad_t - 2}" width="10" height="10" fill="{color}"/>'
-            f'<text x="{lx + 14}" y="{pad_t + 7}" fill="{colors["fg"]}">{escape(name)}</text>'
+            f'<rect x="{lx}" y="{ly}" width="10" height="10" fill="{color}"/>'
+            f'<text x="{lx + 14}" y="{ly + 9}" fill="{colors["fg"]}">{escape(name)}</text>'
         )
-    # Legend row placed just under the title when there is horizontal room.
-    if len(series) > 1:
-        parts.append(
-            f'<g transform="translate(0,{-pad_t + 2})">' + "".join(legend) + "</g>"
-        )
+    # Legend rows placed just under the title, wrapping across columns.
+    if len(ordered) > 1:
+        parts.append("<g>" + "".join(legend) + "</g>")
     parts.append("</svg>")
     return "".join(parts)
 

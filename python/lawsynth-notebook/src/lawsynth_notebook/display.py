@@ -56,3 +56,14 @@ def render_law_object(obj: Any, theme: str = "light") -> RenderedArtifact:
     from .errors import ArtifactValidationError
 
     raise ArtifactValidationError("object is not a renderable LawSynth world or trajectory")
+
+
+def render_study_dashboard(source: Any, theme: str = "light", **kwargs: Any) -> Any:
+    """Compose a cohesive :class:`~lawsynth_notebook.dashboard.StudyDashboard`.
+
+    ``source`` is a live LawSynth ``Study`` or ``DiscoveryResult`` (anything
+    exposing ``name``, ``states``, ``explain()`` and ``simulate()``).
+    """
+    from .dashboard import render_dashboard
+
+    return render_dashboard(source, theme=theme, **kwargs)

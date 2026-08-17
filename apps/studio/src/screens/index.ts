@@ -13,6 +13,7 @@ export * from "./structure-map.js";
 export * from "./regime-timeline.js";
 export * from "./uncertainty-lens.js";
 export * from "./world-lab.js";
+export * from "./scenario-board.js";
 export * from "./export-screen.js";
 export * from "./controller.js";
 export * from "./render.js";
@@ -32,6 +33,7 @@ export const SCREEN_REGISTRY: readonly ScreenDescriptor[] = Object.freeze([
   { id: "regime-timeline", title: "Regime Timeline", subtitle: "Regime segments over time" },
   { id: "uncertainty-lens", title: "Uncertainty Lens", subtitle: "Confidence bands on a trajectory" },
   { id: "world-lab", title: "World Lab", subtitle: "Simulate, forecast, and intervene" },
+  { id: "scenario-board", title: "Scenario Board", subtitle: "Compare what-if scenarios against a baseline" },
   { id: "export-screen", title: "Export", subtitle: "Equations, LaTeX, Python, and the raw World IR" },
 ]);
 

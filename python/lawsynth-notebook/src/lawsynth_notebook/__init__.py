@@ -2,7 +2,8 @@
 
 from ._version import __version__
 from .config import NotebookConfig
-from .display import RenderedArtifact, render_json, render_law_object, render_trajectory_object, render_world_object
+from .dashboard import StudyDashboard, render_dashboard
+from .display import RenderedArtifact, render_json, render_law_object, render_study_dashboard, render_trajectory_object, render_world_object
 from .equation_view import render_equations
 from .frontier_view import render_frontier
 from .graph_view import render_graph
@@ -40,4 +41,4 @@ def render_bundle(bundle: dict, config: NotebookConfig | None = None) -> Rendere
     return RenderedArtifact("Bundle", panel("Bundle", definition_list(fields), config.theme), dict(document))
 
 
-__all__ = ["NotebookConfig", "NotebookWidget", "RenderedArtifact", "__version__", "render_bundle", "render_equations", "render_frontier", "render_graph", "render_json", "render_law_object", "render_regimes", "render_trajectory", "render_trajectory_object", "render_uncertainty", "render_world", "render_world_object"]
+__all__ = ["NotebookConfig", "NotebookWidget", "RenderedArtifact", "StudyDashboard", "__version__", "render_bundle", "render_dashboard", "render_equations", "render_frontier", "render_graph", "render_json", "render_law_object", "render_regimes", "render_study_dashboard", "render_trajectory", "render_trajectory_object", "render_uncertainty", "render_world", "render_world_object"]

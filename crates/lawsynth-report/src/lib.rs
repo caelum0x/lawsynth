@@ -25,6 +25,9 @@ pub use svg::RegimeSpan;
 mod comparison;
 pub use comparison::render_comparison;
 
+mod scenarios;
+pub use scenarios::{ScenarioOutcome, ScenarioReport, render_scenarios};
+
 /// Observed samples overlaid on a report to show fit quality.
 ///
 /// Each column is aligned to the shared [`time`](Self::time) axis and keyed by

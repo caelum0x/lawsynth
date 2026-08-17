@@ -15,6 +15,13 @@ import { equationExplorerModel } from "./equation-explorer.js";
 import { exportScreenModel } from "./export-screen.js";
 import { fixtureCandidates, fixtureWorld, FIXTURE_INITIAL_STATE } from "./fixtures.js";
 import { regimeTimelineModel } from "./regime-timeline.js";
+import {
+  BASELINE_SCENARIO_ID,
+  defaultScenarios,
+  scenarioBoardModel,
+  type ScenarioDefinition,
+  type ScenarioDraft,
+} from "./scenario-board.js";
 import { structureMapModel } from "./structure-map.js";
 import type { Notice, ScreenId, ScreenModel, ScreenSection } from "./types.js";
 import { uncertaintyLensModel } from "./uncertainty-lens.js";
@@ -38,6 +45,16 @@ interface LabState {
   readonly step: number;
 }
 
+interface BoardState {
+  readonly scenarios: readonly ScenarioDefinition[];
+  readonly draft: ScenarioDraft;
+  readonly focusVariable: string;
+  readonly horizon: number;
+  readonly step: number;
+}
+
+const EMPTY_DRAFT: ScenarioDraft = Object.freeze({ name: "", overrides: Object.freeze({}), activeInterventionIds: Object.freeze([]) });
+
 /** Maps a table/section id to the selection namespace it drives. */
 const SECTION_KIND: Readonly<Record<string, string>> = {
   candidates: "cand",
@@ -46,6 +63,7 @@ const SECTION_KIND: Readonly<Record<string, string>> = {
   timeline: "regime",
   "structure-graph": "var",
   "structure-laws": "law",
+  scenarios: "scenario",
 };
 
 function num(raw: string, fallback: number): number {
@@ -74,6 +92,7 @@ export class ScreensController extends EventTarget {
   #discovery: DiscoveryCanvasConfig;
   #focusVariable = "";
   #lab: LabState;
+  #board: BoardState;
   #runStatus: RunStatus | undefined;
   #runProgress = 0;
   #running = false;
@@ -98,6 +117,13 @@ export class ScreensController extends EventTarget {
       horizon: 12,
       step: 0.1,
     };
+    this.#board = {
+      scenarios: defaultScenarios(this.#world),
+      draft: EMPTY_DRAFT,
+      focusVariable: "",
+      horizon: 12,
+      step: 0.1,
+    };
     this.#unsubscribe = this.#store.subscribe(() => this.#emit());
   }
 
@@ -118,6 +144,7 @@ export class ScreensController extends EventTarget {
     this.#world = world;
     this.#trajectory = trajectory;
     this.#lab = { ...this.#lab, overrides: {}, activeInterventionIds: (world.interventions ?? []).map((intervention) => intervention.id) };
+    this.#board = { ...this.#board, scenarios: defaultScenarios(world), draft: EMPTY_DRAFT, focusVariable: "" };
     this.#emit();
   }
 
@@ -191,6 +218,17 @@ export class ScreensController extends EventTarget {
           running: this.#simRunning,
           ...(this.#simStatus === undefined ? {} : { simulationStatus: this.#simStatus }),
         });
+      case "scenario-board":
+        return scenarioBoardModel({
+          world: this.#world,
+          initialState: this.#trajectoryInitial(),
+          scenarios: this.#board.scenarios,
+          draft: this.#board.draft,
+          horizon: this.#board.horizon,
+          step: this.#board.step,
+          ...(this.#board.focusVariable === "" ? {} : { focusVariableId: this.#board.focusVariable }),
+          ...(this.#selected("scenario") === undefined ? {} : { selectedScenarioId: this.#selected("scenario")! }),
+        });
     }
   }
 
@@ -203,6 +241,7 @@ export class ScreensController extends EventTarget {
   onControl(fieldId: string, raw: string): void {
     if (fieldId.startsWith("cfg:")) this.#updateDiscovery(fieldId.slice(4), raw);
     else if (fieldId.startsWith("lab:")) this.#updateLab(fieldId.slice(4), raw);
+    else if (fieldId.startsWith("board:")) this.#updateBoard(fieldId.slice("board:".length), raw);
     else if (fieldId === "eq:law") this.#selectEntity("law", raw);
     else if (fieldId === "eq:variable") {
       this.#focusVariable = raw;
@@ -220,6 +259,13 @@ export class ScreensController extends EventTarget {
     }
     if (actionId === "lab:reset") {
       this.#lab = { ...this.#lab, overrides: {} };
+      this.#emit();
+      return;
+    }
+    if (actionId === "board:add") return this.#addScenario();
+    if (actionId === "board:remove") return this.#removeSelectedScenario();
+    if (actionId === "board:reset") {
+      this.#board = { ...this.#board, draft: EMPTY_DRAFT };
       this.#emit();
       return;
     }
@@ -274,6 +320,46 @@ export class ScreensController extends EventTarget {
       this.#lab = { ...this.#lab, activeInterventionIds: Object.freeze([...set]) };
     }
     this.#emit();
+  }
+
+  #updateBoard(key: string, raw: string): void {
+    const board = this.#board;
+    if (key === "focus") this.#board = { ...board, focusVariable: raw };
+    else if (key === "horizon") this.#board = { ...board, horizon: num(raw, board.horizon) };
+    else if (key === "step") this.#board = { ...board, step: num(raw, board.step) };
+    else if (key === "name") this.#board = { ...board, draft: { ...board.draft, name: raw } };
+    else if (key.startsWith("param:")) {
+      const id = key.slice("param:".length);
+      this.#board = { ...board, draft: { ...board.draft, overrides: { ...board.draft.overrides, [id]: num(raw, board.draft.overrides[id] ?? 0) } } };
+    } else if (key.startsWith("int:")) {
+      const id = key.slice("int:".length);
+      const set = new Set(board.draft.activeInterventionIds);
+      if (raw === "true") set.add(id);
+      else set.delete(id);
+      this.#board = { ...board, draft: { ...board.draft, activeInterventionIds: Object.freeze([...set]) } };
+    }
+    this.#emit();
+  }
+
+  #addScenario(): void {
+    const draft = this.#board.draft;
+    const index = this.#board.scenarios.length + 1;
+    const name = draft.name.trim() === "" ? `Scenario ${index}` : draft.name.trim();
+    const scenario: ScenarioDefinition = {
+      id: this.#randomId(),
+      name,
+      overrides: Object.freeze({ ...draft.overrides }),
+      activeInterventionIds: Object.freeze([...draft.activeInterventionIds]),
+    };
+    this.#board = { ...this.#board, scenarios: Object.freeze([...this.#board.scenarios, scenario]), draft: EMPTY_DRAFT };
+    this.#selectEntity("scenario", scenario.id);
+  }
+
+  #removeSelectedScenario(): void {
+    const selected = this.#selected("scenario");
+    if (selected === undefined || selected === BASELINE_SCENARIO_ID) return;
+    this.#board = { ...this.#board, scenarios: Object.freeze(this.#board.scenarios.filter((scenario) => scenario.id !== selected)) };
+    this.#store.dispatch({ kind: "selection.set", ids: [] });
   }
 
   async #runDiscovery(): Promise<void> {

@@ -11,6 +11,7 @@ export type ScreenId =
   | "regime-timeline"
   | "uncertainty-lens"
   | "world-lab"
+  | "scenario-board"
   | "export-screen";
 
 export const SCREEN_IDS: readonly ScreenId[] = Object.freeze([
@@ -21,6 +22,7 @@ export const SCREEN_IDS: readonly ScreenId[] = Object.freeze([
   "regime-timeline",
   "uncertainty-lens",
   "world-lab",
+  "scenario-board",
   "export-screen",
 ]);
 

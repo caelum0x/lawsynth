@@ -12,6 +12,7 @@ from __future__ import annotations
 import ast
 import csv
 from dataclasses import dataclass, field
+from html import escape
 from math import isfinite
 from os import PathLike
 from pathlib import Path
@@ -24,7 +25,10 @@ from .dataset import Dataset
 from .errors import LawSynthError, NativeError, ValidationError
 from .trajectory import TrajectoryData
 
-__all__ = ["Study", "DiscoveryResult", "Explanation", "Law", "Forecast", "enable_rich_display"]
+__all__ = [
+    "Study", "DiscoveryResult", "Explanation", "Law", "Forecast",
+    "ScenarioComparison", "enable_rich_display",
+]
 
 
 def _default_source_name(kind: str, resource: str) -> str:
@@ -285,6 +289,186 @@ class Forecast:
 
 
 # --------------------------------------------------------------------------- #
+# ScenarioComparison — overlay N what-if scenarios against a baseline          #
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True, slots=True)
+class ScenarioComparison:
+    """A baseline run plus N labeled what-if scenarios, ready to compare.
+
+    Holds one :class:`TrajectoryData` per label (the ``baseline`` plus each
+    named scenario) on a shared time grid, together with the initial-condition
+    overrides that define each scenario. Renders as a self-contained HTML view:
+    per-state SVG line charts overlaying every scenario, plus a divergence table
+    quantifying how far each scenario's final state drifts from the baseline.
+    """
+
+    states: tuple[str, ...]
+    baseline_label: str
+    order: tuple[str, ...]
+    trajectories: Mapping[str, TrajectoryData]
+    interventions: Mapping[str, Mapping[str, float]]
+
+    # -- data access -------------------------------------------------------- #
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        """Every label, baseline first, then scenarios in insertion order."""
+        return (self.baseline_label, *self.order)
+
+    def final_state(self, label: str) -> dict[str, float]:
+        trajectory = self.trajectories[label]
+        return {state: float(trajectory.values[state][-1]) for state in self.states if state in trajectory.values}
+
+    def divergence(self, label: str) -> dict[str, float]:
+        """Per-state |scenario_final − baseline_final| for ``label``."""
+        base = self.final_state(self.baseline_label)
+        current = self.final_state(label)
+        return {state: abs(current[state] - base[state]) for state in self.states if state in base and state in current}
+
+    def distance(self, label: str) -> float:
+        """Euclidean norm of the final-state divergence from baseline."""
+        return sum(value * value for value in self.divergence(label).values()) ** 0.5
+
+    def to_rows(self) -> list[dict[str, object]]:
+        rows: list[dict[str, object]] = []
+        for label in self.labels:
+            final = self.final_state(label)
+            divergence = self.divergence(label)
+            rows.append({
+                "scenario": label,
+                "interventions": dict(self.interventions.get(label, {})),
+                "final": final,
+                "divergence": divergence,
+                "distance": self.distance(label),
+            })
+        return rows
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "states": list(self.states),
+            "baseline": self.baseline_label,
+            "scenarios": list(self.order),
+            "rows": self.to_rows(),
+        }
+
+    # -- text table --------------------------------------------------------- #
+
+    def table(self) -> str:
+        """A plain-text comparison table: final state + divergence from baseline."""
+        headers = ["scenario", *[f"{s}(final)" for s in self.states], *[f"Δ{s}" for s in self.states], "‖Δ‖"]
+        rows: list[list[str]] = []
+        for label in self.labels:
+            final = self.final_state(label)
+            divergence = self.divergence(label)
+            cells = [label]
+            cells += [f"{final.get(s, float('nan')):.4g}" for s in self.states]
+            cells += [f"{divergence.get(s, 0.0):.4g}" for s in self.states]
+            cells.append(f"{self.distance(label):.4g}")
+            rows.append(cells)
+        widths = [max(len(headers[i]), *(len(row[i]) for row in rows)) for i in range(len(headers))]
+        def _fmt(cells: Sequence[str]) -> str:
+            return "  ".join(cell.rjust(widths[i]) if i else cell.ljust(widths[i]) for i, cell in enumerate(cells))
+        divider = "  ".join("-" * widths[i] for i in range(len(headers)))
+        return "\n".join([_fmt(headers), divider, *[_fmt(row) for row in rows]])
+
+    def __str__(self) -> str:
+        return self.table()
+
+    # -- HTML view ---------------------------------------------------------- #
+
+    def _repr_html_(self, *, theme: str = "light") -> str:
+        colors = _report._theme(theme)
+        baseline = self.trajectories[self.baseline_label]
+        charts = []
+        for state in self.states:
+            overlay = {
+                label: self.trajectories[label].values[state]
+                for label in self.labels
+                if state in self.trajectories[label].values
+            }
+            charts.append(_report.svg_line_chart(
+                baseline.time, overlay, width=720, height=300,
+                title=f"{state}: scenarios overlaid", theme=theme, sort_series=False,
+            ))
+        # Divergence table: one row per label, final value + Δ vs baseline per state.
+        head_cells = "".join(
+            f'<th style="padding:4px 10px;text-align:right;color:{colors["muted"]}">{escape(h)}</th>'
+            for h in ["scenario", *[f"{s} final" for s in self.states], *[f"Δ{s}" for s in self.states], "‖Δ‖"]
+        )
+        body_rows = []
+        for label in self.labels:
+            final = self.final_state(label)
+            divergence = self.divergence(label)
+            is_baseline = label == self.baseline_label
+            name_cell = (
+                f'<td style="padding:4px 10px;font-weight:600;color:{colors["accent"]}">'
+                f'{escape(label)}{" (baseline)" if is_baseline else ""}</td>'
+            )
+            value_cells = "".join(
+                f'<td style="padding:4px 10px;text-align:right">{final.get(s, float("nan")):.4g}</td>'
+                for s in self.states
+            )
+            div_cells = "".join(
+                f'<td style="padding:4px 10px;text-align:right">{divergence.get(s, 0.0):.4g}</td>'
+                for s in self.states
+            )
+            dist_cell = f'<td style="padding:4px 10px;text-align:right;font-weight:600">{self.distance(label):.4g}</td>'
+            body_rows.append(f"<tr>{name_cell}{value_cells}{div_cells}{dist_cell}</tr>")
+        table_html = (
+            f'<table style="border-collapse:collapse;width:100%;color:{colors["fg"]}">'
+            f'<thead><tr>{head_cells}</tr></thead><tbody>{"".join(body_rows)}</tbody></table>'
+        )
+        return (
+            f'<section style="font:14px system-ui;border:1px solid {colors["border"]};'
+            f'border-radius:10px;padding:14px;margin:8px 0;background:{colors["bg"]};color:{colors["fg"]}">'
+            f'<h3 style="margin:0 0 8px;color:{colors["accent"]}">Scenario comparison — '
+            f'{len(self.order)} what-if{"s" if len(self.order) != 1 else ""} vs. baseline</h3>'
+            + "".join(charts)
+            + '<div style="margin-top:10px">'
+            f'<b style="color:{colors["accent"]}">Final divergence from baseline</b>{table_html}</div>'
+            "</section>"
+        )
+
+    def __repr__(self) -> str:
+        return f"ScenarioComparison(baseline={self.baseline_label!r}, scenarios={list(self.order)}, states={list(self.states)})"
+
+
+def _compare_scenarios(
+    world: object,
+    dataset: Dataset,
+    states: Sequence[str],
+    scenarios: Mapping[str, Mapping[str, float]],
+    *,
+    baseline_label: str,
+    horizon: float | None,
+    step: float | None,
+) -> ScenarioComparison:
+    baseline_initial = _initial_state(dataset, states)
+    trajectories: dict[str, TrajectoryData] = {
+        baseline_label: _simulate(world, dataset, states, horizon=horizon, initial=baseline_initial, start=None, step=step)
+    }
+    resolved_interventions: dict[str, dict[str, float]] = {baseline_label: {}}
+    for label, overrides in scenarios.items():
+        unknown = [key for key in overrides if key not in baseline_initial]
+        if unknown:
+            raise ValidationError(
+                f"scenario {label!r} names unknown state variables {unknown}; valid states are {sorted(baseline_initial)}"
+            )
+        initial = {**baseline_initial, **{k: float(v) for k, v in overrides.items()}}
+        trajectories[label] = _simulate(world, dataset, states, horizon=horizon, initial=initial, start=None, step=step)
+        resolved_interventions[label] = {k: float(v) for k, v in overrides.items()}
+    return ScenarioComparison(
+        states=tuple(states),
+        baseline_label=baseline_label,
+        order=tuple(scenarios.keys()),
+        trajectories=trajectories,
+        interventions=resolved_interventions,
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Shared operations backing both Study and DiscoveryResult                     #
 # --------------------------------------------------------------------------- #
 
@@ -484,13 +668,22 @@ class DiscoveryResult:
     def report(self, path: str | PathLike[str], *, theme: str = "light") -> Path:
         return _write_report(self._world, self._dataset, self._states, path, name=self._name, theme=theme)
 
+    def dashboard(self, *, theme: str = "light", horizon: float | None = None):
+        """Render a cohesive notebook dashboard (requires ``lawsynth-notebook``)."""
+        from lawsynth_notebook.dashboard import render_dashboard
+
+        return render_dashboard(self, theme=theme, comparison=None, horizon=horizon)
+
     def save(self, path: str | PathLike[str]) -> Path:
         target = Path(path)
         self._world.save(str(target))
         return target
 
     def _repr_html_(self) -> str:
-        return _report_html(self._world, self._dataset, self._states, name=self._name, theme="light")
+        try:
+            return self.dashboard()._repr_html_()
+        except Exception:
+            return _report_html(self._world, self._dataset, self._states, name=self._name, theme="light")
 
     def __repr__(self) -> str:
         return f"DiscoveryResult(name={self._name!r}, states={list(self._states)}, laws={len(self.equations)})"
@@ -513,7 +706,7 @@ def _write_report(world: object, dataset: Dataset, states: Sequence[str], path: 
 class Study:
     """A fluent workflow over one dataset: discover, explain, forecast, share."""
 
-    __slots__ = ("_dataset", "_states", "_name", "_world", "_config")
+    __slots__ = ("_dataset", "_states", "_name", "_world", "_config", "_scenarios")
 
     def __init__(self, dataset: Dataset, states: Sequence[str], *, name: str = "study") -> None:
         if not states:
@@ -526,6 +719,7 @@ class Study:
         self._name = name
         self._world: object | None = None
         self._config: DiscoveryConfig | None = None
+        self._scenarios: dict[str, dict[str, float]] = {}
 
     # -- construction ------------------------------------------------------- #
 
@@ -612,6 +806,10 @@ class Study:
         return self._dataset
 
     @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def states(self) -> tuple[str, ...]:
         return self._states
 
@@ -682,6 +880,76 @@ class Study:
         """Run a what-if: override initial conditions and compare to baseline."""
         return _forecast(self._require_world(), self._dataset, self._states, interventions=interventions, horizon=horizon, step=step)
 
+    # -- scenario boards ---------------------------------------------------- #
+
+    def add_scenario(self, label: str, *, interventions: Mapping[str, float]) -> "Study":
+        """Register a named what-if defined by initial-condition overrides.
+
+        ``interventions`` maps state variables to the initial values used for
+        that scenario; every other state starts from the observed baseline.
+        Returns ``self`` so scenarios can be chained fluently. The baseline
+        (no-intervention) run is always implicit and never needs registering.
+        """
+        if not label or not isinstance(label, str):
+            raise ValidationError("scenario label must be a non-empty string")
+        if label == "baseline":
+            raise ValidationError("'baseline' is reserved for the no-intervention run")
+        if not interventions:
+            raise ValidationError(f"scenario {label!r} needs at least one intervention")
+        unknown = [key for key in interventions if key not in self._states]
+        if unknown:
+            raise ValidationError(
+                f"scenario {label!r} names unknown state variables {unknown}; valid states are {list(self._states)}"
+            )
+        overrides = {key: float(value) for key, value in interventions.items()}
+        for key, value in overrides.items():
+            if not isfinite(value):
+                raise ValidationError(f"scenario {label!r} value for {key!r} must be finite")
+        # Immutable update: rebuild the registry rather than mutating in place.
+        self._scenarios = {**self._scenarios, label: overrides}
+        return self
+
+    @property
+    def scenarios(self) -> dict[str, dict[str, float]]:
+        """A copy of the registered scenario overrides, keyed by label."""
+        return {label: dict(overrides) for label, overrides in self._scenarios.items()}
+
+    def clear_scenarios(self) -> "Study":
+        self._scenarios = {}
+        return self
+
+    def compare_scenarios(
+        self,
+        *,
+        horizon: float | None = None,
+        step: float | None = None,
+        baseline_label: str = "baseline",
+    ) -> ScenarioComparison:
+        """Simulate the baseline and every registered scenario, then compare.
+
+        Returns a :class:`ScenarioComparison` holding one trajectory per label on
+        a shared time grid, with per-scenario final states and their divergence
+        from the baseline. Requires at least one registered scenario.
+        """
+        if not self._scenarios:
+            raise ValidationError("no scenarios registered; call add_scenario() first")
+        return _compare_scenarios(
+            self._require_world(), self._dataset, self._states, self._scenarios,
+            baseline_label=baseline_label, horizon=horizon, step=step,
+        )
+
+    def dashboard(self, *, theme: str = "light", horizon: float | None = None):
+        """Render a cohesive notebook dashboard for the discovered world.
+
+        Requires the optional ``lawsynth-notebook`` package. Any registered
+        scenarios are compared and folded into the dashboard automatically.
+        """
+        self._require_world()
+        from lawsynth_notebook.dashboard import render_dashboard
+
+        comparison = self.compare_scenarios(horizon=horizon) if self._scenarios else None
+        return render_dashboard(self, theme=theme, comparison=comparison, horizon=horizon)
+
     def report(self, path: str | PathLike[str], *, theme: str = "light") -> Path:
         """Write a self-contained HTML report of the discovered world."""
         return _write_report(self._require_world(), self._dataset, self._states, path, name=self._name, theme=theme)
@@ -711,7 +979,12 @@ class Study:
                 f"states: {', '.join(self._states)}.</p>"
                 '<p style="color:#53627a">Call <code>discover()</code> to find its laws.</p></section>'
             )
-        return _report_html(self._world, self._dataset, self._states, name=self._name, theme="light")
+        # Prefer the rich composed dashboard when the notebook package is
+        # available; degrade to the compact self-contained report otherwise.
+        try:
+            return self.dashboard()._repr_html_()
+        except Exception:  # notebook package absent or optional render failed
+            return _report_html(self._world, self._dataset, self._states, name=self._name, theme="light")
 
     def __repr__(self) -> str:
         state = "discovered" if self._world is not None else "not discovered"

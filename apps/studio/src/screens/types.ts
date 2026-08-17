@@ -129,6 +129,18 @@ export interface TimelineView {
   readonly end: number;
 }
 
+/**
+ * One labeled entry in a chart legend. Present when a chart draws more than one
+ * meaningful series (e.g. the Scenario Board overlays a line per scenario); the
+ * single-series screens simply omit `legend` and render exactly as before.
+ */
+export interface ChartLegendEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly color: string;
+  readonly emphasis?: boolean;
+}
+
 /** A shaded band overlaid on a line trajectory (Uncertainty Lens). */
 export interface BandOverlay {
   readonly id: string;
@@ -202,6 +214,7 @@ export type ScreenSection =
       readonly chart: ChartModel;
       readonly geometry: PlotGeometry;
       readonly bands?: readonly BandOverlay[];
+      readonly legend?: readonly ChartLegendEntry[];
     }
   | { readonly kind: "timeline"; readonly id: string; readonly title?: string; readonly timeline: TimelineView }
   | { readonly kind: "equations"; readonly id: string; readonly title?: string; readonly equations: readonly EquationBlock[] }
