@@ -15,9 +15,7 @@ impl Population {
     pub fn extend(&mut self, candidates: impl IntoIterator<Item = Expr>) {
         for candidate in candidates {
             let candidate = candidate.simplify();
-            self.candidates
-                .entry(candidate.to_canonical_string())
-                .or_insert(candidate);
+            self.candidates.entry(candidate.to_canonical_string()).or_insert(candidate);
         }
     }
     pub fn expressions(&self) -> impl Iterator<Item = &Expr> {

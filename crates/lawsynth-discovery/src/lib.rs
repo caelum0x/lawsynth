@@ -19,9 +19,13 @@ mod stage;
 pub use assumptions::{DependencyAssumptions, EdgeConstraint};
 pub use branch::DiscoveryBranch;
 pub use cancellation::CancellationToken;
-pub use candidate::{DiscoveryCandidate, DiscoveryResult, ParameterRefinement};
+pub use candidate::{
+    DimensionalPruningReport, DiscoveryCandidate, DiscoveryResult, ParameterRefinement,
+};
 pub use checkpoint::DiscoveryCheckpoint;
-pub use config::{CausalHypothesisConfig, DiscoveryConfig, RefinementConfig, SparseMethod};
+pub use config::{
+    CausalHypothesisConfig, DimensionalUnits, DiscoveryConfig, RefinementConfig, SparseMethod,
+};
 pub use distributed::{discover_partitioned, evaluate_library_partitioned};
 pub use error::DiscoveryError;
 pub use execute::{discover, discover_cancellable, discover_cancellable_with_checkpoint};

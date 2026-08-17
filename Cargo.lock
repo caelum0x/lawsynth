@@ -55,6 +55,7 @@ dependencies = [
  "lawsynth-stats",
  "lawsynth-symbolic",
  "lawsynth-uncertainty",
+ "lawsynth-units",
  "lawsynth-world",
 ]
 
@@ -96,6 +97,7 @@ dependencies = [
  "lawsynth-sparse",
  "lawsynth-stats",
  "lawsynth-symbolic",
+ "lawsynth-units",
  "lawsynth-world",
 ]
 
@@ -136,6 +138,14 @@ name = "lawsynth-gateway"
 version = "0.1.0"
 dependencies = [
  "lawsynth-artifact-service",
+]
+
+[[package]]
+name = "lawsynth-koopman"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
 ]
 
 [[package]]
@@ -260,6 +270,7 @@ dependencies = [
  "lawsynth-core",
  "lawsynth-expr",
  "lawsynth-opt",
+ "lawsynth-units",
 ]
 
 [[package]]

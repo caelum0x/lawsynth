@@ -30,16 +30,8 @@ mod tests {
     #[test]
     fn excludes_dominated_candidate() {
         let values = [
-            ScoredExpression {
-                expression: Expr::constant(1.0),
-                loss: 1.0,
-                complexity: 1,
-            },
-            ScoredExpression {
-                expression: Expr::constant(2.0),
-                loss: 2.0,
-                complexity: 2,
-            },
+            ScoredExpression { expression: Expr::constant(1.0), loss: 1.0, complexity: 1 },
+            ScoredExpression { expression: Expr::constant(2.0), loss: 2.0, complexity: 2 },
         ];
         assert_eq!(pareto_by_loss_and_complexity(&values), vec![0]);
     }

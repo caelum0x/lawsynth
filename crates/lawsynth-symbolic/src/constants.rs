@@ -39,10 +39,7 @@ pub fn calibrate_affine(
         Expr::constant(fit.offset),
     )
     .simplify();
-    Ok(CalibratedExpression {
-        expression: calibrated,
-        fit,
-    })
+    Ok(CalibratedExpression { expression: calibrated, fit })
 }
 
 #[cfg(test)]

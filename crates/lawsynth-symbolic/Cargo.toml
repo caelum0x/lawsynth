@@ -25,3 +25,4 @@ harness = false
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-expr = { path = "../lawsynth-expr" }
 lawsynth-opt = { path = "../lawsynth-opt" }
+lawsynth-units = { path = "../lawsynth-units" }

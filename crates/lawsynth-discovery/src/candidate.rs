@@ -34,6 +34,37 @@ impl ParameterRefinement {
     }
 }
 
+/// Tally of the in-loop dimensional pruning pass (`specs/dimensional-search/`).
+///
+/// Present only when units are supplied in the
+/// [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on the default path.
+/// `considered` counts every `(candidate term, target state)` admissibility test
+/// performed, `pruned` the subset rejected as dimensionally inconsistent. The
+/// tally is diagnostic only — it never affects which world is returned beyond the
+/// removal of the pruned terms.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DimensionalPruningReport {
+    /// Total admissibility tests performed across states and search paths.
+    pub considered: usize,
+    /// Candidate terms rejected as dimensionally inconsistent.
+    pub pruned: usize,
+}
+
+impl DimensionalPruningReport {
+    /// Records one admissibility test outcome (`pruned` when rejected).
+    pub(crate) fn record(&mut self, pruned: bool) {
+        self.considered += 1;
+        if pruned {
+            self.pruned += 1;
+        }
+    }
+
+    /// Candidate terms retained after pruning.
+    pub fn retained(&self) -> usize {
+        self.considered - self.pruned
+    }
+}
+
 /// An executable equation system fitted from one discovery branch.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DiscoveryCandidate {
@@ -90,6 +121,9 @@ pub struct DiscoveryResult {
     /// would license a causal reading (e.g. faithfulness, causal sufficiency).
     /// Set together with the hypothesis; `None` on the default path.
     pub dependency_assumptions: Option<Vec<CausalAssumption>>,
+    /// Tally of in-loop dimensional pruning, present only when units are supplied
+    /// in the [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on the default path.
+    pub dimensional_pruning: Option<DimensionalPruningReport>,
 }
 
 impl DiscoveryResult {

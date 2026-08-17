@@ -12,11 +12,12 @@ use lawsynth_score::{CandidateMetrics, expression_complexity, selection_stabilit
 use lawsynth_sparse::{RegressionProblem, SparseSolution, sr3_standardized, stlsq_standardized};
 use lawsynth_stats::{BootstrapConfig, PercentileInterval, bootstrap_indices, percentile_interval};
 use lawsynth_symbolic::{Grammar, calibrate_affine, enumerate};
+use lawsynth_units::admits_scaled_dimension;
 use lawsynth_world::{ContinuousLaw, Variable, VariableRole, World};
 
 use crate::{
-    CancellationToken, DiscoveryCandidate, DiscoveryCheckpoint, DiscoveryConfig, DiscoveryError,
-    DiscoveryResult, SparseMethod,
+    CancellationToken, DimensionalPruningReport, DimensionalUnits, DiscoveryCandidate,
+    DiscoveryCheckpoint, DiscoveryConfig, DiscoveryError, DiscoveryResult, SparseMethod,
 };
 
 /// Discovers a continuous polynomial World using finite differences and STLSQ.
@@ -131,6 +132,8 @@ pub(crate) fn run_discovery(
     let mut laws = Vec::new();
     let mut total_rss = 0.0;
     let mut complexity = 0;
+    // Diagnostic tally of dimensional pruning, only surfaced when units are on.
+    let mut pruning = DimensionalPruningReport::default();
     for state in &config.state {
         ensure_active(cancellation)?;
         if let Some(saved) = checkpoint.law(state) {
@@ -145,8 +148,23 @@ pub(crate) fn run_discovery(
             continue;
         }
         let target = derivatives.columns()[state].values[1..derivatives.time().len() - 1].to_vec();
+        // Dimensional pruning selects the admissible columns for this state's
+        // target derivative dimension. `None` (units disabled, or this state has
+        // no declared unit) keeps every column, so the fit is byte-identical to
+        // the pre-units path.
+        let admissible =
+            admissible_columns(&matrix.terms, config.units.as_ref(), state, &mut pruning);
+        let (problem_rows, fit_terms) = match &admissible {
+            Some(indices) => (
+                rows.iter()
+                    .map(|row| indices.iter().map(|&index| row[index]).collect::<Vec<_>>())
+                    .collect::<Vec<_>>(),
+                indices.iter().map(|&index| &matrix.terms[index]).collect::<Vec<_>>(),
+            ),
+            None => (rows.clone(), matrix.terms.iter().collect::<Vec<_>>()),
+        };
         let solution = fit_sparse(
-            &RegressionProblem::new(rows.clone(), target)
+            &RegressionProblem::new(problem_rows, target)
                 .map_err(|error| DiscoveryError::Sparse(error.to_string()))?,
             &config.sparse,
             config.sparse_method,
@@ -154,8 +172,7 @@ pub(crate) fn run_discovery(
         .map_err(|error| DiscoveryError::Sparse(error.to_string()))?;
         let residual_sum_squares = solution.residual_sum_squares;
         total_rss += residual_sum_squares;
-        let expression = matrix
-            .terms
+        let expression = fit_terms
             .iter()
             .zip(solution.coefficients)
             .filter(|(_, coefficient)| coefficient.abs() >= config.sparse.threshold)
@@ -209,6 +226,8 @@ pub(crate) fn run_discovery(
             &config.state,
             &variables,
             symbolic_config,
+            config.units.as_ref(),
+            &mut pruning,
             cancellation,
         )?);
     }
@@ -239,7 +258,36 @@ pub(crate) fn run_discovery(
         regimes,
         dependency_hypothesis,
         dependency_assumptions,
+        dimensional_pruning: config.units.as_ref().map(|_| pruning),
     })
+}
+
+/// Selects the feature columns that are dimensionally admissible for one state's
+/// target derivative, recording each decision in `report`.
+///
+/// Returns `None` — meaning "keep every column, unchanged" — when units are
+/// disabled or the state variable has no declared unit, so the default discovery
+/// path is byte-identical. Otherwise returns the retained column indices in
+/// ascending order. A candidate term is admissible when a free multiplicative
+/// coefficient could rescale it to the target dimension; only dimensionally
+/// impossible terms (e.g. `sin(x)` for a dimensioned `x`) are rejected.
+fn admissible_columns(
+    terms: &[lawsynth_features::FeatureTerm],
+    units: Option<&DimensionalUnits>,
+    state: &lawsynth_core::Identifier,
+    report: &mut DimensionalPruningReport,
+) -> Option<Vec<usize>> {
+    let units = units?;
+    let target = units.target_dimension(state)?;
+    let mut kept = Vec::new();
+    for (index, term) in terms.iter().enumerate() {
+        let admissible = admits_scaled_dimension(&term.expression, units.dimensions(), target);
+        report.record(!admissible);
+        if admissible {
+            kept.push(index);
+        }
+    }
+    Some(kept)
 }
 
 /// Runs the opt-in regime segmentation pass over the primary state's window.
@@ -263,12 +311,15 @@ fn discover_regimes(
     pelt(series, *config).map(Some).map_err(|error| DiscoveryError::Regime(error.to_string()))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn symbolic_candidate(
     dataset: &Dataset,
     derivatives: &Dataset,
     states: &[lawsynth_core::Identifier],
     variables: &[Variable],
     config: &lawsynth_symbolic::SymbolicConfig,
+    units: Option<&DimensionalUnits>,
+    pruning: &mut DimensionalPruningReport,
     cancellation: &CancellationToken,
 ) -> Result<DiscoveryCandidate, DiscoveryError> {
     let contexts = (1..dataset.time().len() - 1)
@@ -287,8 +338,29 @@ fn symbolic_candidate(
     for state in states {
         ensure_active(cancellation)?;
         let target = &derivatives.columns()[state].values[1..derivatives.time().len() - 1];
-        let best = expressions
-            .iter()
+        // Prune dimensionally-inconsistent enumerated candidates for this state's
+        // derivative dimension before any calibration. With units off (or no unit
+        // for this state) every candidate is retained, unchanged.
+        let admissible: Vec<&Expr> = match units.and_then(|units| units.target_dimension(state)) {
+            Some(target_dimension) => {
+                let units = units.expect("target dimension implies units are present");
+                expressions
+                    .iter()
+                    .filter(|expression| {
+                        let keep = admits_scaled_dimension(
+                            expression,
+                            units.dimensions(),
+                            target_dimension,
+                        );
+                        pruning.record(!keep);
+                        keep
+                    })
+                    .collect()
+            }
+            None => expressions.iter().collect(),
+        };
+        let best = admissible
+            .into_iter()
             .filter_map(|expression| calibrate_affine(expression, &contexts, target).ok())
             .min_by(|left, right| {
                 left.fit.mean_squared_error.total_cmp(&right.fit.mean_squared_error).then_with(
@@ -631,6 +703,7 @@ mod tests {
                 regime: None,
                 refine: None,
                 causal: None,
+                units: None,
                 resource_limits: Default::default(),
             },
         )
@@ -687,6 +760,7 @@ mod tests {
                 regime: None,
                 refine: None,
                 causal: None,
+                units: None,
                 resource_limits: Default::default(),
             },
         )
@@ -695,6 +769,91 @@ mod tests {
         let laws = result.candidates[0].world.laws();
         assert!((evaluate(&laws[&prey].expression, &environment).unwrap() + 35.0).abs() < 0.5);
         assert!((evaluate(&laws[&predator].expression, &environment).unwrap() - 32.5).abs() < 0.5);
+    }
+
+    /// A mechanical oscillator `ẍ = -x`: position `x` in metres, velocity `v` in
+    /// m/s, sampled from `x(t) = cos t`, `v(t) = -sin t`. Then `dx/dt = v` and
+    /// `dv/dt = -x`, with target dimensions `m/s` and `m/s²`.
+    fn oscillator_dataset() -> (Dataset, Identifier, Identifier) {
+        let x = Identifier::new("x").unwrap();
+        let v = Identifier::new("v").unwrap();
+        let time = (0..400).map(|step| step as f64 * 0.01).collect::<Vec<_>>();
+        let data = Dataset::new(
+            TimeAxis::new(time.clone()).unwrap(),
+            [
+                NumericColumn::new(x.clone(), time.iter().map(|t| t.cos()).collect()),
+                NumericColumn::new(v.clone(), time.iter().map(|t| -t.sin()).collect()),
+            ],
+        )
+        .unwrap();
+        (data, x, v)
+    }
+
+    fn oscillator_units(x: &Identifier, v: &Identifier) -> crate::DimensionalUnits {
+        use lawsynth_units::Unit;
+        crate::DimensionalUnits::new([
+            (x.clone(), Unit::parse("m").unwrap().dimension()),
+            (v.clone(), Unit::parse("m/s").unwrap().dimension()),
+        ])
+    }
+
+    #[test]
+    fn dimensional_pruning_rejects_transcendental_terms_on_dimensioned_inputs() {
+        let (data, x, v) = oscillator_dataset();
+        let mut config = DiscoveryConfig::new([x.clone(), v.clone()]);
+        config.polynomial_degree = 2;
+        config.include_trigonometric = true;
+        config.sparse.threshold = 0.1;
+        config.enable_units(oscillator_units(&x, &v));
+
+        let result = discover(&data, &config).unwrap();
+        let report = result.dimensional_pruning.expect("units enable the pruning report");
+        // 10 library terms (6 polynomial + 4 sin/cos) tested against 2 states.
+        assert_eq!(report.considered, 20);
+        // The 4 transcendental terms are impossible for both states: sin/cos of a
+        // dimensioned quantity has no consistent dimension.
+        assert_eq!(report.pruned, 8);
+        assert_eq!(report.retained(), 12);
+
+        // No surviving law may contain a sine or cosine of a dimensioned input.
+        let laws = result.candidates[0].world.laws();
+        for state in [&x, &v] {
+            let canonical = laws[state].expression.to_canonical_string();
+            assert!(!canonical.contains("Sin"), "unexpected sine survived: {canonical}");
+            assert!(!canonical.contains("Cos"), "unexpected cosine survived: {canonical}");
+        }
+        // Recovery is preserved: dx/dt = v and dv/dt = -x.
+        let dx =
+            evaluate(&laws[&x].expression, &BTreeMap::from([(x.clone(), 0.0), (v.clone(), 1.0)]))
+                .unwrap();
+        let dv =
+            evaluate(&laws[&v].expression, &BTreeMap::from([(x.clone(), 1.0), (v.clone(), 0.0)]))
+                .unwrap();
+        assert!((dx - 1.0).abs() < 0.1, "dx/dt should recover v, got {dx}");
+        assert!((dv + 1.0).abs() < 0.1, "dv/dt should recover -x, got {dv}");
+    }
+
+    #[test]
+    fn units_that_prune_nothing_leave_discovery_byte_identical() {
+        let (data, x, v) = oscillator_dataset();
+        let mut baseline = DiscoveryConfig::new([x.clone(), v.clone()]);
+        baseline.polynomial_degree = 2;
+        baseline.sparse.threshold = 0.1;
+
+        // Polynomial-only monomials are always dimensionally consistent (a fit
+        // coefficient rescales them), so enabling units prunes nothing and must
+        // return exactly the same world as the units-off run.
+        let mut with_units = baseline.clone();
+        with_units.enable_units(oscillator_units(&x, &v));
+
+        let without = discover(&data, &baseline).unwrap();
+        let withu = discover(&data, &with_units).unwrap();
+
+        assert_eq!(without.dimensional_pruning, None);
+        let report = withu.dimensional_pruning.expect("units enable the report");
+        assert_eq!(report.considered, 12); // 6 monomials x 2 states
+        assert_eq!(report.pruned, 0);
+        assert_eq!(without.candidates[0].world, withu.candidates[0].world);
     }
 
     fn rk4_lorenz(x: f64, y: f64, z: f64, dt: f64) -> (f64, f64, f64) {

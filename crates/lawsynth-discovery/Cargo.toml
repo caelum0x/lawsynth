@@ -41,4 +41,5 @@ lawsynth-score = { path = "../lawsynth-score" }
 lawsynth-sparse = { path = "../lawsynth-sparse" }
 lawsynth-stats = { path = "../lawsynth-stats" }
 lawsynth-symbolic = { path = "../lawsynth-symbolic" }
+lawsynth-units = { path = "../lawsynth-units" }
 lawsynth-world = { path = "../lawsynth-world" }

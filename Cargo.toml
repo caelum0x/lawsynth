@@ -21,6 +21,7 @@ members = [
   "crates/lawsynth-opt",
   "crates/lawsynth-egraph",
   "crates/lawsynth-dynamics",
+  "crates/lawsynth-koopman",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",

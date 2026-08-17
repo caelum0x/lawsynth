@@ -7,10 +7,6 @@ pub struct SymbolicConfig {
 
 impl Default for SymbolicConfig {
     fn default() -> Self {
-        Self {
-            max_depth: 2,
-            max_candidates: 256,
-            include_products: true,
-        }
+        Self { max_depth: 2, max_candidates: 256, include_products: true }
     }
 }

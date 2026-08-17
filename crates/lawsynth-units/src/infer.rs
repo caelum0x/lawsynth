@@ -34,11 +34,7 @@ pub fn infer_expression_dimension(
                 | UnaryOperator::Cos => Err(UnitError::IncompatibleDimensions),
             }
         }
-        Expr::Binary {
-            operator,
-            left,
-            right,
-        } => {
+        Expr::Binary { operator, left, right } => {
             let left_dimension = infer_expression_dimension(left, symbols)?;
             let right_dimension = infer_expression_dimension(right, symbols)?;
             match operator {
@@ -50,12 +46,12 @@ pub fn infer_expression_dimension(
                 BinaryOperator::Add | BinaryOperator::Subtract => {
                     Err(UnitError::IncompatibleDimensions)
                 }
-                BinaryOperator::Multiply => left_dimension
-                    .multiply(right_dimension)
-                    .ok_or(UnitError::DimensionOverflow),
-                BinaryOperator::Divide => left_dimension
-                    .divide(right_dimension)
-                    .ok_or(UnitError::DimensionOverflow),
+                BinaryOperator::Multiply => {
+                    left_dimension.multiply(right_dimension).ok_or(UnitError::DimensionOverflow)
+                }
+                BinaryOperator::Divide => {
+                    left_dimension.divide(right_dimension).ok_or(UnitError::DimensionOverflow)
+                }
                 BinaryOperator::Power if left_dimension == Dimension::DIMENSIONLESS => {
                     Ok(Dimension::DIMENSIONLESS)
                 }
@@ -65,9 +61,7 @@ pub fn infer_expression_dimension(
                             && *value >= i8::MIN as f64
                             && *value <= i8::MAX as f64 =>
                     {
-                        left_dimension
-                            .pow(*value as i8)
-                            .ok_or(UnitError::DimensionOverflow)
+                        left_dimension.pow(*value as i8).ok_or(UnitError::DimensionOverflow)
                     }
                     _ => Err(UnitError::IncompatibleDimensions),
                 },

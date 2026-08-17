@@ -22,19 +22,11 @@ impl Unit {
         if !scale_to_si.is_finite() || scale_to_si <= 0.0 {
             return Err(UnitError::InvalidScale);
         }
-        Ok(Self {
-            canonical,
-            dimension,
-            scale: scale_to_si,
-        })
+        Ok(Self { canonical, dimension, scale: scale_to_si })
     }
 
     pub fn dimensionless() -> Self {
-        Self {
-            canonical: "1".to_owned(),
-            dimension: Dimension::DIMENSIONLESS,
-            scale: 1.0,
-        }
+        Self { canonical: "1".to_owned(), dimension: Dimension::DIMENSIONLESS, scale: 1.0 }
     }
 
     pub fn parse(expression: &str) -> Result<Self, UnitError> {
@@ -44,26 +36,18 @@ impl Unit {
         let mut result = Self::dimensionless();
         let mut start = 0;
         let mut divide = false;
-        for (index, character) in expression
-            .char_indices()
-            .chain(std::iter::once((expression.len(), '*')))
+        for (index, character) in
+            expression.char_indices().chain(std::iter::once((expression.len(), '*')))
         {
             if character != '*' && character != '/' {
                 continue;
             }
             let factor = parse_factor(&expression[start..index])?;
-            result = if divide {
-                result.divide(&factor)?
-            } else {
-                result.multiply(&factor)?
-            };
+            result = if divide { result.divide(&factor)? } else { result.multiply(&factor)? };
             divide = character == '/';
             start = index + character.len_utf8();
         }
-        Ok(Self {
-            canonical: expression.to_owned(),
-            ..result
-        })
+        Ok(Self { canonical: expression.to_owned(), ..result })
     }
 
     pub fn canonical(&self) -> &str {
@@ -109,10 +93,7 @@ impl Unit {
     pub fn pow(&self, exponent: i8) -> Result<Self, UnitError> {
         Ok(Self {
             canonical: format!("{}^{exponent}", self.canonical),
-            dimension: self
-                .dimension
-                .pow(exponent)
-                .ok_or(UnitError::DimensionOverflow)?,
+            dimension: self.dimension.pow(exponent).ok_or(UnitError::DimensionOverflow)?,
             scale: self.scale.powi(i32::from(exponent)),
         })
     }
@@ -120,19 +101,13 @@ impl Unit {
 
 fn parse_factor(value: &str) -> Result<Unit, UnitError> {
     let (name, exponent) = match value.split_once('^') {
-        Some((name, exponent)) => (
-            name,
-            exponent
-                .parse()
-                .map_err(|_| UnitError::ExponentOutOfRange)?,
-        ),
+        Some((name, exponent)) => {
+            (name, exponent.parse().map_err(|_| UnitError::ExponentOutOfRange)?)
+        }
         None => (value, 1_i8),
     };
     let mut factor = named(name)?;
-    factor.dimension = factor
-        .dimension
-        .pow(exponent)
-        .ok_or(UnitError::DimensionOverflow)?;
+    factor.dimension = factor.dimension.pow(exponent).ok_or(UnitError::DimensionOverflow)?;
     factor.scale = factor.scale.powi(i32::from(exponent));
     Ok(factor)
 }
@@ -148,11 +123,7 @@ fn named(name: &str) -> Result<Unit, UnitError> {
         "g" => (Dimension::MASS, 0.001),
         _ => return Err(UnitError::UnknownUnit(name.to_owned())),
     };
-    Ok(Unit {
-        canonical: name.to_owned(),
-        dimension,
-        scale,
-    })
+    Ok(Unit { canonical: name.to_owned(), dimension, scale })
 }
 
 #[cfg(test)]

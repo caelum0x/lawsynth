@@ -240,6 +240,64 @@ fn discover_command_reports_refinement_and_dependency_hypothesis() {
 }
 
 #[test]
+fn discover_command_prunes_dimensionally_inconsistent_terms_with_units() {
+    let directory = std::env::temp_dir().join(format!(
+        "lawsynth-cli-units-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    fs::create_dir_all(&directory).unwrap();
+    let csv = directory.join("oscillator.csv");
+    // Mechanical oscillator: x = cos t (metres), v = -sin t (m/s). Then dv/dt is
+    // an acceleration, so sin/cos of the dimensioned states are inadmissible.
+    let contents = (0..400)
+        .map(|step| {
+            let time = step as f64 * 0.01;
+            format!("{time},{:.17e},{:.17e}", time.cos(), -time.sin())
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&csv, format!("t,x,v\n{contents}\n")).unwrap();
+    let bundle = directory.join("oscillator.lsworld");
+
+    let arguments = |extra: &[&str]| {
+        let mut base = vec![
+            "discover".to_owned(),
+            csv.display().to_string(),
+            "--time".to_owned(),
+            "t".to_owned(),
+            "--state".to_owned(),
+            "x,v".to_owned(),
+            "--output".to_owned(),
+            bundle.display().to_string(),
+            "--degree".to_owned(),
+            "2".to_owned(),
+            "--trigonometric".to_owned(),
+            "--threshold".to_owned(),
+            "0.1".to_owned(),
+        ];
+        base.extend(extra.iter().map(|value| (*value).to_owned()));
+        base
+    };
+
+    // With units, the 4 sin/cos terms are pruned for both states (8 of 20).
+    let with_units = run(&arguments(&["--units", "x=m,v=m/s"])).unwrap();
+    assert!(with_units.starts_with("discovered world:"));
+    assert!(
+        with_units.contains("dimensional pruning: 8 of 20 candidate term(s) pruned"),
+        "unexpected output: {with_units}"
+    );
+    assert!(read_world(&bundle).is_ok());
+
+    // Without units, the default output is unchanged: no pruning line appears.
+    let without_units = run(&arguments(&[])).unwrap();
+    assert!(without_units.starts_with("discovered world:"));
+    assert!(!without_units.contains("dimensional pruning:"), "unexpected: {without_units}");
+
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn discover_command_accepts_tv_regularized_differentiation() {
     let directory = std::env::temp_dir().join(format!(
         "lawsynth-cli-tvreg-{}-{}",

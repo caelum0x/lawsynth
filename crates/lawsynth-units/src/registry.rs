@@ -10,14 +10,11 @@ pub struct UnitRegistry {
 
 impl Default for UnitRegistry {
     fn default() -> Self {
-        let mut registry = Self {
-            units: BTreeMap::new(),
-        };
+        let mut registry = Self { units: BTreeMap::new() };
         for name in ["1", "m", "km", "s", "min", "kg", "g"] {
-            registry.units.insert(
-                name.to_owned(),
-                Unit::parse(name).expect("built-in unit must parse"),
-            );
+            registry
+                .units
+                .insert(name.to_owned(), Unit::parse(name).expect("built-in unit must parse"));
         }
         registry
     }
@@ -48,19 +45,14 @@ impl UnitRegistry {
         let mut result = Unit::dimensionless();
         let mut start = 0;
         let mut divide = false;
-        for (index, character) in expression
-            .char_indices()
-            .chain(std::iter::once((expression.len(), '*')))
+        for (index, character) in
+            expression.char_indices().chain(std::iter::once((expression.len(), '*')))
         {
             if character != '*' && character != '/' {
                 continue;
             }
             let factor = self.factor(&expression[start..index])?;
-            result = if divide {
-                result.divide(&factor)?
-            } else {
-                result.multiply(&factor)?
-            };
+            result = if divide { result.divide(&factor)? } else { result.multiply(&factor)? };
             divide = character == '/';
             start = index + character.len_utf8();
         }
@@ -69,12 +61,9 @@ impl UnitRegistry {
 
     fn factor(&self, value: &str) -> Result<Unit, UnitError> {
         let (name, exponent) = match value.split_once('^') {
-            Some((name, exponent)) => (
-                name,
-                exponent
-                    .parse()
-                    .map_err(|_| UnitError::ExponentOutOfRange)?,
-            ),
+            Some((name, exponent)) => {
+                (name, exponent.parse().map_err(|_| UnitError::ExponentOutOfRange)?)
+            }
             None => (value, 1_i8),
         };
         self.get(name)
@@ -94,10 +83,7 @@ mod tests {
     fn parses_custom_composite_units() {
         let mut registry = UnitRegistry::default();
         registry
-            .register(
-                "ft",
-                Unit::from_parts("ft", Dimension::LENGTH, 0.3048).unwrap(),
-            )
+            .register("ft", Unit::from_parts("ft", Dimension::LENGTH, 0.3048).unwrap())
             .unwrap();
         let velocity = registry.parse("ft/min").unwrap();
         assert!(velocity.compatible_with(&Unit::parse("m/s").unwrap()));

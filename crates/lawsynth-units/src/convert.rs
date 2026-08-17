@@ -9,11 +9,7 @@ pub fn convert(value: f64, from: &Unit, to: &Unit) -> Result<f64, UnitError> {
         return Err(UnitError::IncompatibleDimensions);
     }
     let converted = value * from.scale_to_si() / to.scale_to_si();
-    if converted.is_finite() {
-        Ok(converted)
-    } else {
-        Err(UnitError::NonFiniteValue)
-    }
+    if converted.is_finite() { Ok(converted) } else { Err(UnitError::NonFiniteValue) }
 }
 
 #[cfg(test)]
@@ -27,12 +23,7 @@ mod tests {
             1_500.0
         );
         assert_eq!(
-            convert(
-                120.0,
-                &Unit::parse("s").unwrap(),
-                &Unit::parse("min").unwrap()
-            )
-            .unwrap(),
+            convert(120.0, &Unit::parse("s").unwrap(), &Unit::parse("min").unwrap()).unwrap(),
             2.0
         );
     }

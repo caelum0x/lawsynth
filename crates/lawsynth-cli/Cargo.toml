@@ -42,6 +42,7 @@ lawsynth-sim = { path = "../lawsynth-sim" }
 lawsynth-uncertainty = { path = "../lawsynth-uncertainty" }
 lawsynth-stats = { path = "../lawsynth-stats" }
 lawsynth-symbolic = { path = "../lawsynth-symbolic" }
+lawsynth-units = { path = "../lawsynth-units" }
 lawsynth-world = { path = "../lawsynth-world" }
 
 [lib]

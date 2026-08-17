@@ -5,8 +5,6 @@ pub struct UnitConfig {
 }
 impl Default for UnitConfig {
     fn default() -> Self {
-        Self {
-            allow_custom_units: true,
-        }
+        Self { allow_custom_units: true }
     }
 }

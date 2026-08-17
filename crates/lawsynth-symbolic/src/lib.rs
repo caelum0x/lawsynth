@@ -21,5 +21,5 @@ pub use grammar::Grammar;
 pub use initialize::initialize_population;
 pub use mutate::replace_symbol;
 pub use population::Population;
-pub use search::enumerate;
+pub use search::{enumerate, enumerate_admissible};
 pub use simplify::simplify_candidate;

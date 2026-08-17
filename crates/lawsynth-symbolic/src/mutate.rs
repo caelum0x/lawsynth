@@ -9,11 +9,7 @@ pub fn replace_symbol(expression: &Expr, from: &Identifier, to: Identifier) -> E
         Expr::Unary { operator, operand } => {
             Expr::unary(*operator, replace_symbol(operand, from, to))
         }
-        Expr::Binary {
-            operator,
-            left,
-            right,
-        } => Expr::binary(
+        Expr::Binary { operator, left, right } => Expr::binary(
             *operator,
             replace_symbol(left, from, to.clone()),
             replace_symbol(right, from, to),

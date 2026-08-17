@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use lawsynth_core::{Identifier, ResourceLimits};
 use lawsynth_differentiate::DerivativeConfig;
 use lawsynth_preprocess::PreprocessPipeline;
@@ -5,6 +7,7 @@ use lawsynth_regime::SegmentationConfig;
 use lawsynth_sparse::SparseConfig;
 use lawsynth_stats::BootstrapConfig;
 use lawsynth_symbolic::SymbolicConfig;
+use lawsynth_units::Dimension;
 
 /// Sparse solver used for feature-library coefficient fitting.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -61,6 +64,50 @@ impl Default for CausalHypothesisConfig {
     }
 }
 
+/// Opt-in per-variable units enabling dimensional pruning of candidate terms
+/// (`specs/dimensional-search/`).
+///
+/// When present, discovery rejects any candidate term whose inferred dimension is
+/// impossible or cannot be rescaled to the target derivative's dimension *before*
+/// scoring, mirroring PySR/AI-Feynman in-loop dimensional analysis. The map holds
+/// only the variables whose unit is known; an undeclared variable is a dimensional
+/// wildcard, so a partially-annotated dataset never over-prunes. Absent entirely
+/// (`DiscoveryConfig::units == None`), discovery is byte-identical to before.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DimensionalUnits {
+    /// Known SI dimension of each annotated variable.
+    dimensions: BTreeMap<Identifier, Dimension>,
+    /// Dimension of the time axis the derivatives are taken against. Defaults to
+    /// [`Dimension::TIME`]; only the *dimension* matters, never the unit's scale.
+    time: Dimension,
+}
+
+impl DimensionalUnits {
+    /// Builds a unit annotation from `(variable, dimension)` pairs, taking the
+    /// time axis to be a duration ([`Dimension::TIME`]).
+    pub fn new(dimensions: impl IntoIterator<Item = (Identifier, Dimension)>) -> Self {
+        Self { dimensions: dimensions.into_iter().collect(), time: Dimension::TIME }
+    }
+
+    /// Overrides the time-axis dimension (e.g. for a dimensionless index axis).
+    pub fn with_time_dimension(mut self, time: Dimension) -> Self {
+        self.time = time;
+        self
+    }
+
+    /// The known per-variable dimensions, used by the wildcard-aware inference.
+    pub fn dimensions(&self) -> &BTreeMap<Identifier, Dimension> {
+        &self.dimensions
+    }
+
+    /// The target dimension of `d(state)/dt`, i.e. `[state] / [time]`, or `None`
+    /// when the state variable carries no declared unit (pruning is then skipped
+    /// for that state).
+    pub fn target_dimension(&self, state: &Identifier) -> Option<Dimension> {
+        self.dimensions.get(state).and_then(|state| state.divide(self.time))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DiscoveryConfig {
     pub state: Vec<Identifier>,
@@ -85,6 +132,10 @@ pub struct DiscoveryConfig {
     /// produces no hypothesis; enable via
     /// [`DiscoveryConfig::enable_causal_hypothesis`].
     pub causal: Option<CausalHypothesisConfig>,
+    /// Opt-in per-variable units enabling in-loop dimensional pruning
+    /// (`specs/dimensional-search/`). Default `None` leaves the fast path and its
+    /// results byte-identical; enable via [`DiscoveryConfig::enable_units`].
+    pub units: Option<DimensionalUnits>,
     /// Hard bounds enforced before data profiling and feature expansion.
     pub resource_limits: ResourceLimits,
 }
@@ -106,6 +157,7 @@ impl DiscoveryConfig {
             regime: None,
             refine: None,
             causal: None,
+            units: None,
             resource_limits: ResourceLimits::default(),
         }
     }
@@ -125,5 +177,12 @@ impl DiscoveryConfig {
     /// thresholds.
     pub fn enable_causal_hypothesis(&mut self) {
         self.causal = Some(CausalHypothesisConfig::default());
+    }
+
+    /// Enables in-loop dimensional pruning with the supplied per-variable units
+    /// (`specs/dimensional-search/`). Candidate terms inconsistent with the target
+    /// derivative's dimension are rejected before scoring.
+    pub fn enable_units(&mut self, units: DimensionalUnits) {
+        self.units = Some(units);
     }
 }
