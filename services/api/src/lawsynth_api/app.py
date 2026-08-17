@@ -1,45 +1,49 @@
-"""A dependency-free WSGI translation layer for the LawSynth domain API."""
+"""A dependency-free WSGI translation layer for the LawSynth domain API.
+
+This module is the *composition root* of the transport.  It owns no request or
+response mechanics of its own: header/version/body ingest lives in
+:mod:`middleware` and :mod:`uploads`, authentication and scope in :mod:`auth` and
+:mod:`authorization`, per-resource route classification and SSE lifecycle
+projection in the resource modules (:mod:`projects`, :mod:`datasets`,
+:mod:`worlds`, :mod:`runs`, :mod:`simulations`, :mod:`artifacts`), stream and
+download response construction in :mod:`downloads`, and typed access to the
+domain in :mod:`storage`, :mod:`database`, and :mod:`repositories`.  ``app.py``
+only decides *which* collaborator handles a request and delegates.
+"""
 
 from __future__ import annotations
 
-import json
 import time
-from http import HTTPStatus
 from typing import Callable, Iterable, Mapping, MutableMapping
 from urllib.parse import parse_qsl
 from uuid import uuid4
 
 from lawsynth_server.app import Application
-from lawsynth_server.auth import require_scope
-from lawsynth_server.errors import AuthenticationError, AuthorizationError
 
-from .events import EventBus, EventKind, render_frame
+from . import artifacts, datasets, downloads, projects, runs, uploads, worlds
+from .auth import ApiAuthenticator
+from .authorization import READ, require_scope_or_problem
+from .database import ApiDatabase
+from .events import EventBus
 from .lifespan import ApiLifespan
+from .middleware import (
+    RequestProblem,
+    error_envelope,
+    extract_headers,
+    finalize_response,
+    negotiate_api_version,
+)
+from .repositories import ApiRepositories
 from .settings import ApiSettings
-
-# Maps a domain run ``status`` to the streaming event kind for that transition.
-# The domain models no separate "progress" concept, so ``EventKind.PROGRESS``
-# is part of the value contract but is not emitted by run status transitions.
-_RUN_STATUS_KINDS = {
-    "queued": EventKind.RUN_QUEUED,
-    "running": EventKind.RUN_STARTED,
-    "succeeded": EventKind.RUN_SUCCEEDED,
-    "failed": EventKind.RUN_FAILED,
-    "cancelled": EventKind.RUN_CANCELLED,
-}
+from .storage import ApiStorage
+from .telemetry import RequestTelemetry
 
 StartResponse = Callable[[str, list[tuple[str, str]]], object]
 
-# The explicit protocol version this transport publishes on every response and
-# negotiates against the optional ``X-Api-Version`` request header.  It tracks
-# the ``/v1`` route prefix (specs/service-api/versioning.md).
-_PROTOCOL_VERSION = "1"
-_ACCEPTED_API_VERSIONS = frozenset({_PROTOCOL_VERSION, f"v{_PROTOCOL_VERSION}"})
-
-
-class RequestProblem(Exception):
-    def __init__(self, status: int, code: str, message: str) -> None:
-        self.status, self.code, self.message = status, code, message
+# Public resource segments that carry a route classifier and an SSE lifecycle
+# projection.  The dispatch loop consults this registry for telemetry labels and
+# for translating a successful mutation into streamed events.
+_RESOURCES = {module.SEGMENT: module for module in (projects, datasets, worlds, runs, artifacts)}
 
 
 class WsgiApplication:
@@ -55,27 +59,55 @@ class WsgiApplication:
         self.settings = settings
         self._lifespan = ApiLifespan(settings.server, domain)
         self._events = EventBus(retention=settings.event_stream_retention)
+        self._telemetry = RequestTelemetry()
+        services = self._lifespan.application.services
+        self._auth = ApiAuthenticator(services.auth)
+        self._storage = ApiStorage(services.storage)
+        self._database = ApiDatabase(services.database)
+        self._repositories = ApiRepositories(services)
 
     def close(self) -> None:
         self._lifespan.close()
 
+    @property
+    def telemetry(self) -> RequestTelemetry:
+        return self._telemetry
+
+    def readiness(self) -> dict[str, object]:
+        """Report process readiness from the typed domain accessors.
+
+        This is internal introspection (not an HTTP route): it probes the
+        metadata connection and the object root through the same facades the
+        transport uses, and folds in the request telemetry snapshot.
+        """
+
+        return {
+            "database": self._database.ping(),
+            "storage": self._storage.ensure_root(),
+            "resources": list(self._repositories.segments()),
+            "telemetry": self._telemetry.snapshot(),
+        }
+
     def __call__(self, environ: MutableMapping[str, object], start_response: StartResponse) -> Iterable[bytes]:
         request_id = str(uuid4())
+        request: dict[str, object] | None = None
         try:
             request = self._request(environ)
-            if request["method"] == "GET" and request["path"] == "/v1/events" and self._wants_sse(request["headers"]):
+            if request["method"] == "GET" and request["path"] == "/v1/events" and downloads.wants_sse(request["headers"]):
                 return self._stream_events(request, request_id, start_response)
             if request["path"].startswith("/v1/worker/") or request["path"] == "/v1/worker":
-                response = self._error(501, "worker_transport_unavailable", "worker HTTP transport is not deployed by this API process", request_id)
+                response = error_envelope(501, "worker_transport_unavailable", "worker HTTP transport is not deployed by this API process", request_id)
             else:
                 response = self._lifespan.application.dispatch(request)
                 response.setdefault("headers", {}).setdefault("X-Request-ID", request_id)
                 self._emit_lifecycle(request, response)
+                self._decorate_download(request, response)
         except RequestProblem as error:
-            response = self._error(error.status, error.code, error.message, request_id)
+            response = error_envelope(error.status, error.code, error.message, request_id)
         except RuntimeError:
-            response = self._error(503, "service_unavailable", "the API process is shutting down", request_id)
-        return self._respond(response, start_response)
+            response = error_envelope(503, "service_unavailable", "the API process is shutting down", request_id)
+        self._record(request, response)
+        return finalize_response(response, start_response)
 
     # -- Server-Sent Events -------------------------------------------------
     #
@@ -90,63 +122,21 @@ class WsgiApplication:
     # bounded and in-process (see ``events.EventBus``); events evicted from the
     # ring buffer are not replayable.
 
-    @staticmethod
-    def _wants_sse(headers: Mapping[str, str]) -> bool:
-        accept = headers.get("Accept", "")
-        return isinstance(accept, str) and "text/event-stream" in accept
-
-    def _authenticate(self, headers: Mapping[str, str]):
-        return self._lifespan.application.services.auth.authenticate(headers.get("Authorization"))
-
-    @staticmethod
-    def _last_event_id(headers: Mapping[str, str]) -> int:
-        raw = None
-        for name, value in headers.items():
-            if name.lower() == "last-event-id":
-                raw = value
-                break
-        if raw is None or raw == "":
-            return 0
-        if not raw.isascii() or not raw.isdecimal():
-            raise RequestProblem(400, "invalid_last_event_id", "Last-Event-ID must be a non-negative integer")
-        return int(raw)
-
     def _stream_events(self, request: Mapping[str, object], request_id: str, start_response: StartResponse) -> Iterable[bytes]:
         headers = request["headers"]
-        try:
-            principal = self._authenticate(headers)
-            require_scope(principal, "read")
-        except AuthenticationError as error:
-            raise RequestProblem(401, error.code, error.message) from error
-        except AuthorizationError as error:
-            raise RequestProblem(403, error.code, error.message) from error
-        after = self._last_event_id(headers)
+        principal = self._auth.authenticate_or_problem(headers)
+        require_scope_or_problem(principal, READ)
+        after = downloads.last_event_id(headers)
         events = self._events.events_after(principal.organization_id, after)
-        sse_headers = {
-            "Content-Type": "text/event-stream; charset=utf-8",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-            "X-Content-Type-Options": "nosniff",
-            "X-Request-ID": request_id,
-        }
-        start_response("200 OK", list(sse_headers.items()))
-
-        def body() -> Iterable[bytes]:
-            # A leading comment keeps the stream valid (and non-empty) even when
-            # no events match, so polling clients always receive a 200 body.
-            yield f": stream open ({len(events)} event(s))\n\n".encode("utf-8")
-            for event in events:
-                yield render_frame(event)
-
-        return body()
+        return downloads.open_stream(events, request_id, start_response)
 
     def _emit_lifecycle(self, request: Mapping[str, object], response: Mapping[str, object]) -> None:
         """Translate a successful run/artifact mutation into a streamed ApiEvent.
 
         Emission happens at the API boundary from the domain's own outcome, so
         no run/artifact state is duplicated.  Idempotent replays are skipped to
-        avoid double-emitting an event for a single logical change.
+        avoid double-emitting an event for a single logical change.  The
+        per-resource projection lives in each resource module.
         """
 
         status = response.get("status")
@@ -158,33 +148,78 @@ class WsgiApplication:
         body = response.get("body")
         if not isinstance(body, Mapping):
             return
-        parts = [part for part in str(request["path"]).split("/") if part]
-        if parts[:1] == ["v1"]:
-            parts = parts[1:]
-        method = request["method"]
-        try:
-            principal = self._authenticate(request["headers"])
-        except (AuthenticationError, AuthorizationError):
+        segment = self._segment(str(request["path"]))
+        module = _RESOURCES.get(segment)
+        if module is None:
+            return
+        principal = self._auth.silent(request["headers"])
+        if principal is None:
             return
         scope = principal.organization_id
         now = int(time.time() * 1000)
-        if parts[:1] == ["runs"] and method in {"POST", "PATCH"}:
-            self._emit_run(scope, now, body)
-        elif parts == ["artifacts"] and method == "POST":
-            run_id = body.get("run_id") if isinstance(body.get("run_id"), str) else None
-            payload = json.dumps({"id": body.get("id"), "sha256": body.get("sha256")}, separators=(",", ":"))
-            self._events.append(scope, now, EventKind.ARTIFACT_CREATED, payload, run_id=run_id)
+        for kind, payload, run_id in module.lifecycle_events(str(request["method"]), body):
+            self._events.append(scope, now, kind, payload, run_id=run_id)
 
-    def _emit_run(self, scope: str, now: int, body: Mapping[str, object]) -> None:
-        run_id = body.get("id")
-        status = body.get("status")
-        if not isinstance(run_id, str) or not isinstance(status, str):
+    def _decorate_download(self, request: Mapping[str, object], response: MutableMapping[str, object]) -> None:
+        """Add content-revalidation headers to a served artifact download.
+
+        Purely additive: never mutates the JSON body or an existing header.
+        """
+
+        if response.get("status") != 200:
             return
-        kind = _RUN_STATUS_KINDS.get(status)
-        if kind is None:
+        if self._route_label(str(request["method"]), str(request["path"])) != "artifacts.download":
             return
-        payload = json.dumps({"id": run_id, "status": status}, separators=(",", ":"))
-        self._events.append(scope, now, kind, payload, run_id=run_id)
+        extra = downloads.artifact_download_headers(response.get("body"))
+        if not extra:
+            return
+        headers = response.setdefault("headers", {})
+        if isinstance(headers, dict):
+            for name, value in extra.items():
+                headers.setdefault(name, value)
+
+    # -- Telemetry ----------------------------------------------------------
+
+    def _record(self, request: Mapping[str, object] | None, response: Mapping[str, object]) -> None:
+        """Record one completed request; never let telemetry break a response."""
+
+        try:
+            label = "malformed" if request is None else self._route_label(str(request["method"]), str(request["path"]))
+            status = response.get("status")
+            self._telemetry.record(label, status if isinstance(status, int) else 0)
+        except Exception:
+            pass
+
+    def _route_label(self, method: str, path: str) -> str:
+        """Derive a stable telemetry label from a method and path."""
+
+        parts = self._parts(path)
+        if not parts:
+            return "root"
+        segment = parts[0]
+        if segment in {"health", "version", "events", "worker"}:
+            return segment
+        module = _RESOURCES.get(segment)
+        if module is None:
+            return "unknown"
+        try:
+            return module.classify(method, parts)
+        except Exception:
+            return "unknown"
+
+    @staticmethod
+    def _parts(path: str) -> list[str]:
+        parts = [part for part in path.split("/") if part]
+        if parts[:1] == ["v1"]:
+            parts = parts[1:]
+        return parts
+
+    @classmethod
+    def _segment(cls, path: str) -> str | None:
+        parts = cls._parts(path)
+        return parts[0] if parts else None
+
+    # -- Request ingest -----------------------------------------------------
 
     def _request(self, environ: Mapping[str, object]) -> dict[str, object]:
         method = environ.get("REQUEST_METHOD")
@@ -204,84 +239,10 @@ class WsgiApplication:
             raise RequestProblem(400, "invalid_query", "query string is malformed") from error
         if len({key for key, _ in pairs}) != len(pairs):
             raise RequestProblem(400, "invalid_query", "duplicate query parameters are not supported")
-        headers = self._headers(environ)
-        requested_version = headers.get("X-Api-Version")
-        if requested_version is not None and requested_version not in _ACCEPTED_API_VERSIONS:
-            raise RequestProblem(406, "unsupported_api_version", "this endpoint only serves API protocol version 1")
-        body = self._body(environ, headers)
+        headers = extract_headers(environ)
+        negotiate_api_version(headers)
+        body = uploads.parse_json_body(environ, headers, self.settings.max_request_bytes)
         return {"method": method, "path": path, "query": dict(pairs), "headers": headers, "body": body}
-
-    @staticmethod
-    def _headers(environ: Mapping[str, object]) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        for key, value in environ.items():
-            if not isinstance(key, str) or not key.startswith("HTTP_") or not isinstance(value, str):
-                continue
-            name = key[5:].replace("_", "-").title()
-            if "\r" in value or "\n" in value:
-                raise RequestProblem(400, "invalid_header", "headers cannot contain line breaks")
-            headers[name] = value
-        content_type = environ.get("CONTENT_TYPE")
-        if isinstance(content_type, str) and content_type:
-            headers["Content-Type"] = content_type
-        return headers
-
-    def _body(self, environ: Mapping[str, object], headers: Mapping[str, str]) -> dict[str, object] | None:
-        content_length = environ.get("CONTENT_LENGTH", "")
-        if content_length in (None, ""):
-            return None
-        if not isinstance(content_length, str) or not content_length.isascii() or not content_length.isdecimal():
-            raise RequestProblem(400, "invalid_content_length", "Content-Length must be a non-negative integer")
-        length = int(content_length)
-        if length > self.settings.max_request_bytes:
-            raise RequestProblem(413, "payload_too_large", "request body exceeds the configured limit")
-        stream = environ.get("wsgi.input")
-        if not hasattr(stream, "read"):
-            raise RequestProblem(400, "missing_request_body", "WSGI input stream is missing")
-        raw = stream.read(length + 1)
-        if not isinstance(raw, bytes) or len(raw) != length:
-            raise RequestProblem(400, "invalid_request_body", "request body does not match Content-Length")
-        if not raw:
-            return None
-        media_type = headers.get("Content-Type", "").split(";", 1)[0].lower()
-        if media_type != "application/json":
-            raise RequestProblem(415, "unsupported_media_type", "request bodies must use application/json")
-        try:
-            body = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise RequestProblem(400, "invalid_json", "request body must be valid UTF-8 JSON") from error
-        if not isinstance(body, dict):
-            raise RequestProblem(422, "validation_error", "request JSON body must be an object")
-        return body
-
-    @staticmethod
-    def _error(status: int, code: str, message: str, request_id: str) -> dict[str, object]:
-        return {
-            "status": status,
-            "headers": {"X-Request-ID": request_id},
-            "body": {"error": {"code": code, "message": message, "request_id": request_id}},
-        }
-
-    @staticmethod
-    def _respond(response: Mapping[str, object], start_response: StartResponse) -> Iterable[bytes]:
-        status = response.get("status")
-        if not isinstance(status, int) or status not in HTTPStatus._value2member_map_:
-            status, response = 500, WsgiApplication._error(500, "internal_error", "internal server error", str(uuid4()))
-        body = response.get("body", {})
-        try:
-            payload = b"" if status == 204 else json.dumps(body, allow_nan=False, separators=(",", ":")).encode("utf-8")
-        except (TypeError, ValueError):
-            status, payload = 500, json.dumps(WsgiApplication._error(500, "internal_error", "internal server error", str(uuid4()))["body"], separators=(",", ":")).encode("utf-8")
-        response_headers = response.get("headers", {})
-        safe_headers = {"Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "X-Api-Version": _PROTOCOL_VERSION}
-        if isinstance(response_headers, Mapping):
-            for name, value in response_headers.items():
-                if isinstance(name, str) and isinstance(value, str) and "\r" not in name + value and "\n" not in name + value:
-                    safe_headers[name] = value
-        safe_headers["Content-Length"] = str(len(payload))
-        phrase = HTTPStatus(status).phrase
-        start_response(f"{status} {phrase}", list(safe_headers.items()))
-        return [payload]
 
 
 def create_wsgi_app(settings: ApiSettings | None = None, *, domain: Application | None = None) -> WsgiApplication:

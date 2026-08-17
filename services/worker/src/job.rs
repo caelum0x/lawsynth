@@ -78,6 +78,11 @@ impl JobEnvelope {
 }
 
 /// Output remains typed for the in-process caller, avoiding lossy ad-hoc result codecs.
+///
+/// The variants differ in size, but boxing the larger one would change the
+/// public shape that in-process callers (including the scheduler) destructure,
+/// so the difference is accepted rather than hidden behind indirection.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum JobOutput {
     Discovery(DiscoveryResult),

@@ -32,6 +32,7 @@ members = [
   "crates/lawsynth-store",
   "crates/lawsynth-wasm",
   "services/artifact",
+  "services/gateway",
   "services/scheduler",
   "services/worker",
 ]

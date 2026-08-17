@@ -41,6 +41,13 @@ pub fn classify(error: &WorkerError) -> TransportError {
         // A durable record already exists for this id: a lifecycle conflict.
         WorkerError::DuplicateJob(_) => TransportError::new(409, "duplicate_job"),
         WorkerError::Cancelled(_) => TransportError::new(409, "cancelled"),
+        // A job that exceeds a configured sandbox/admission ceiling is a
+        // caller-correctable input error.
+        WorkerError::LimitExceeded(_) => TransportError::new(400, "limit_exceeded"),
+        // No plugin runtime is linked: an honest "unsupported", not a fault.
+        WorkerError::Plugin(_) => TransportError::new(501, "plugin_unsupported"),
+        // A failed artifact handoff is a server-side integrity condition.
+        WorkerError::Artifact(_) => TransportError::new(500, "artifact_failed"),
         WorkerError::Runner(runner) => classify_runner(runner),
         // Discovery and simulation failures are internal execution faults.
         WorkerError::Discovery(_) => TransportError::new(500, "discovery_failed"),

@@ -1,29 +1,4 @@
-use lawsynth_runner::ResourceRequest;
 use lawsynth_worker::JobEnvelope;
-
-use crate::SchedulerError;
-
-/// A named, resource-bounded worker pool available to the local scheduler.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WorkerPool {
-    pub id: String,
-    pub capacity: ResourceRequest,
-}
-
-impl WorkerPool {
-    pub fn new(id: impl Into<String>, capacity: ResourceRequest) -> Result<Self, SchedulerError> {
-        let id = id.into();
-        if id.is_empty()
-            || id.len() > 128
-            || !id.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-        {
-            return Err(SchedulerError::InvalidWorker(
-                "id must be URL-safe and no longer than 128 bytes".into(),
-            ));
-        }
-        Ok(Self { id, capacity })
-    }
-}
 
 /// Fencing token carried by a worker. A later lease for the same job always
 /// has a higher generation, so old workers cannot complete it.

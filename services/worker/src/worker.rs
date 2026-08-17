@@ -1,30 +1,59 @@
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use lawsynth_runner::{CancellationToken, ResourceLimiter, ResourceRequest};
+use lawsynth_runner::{CancellationToken, ResourceLimiter};
 use lawsynth_store::ObjectStore;
 
 use crate::{
-    CheckpointState, Job, JobCheckpoint, JobEnvelope, JobOutput, WorkerConfig, WorkerError,
-    checkpoint,
+    AdmissionSnapshot, ArtifactReceipt, CheckpointState, CleanupReport, EventLog, HealthSnapshot,
+    JobCheckpoint, JobEnvelope, JobEvent, JobOutput, Limits, RecoveryPlan, Sandbox, Telemetry,
+    TelemetrySnapshot, WorkerConfig, WorkerError, artifacts, checkpoint, cleanup, execute,
+    recovery, resources,
 };
 
 /// Synchronous local execution engine. The object store is the authority for
 /// lifecycle checkpoints; the resource limiter makes concurrent callers share
 /// an explicit capacity budget.
+///
+/// The worker composes its behaviour from focused modules: [`execute`] runs the
+/// typed job, [`resources`] accounts admission, [`crate::sandbox`] enforces the
+/// deadline and any configured per-job bounds, and every lifecycle transition
+/// updates [`Telemetry`] counters and appends to the [`EventLog`].
 pub struct Worker<S> {
     config: WorkerConfig,
     store: S,
     limiter: Mutex<ResourceLimiter>,
+    sandbox: Sandbox,
+    telemetry: Telemetry,
+    events: Mutex<EventLog>,
 }
 
 impl<S: ObjectStore> Worker<S> {
     pub fn new(config: WorkerConfig, store: S) -> Result<Self, WorkerError> {
-        Ok(Self { limiter: Mutex::new(ResourceLimiter::new(config.capacity)), config, store })
+        let sandbox = Sandbox::new(Limits::from_config(&config));
+        Ok(Self {
+            limiter: Mutex::new(ResourceLimiter::new(config.capacity)),
+            sandbox,
+            telemetry: Telemetry::new(),
+            events: Mutex::new(EventLog::new()),
+            config,
+            store,
+        })
     }
     pub fn config(&self) -> &WorkerConfig {
         &self.config
     }
+
+    /// The admission policy this worker enforces at the sandbox layer.
+    pub fn limits(&self) -> Limits {
+        self.sandbox.limits()
+    }
+
+    /// The deadline/resource-bound guard this worker admits jobs through.
+    pub fn sandbox(&self) -> Sandbox {
+        self.sandbox
+    }
+
     pub fn checkpoint(&self, job_id: &str) -> Result<Option<JobCheckpoint>, WorkerError> {
         checkpoint::load(&self.store, job_id)
     }
@@ -34,11 +63,22 @@ impl<S: ObjectStore> Worker<S> {
     /// triple without affecting in-flight admission.
     pub fn admission(&self) -> AdmissionSnapshot {
         let limiter = self.limiter.lock().expect("worker resource limiter mutex poisoned");
-        AdmissionSnapshot {
-            capacity: limiter.capacity(),
-            reserved: limiter.reserved(),
-            available: limiter.available(),
-        }
+        resources::snapshot(&limiter)
+    }
+
+    /// The readiness snapshot the HTTP `/health` surface renders.
+    pub fn health(&self) -> HealthSnapshot {
+        HealthSnapshot::new(self.admission(), self.config.maximum_checkpoint_bytes)
+    }
+
+    /// A copy of the worker's execution counters.
+    pub fn telemetry(&self) -> TelemetrySnapshot {
+        self.telemetry.snapshot()
+    }
+
+    /// The recorded lifecycle events for one job, in emission order.
+    pub fn events(&self, job_id: &str) -> Vec<JobEvent> {
+        self.events.lock().expect("worker event log mutex poisoned").events_for(job_id)
     }
 
     /// Returns the ids of every job for which a durable checkpoint exists,
@@ -46,6 +86,30 @@ impl<S: ObjectStore> Worker<S> {
     pub fn known_checkpoints(&self) -> Result<Vec<String>, WorkerError> {
         checkpoint::list(&self.store)
     }
+
+    /// Decides how an interrupted job should be recovered from its durable
+    /// checkpoint alone.
+    pub fn recovery_plan(&self, job_id: &str) -> Result<RecoveryPlan, WorkerError> {
+        recovery::plan(&self.store, job_id)
+    }
+
+    /// Deletes a job's per-job scratch objects, returning how many were removed.
+    pub fn cleanup_scratch(&self, job_id: &str) -> Result<CleanupReport, WorkerError> {
+        cleanup::cleanup(&self.store, job_id)
+    }
+
+    /// Records a completed job's output manifest as a checksum-verified artifact.
+    pub fn record_artifact(
+        &self,
+        job_id: &str,
+        output: &JobOutput,
+    ) -> Result<ArtifactReceipt, WorkerError> {
+        let receipt =
+            artifacts::record(&self.store, job_id, output, self.config.maximum_checkpoint_bytes)?;
+        self.telemetry.record_artifact();
+        Ok(receipt)
+    }
+
     pub fn execute(
         &self,
         envelope: &JobEnvelope,
@@ -62,15 +126,8 @@ impl<S: ObjectStore> Worker<S> {
         cancellation: &CancellationToken,
         now_ms: u64,
     ) -> Result<JobOutput, WorkerError> {
-        if envelope.work.is_expired(now_ms) {
-            return self.reject(
-                envelope,
-                now_ms,
-                WorkerError::DeadlineExceeded {
-                    job_id: envelope.work.id.clone(),
-                    deadline_at_ms: envelope.work.deadline_at_ms,
-                },
-            );
+        if let Err(error) = self.sandbox.admit(&envelope.work, now_ms) {
+            return self.reject(envelope, now_ms, error);
         }
         if let Some(existing) = self.checkpoint(&envelope.work.id)? {
             return Err(WorkerError::DuplicateJob(format!(
@@ -90,11 +147,11 @@ impl<S: ObjectStore> Worker<S> {
         }
 
         let mut limiter = self.limiter.lock().expect("worker resource limiter mutex poisoned");
-        if let Err(error) = limiter.reserve(envelope.work.resources) {
-            return self.reject(envelope, now_ms, error.into());
+        if let Err(error) = resources::reserve(&mut limiter, envelope.work.resources) {
+            return self.reject(envelope, now_ms, error);
         }
         let result = self.run_reserved(envelope, cancellation, now_ms);
-        let release = limiter.release(envelope.work.resources).map_err(WorkerError::from);
+        let release = resources::release(&mut limiter, envelope.work.resources);
         drop(limiter);
         release?;
         result
@@ -107,22 +164,9 @@ impl<S: ObjectStore> Worker<S> {
         now_ms: u64,
     ) -> Result<JobOutput, WorkerError> {
         self.write_next(envelope, now_ms, CheckpointState::Running, "resources admitted")?;
-        let result = match &envelope.job {
-            Job::Discover { dataset, config } => lawsynth_discovery::discover(dataset, config)
-                .map(JobOutput::Discovery)
-                .map_err(WorkerError::from),
-            Job::Simulate { world, config, request } => {
-                lawsynth_sim::simulate(world, *config, request)
-                    .map(JobOutput::Simulation)
-                    .map_err(WorkerError::from)
-            }
-        };
-        let result = match cancellation.reason() {
-            Some(reason) => Err(WorkerError::Cancelled(reason)),
-            None => result,
-        };
+        let result = execute::run(&envelope.job, cancellation);
         let (state, detail) = match &result {
-            Ok(output) => (CheckpointState::Completed, output_summary(output)),
+            Ok(output) => (CheckpointState::Completed, execute::output_summary(output)),
             Err(WorkerError::Cancelled(reason)) => (CheckpointState::Cancelled, reason.clone()),
             Err(error) => (CheckpointState::Failed, error.to_string()),
         };
@@ -179,26 +223,17 @@ impl<S: ObjectStore> Worker<S> {
                 detail: detail.to_owned(),
             },
             self.config.maximum_checkpoint_bytes,
-        )
-    }
-}
-
-/// A consistent view of the worker's admission budget for status reporting.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct AdmissionSnapshot {
-    pub capacity: ResourceRequest,
-    pub reserved: ResourceRequest,
-    pub available: ResourceRequest,
-}
-
-fn output_summary(output: &JobOutput) -> String {
-    match output {
-        JobOutput::Discovery(result) => {
-            format!("discovery completed with {} Pareto candidate(s)", result.candidates.len())
-        }
-        JobOutput::Simulation(trajectory) => {
-            format!("simulation completed with {} sample(s)", trajectory.samples())
-        }
+        )?;
+        // The durable write is authoritative; in-memory telemetry and the event
+        // log are updated only after it succeeds, so they never lead the store.
+        self.telemetry.record_state(state);
+        self.events.lock().expect("worker event log mutex poisoned").emit(
+            &envelope.work.id,
+            state,
+            detail,
+            now_ms,
+        );
+        Ok(())
     }
 }
 

@@ -14,7 +14,7 @@
 
 use crate::http::{HttpRequest, HttpResponse};
 use crate::json::{self, Json};
-use crate::{JobState, PersistedCheckpoint, Scheduler, WorkerPool};
+use crate::{HealthSnapshot, JobState, PersistedCheckpoint, Scheduler, WorkerPool};
 use lawsynth_runner::ResourceRequest;
 use lawsynth_store::ObjectStore;
 
@@ -56,28 +56,42 @@ fn method_not_allowed(allowed: &[&str]) -> HttpResponse {
         .with_header("Allow", allowed.join(", "))
 }
 
+/// Renders the readiness/health snapshot built by [`crate::health`]. The
+/// existing `service`, `queued_count`, and `config` fields are preserved; the
+/// snapshot additionally surfaces `ready` and the lifecycle `metrics` counters.
 fn health<S: ObjectStore>(scheduler: &Scheduler<S>) -> HttpResponse {
-    let config = scheduler.config();
+    let snapshot = scheduler.health_snapshot();
+    let metrics = snapshot.metrics;
     HttpResponse::json(
         200,
         &Json::Object(vec![
-            ("service".into(), Json::string("lawsynth-scheduler")),
-            ("queued_count".into(), Json::Number(scheduler.queued_count() as u64)),
+            ("service".into(), Json::string(HealthSnapshot::SERVICE)),
+            ("ready".into(), Json::Bool(snapshot.ready)),
+            ("queued_count".into(), Json::Number(snapshot.queued_count as u64)),
             (
                 "config".into(),
                 Json::Object(vec![
-                    ("maximum_queued_jobs".into(), Json::Number(config.maximum_queued_jobs as u64)),
-                    ("maximum_attempts".into(), Json::Number(config.maximum_attempts as u64)),
                     (
-                        "lease_duration_ms".into(),
-                        Json::Number(
-                            config.lease_duration.as_millis().try_into().unwrap_or(u64::MAX),
-                        ),
+                        "maximum_queued_jobs".into(),
+                        Json::Number(snapshot.maximum_queued_jobs as u64),
                     ),
+                    ("maximum_attempts".into(), Json::Number(snapshot.maximum_attempts as u64)),
+                    ("lease_duration_ms".into(), Json::Number(snapshot.lease_duration_ms)),
                     (
                         "maximum_checkpoint_bytes".into(),
-                        Json::Number(config.maximum_checkpoint_bytes as u64),
+                        Json::Number(snapshot.maximum_checkpoint_bytes as u64),
                     ),
+                ]),
+            ),
+            (
+                "metrics".into(),
+                Json::Object(vec![
+                    ("queued".into(), Json::Number(metrics.queued)),
+                    ("leased".into(), Json::Number(metrics.leased)),
+                    ("completed".into(), Json::Number(metrics.completed)),
+                    ("failed".into(), Json::Number(metrics.failed)),
+                    ("cancelled".into(), Json::Number(metrics.cancelled)),
+                    ("dead_letter".into(), Json::Number(metrics.dead_letter)),
                 ]),
             ),
         ]),

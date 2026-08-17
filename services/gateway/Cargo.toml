@@ -1,0 +1,16 @@
+[package]
+name = "lawsynth-gateway"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Std-only, dependency-free HTTP/1.1 reverse proxy admission layer for LawSynth."
+
+[dependencies]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "lawsynth-gateway"
+path = "src/main.rs"

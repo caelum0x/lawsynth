@@ -1,17 +1,45 @@
+//! The worker's consolidated error taxonomy.
+//!
+//! This module is the single source of truth for [`WorkerError`]. Every worker
+//! module -- execution, admission, sandboxing, artifact handoff, the plugin
+//! seam, recovery, and the HTTP status transport -- reports failures through
+//! this one enum, so there is no competing error type to keep in sync. The
+//! transport-status mapping lives in [`crate::http_error`], which matches on
+//! these variants exhaustively.
+
 use std::fmt;
 
+/// Every failure the worker can surface, from a single authoritative definition.
 #[derive(Debug)]
 pub enum WorkerError {
+    /// The worker was configured with values that cannot admit a valid job.
     InvalidConfig(String),
+    /// A submitted job failed validation before admission.
     InvalidJob(String),
+    /// The job's deadline had already elapsed at admission time.
     DeadlineExceeded { job_id: String, deadline_at_ms: u64 },
+    /// A durable lifecycle record already exists for this job id.
     DuplicateJob(String),
+    /// The job was cooperatively cancelled.
     Cancelled(String),
+    /// A configured sandbox/admission bound was exceeded by the job.
+    LimitExceeded(String),
+    /// The plugin execution seam could not satisfy the request (e.g. no host
+    /// is linked). This is an honest "unsupported", never a faked success.
+    Plugin(String),
+    /// The produced-artifact handoff failed integrity or upload verification.
+    Artifact(String),
+    /// A failure propagated from the runtime substrate.
     Runner(lawsynth_runner::RunnerError),
+    /// A failure propagated from the discovery engine.
     Discovery(lawsynth_discovery::DiscoveryError),
+    /// A failure propagated from the simulation engine.
     Simulation(lawsynth_sim::SimulationError),
+    /// A failure propagated from the object store.
     Store(lawsynth_store::StoreError),
+    /// A persisted checkpoint could not be parsed and must not be trusted.
     CorruptCheckpoint(String),
+    /// A transport surface that the worker deliberately does not implement.
     UnsupportedTransport(&'static str),
 }
 
@@ -29,6 +57,9 @@ impl fmt::Display for WorkerError {
                 write!(formatter, "job '{id}' already has a durable lifecycle record")
             }
             Self::Cancelled(reason) => write!(formatter, "job cancelled: {reason}"),
+            Self::LimitExceeded(reason) => write!(formatter, "resource limit exceeded: {reason}"),
+            Self::Plugin(reason) => write!(formatter, "plugin dispatch unavailable: {reason}"),
+            Self::Artifact(reason) => write!(formatter, "artifact handoff failed: {reason}"),
             Self::Runner(error) => error.fmt(formatter),
             Self::Discovery(error) => error.fmt(formatter),
             Self::Simulation(error) => error.fmt(formatter),

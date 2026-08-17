@@ -51,13 +51,13 @@ fn method_not_allowed(allowed: &[&str]) -> HttpResponse {
 /// long as it is running; capacity pressure is reported through the admission
 /// snapshot rather than by flipping readiness.
 fn health<S: ObjectStore>(worker: &Worker<S>, now: u64) -> HttpResponse {
-    let admission = worker.admission();
-    let config = worker.config();
+    let snapshot = worker.health();
+    let admission = snapshot.admission;
     HttpResponse::json(
         200,
         &Json::Object(vec![
             ("service".into(), Json::string("lawsynth-worker")),
-            ("ready".into(), Json::Bool(true)),
+            ("ready".into(), Json::Bool(snapshot.ready)),
             ("checked_at_unix_seconds".into(), Json::Number(now)),
             (
                 "transport".into(),
@@ -72,7 +72,7 @@ fn health<S: ObjectStore>(worker: &Worker<S>, now: u64) -> HttpResponse {
             ("available".into(), resources_json(admission.available)),
             (
                 "maximum_checkpoint_bytes".into(),
-                Json::Number(config.maximum_checkpoint_bytes as u64),
+                Json::Number(snapshot.maximum_checkpoint_bytes as u64),
             ),
         ]),
     )
