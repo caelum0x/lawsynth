@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-sklearn"
+version = "0.1.0"
+description = "scikit-learn-compatible estimators for LawSynth deterministic governing-equation discovery"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth" }]
+keywords = [
+    "scikit-learn",
+    "symbolic-regression",
+    "equation-discovery",
+    "dynamical-systems",
+    "sindy",
+    "time-series",
+]
+dependencies = ["lawsynth"]
+
+[project.optional-dependencies]
+# The estimators inherit sklearn mixins when sklearn is present, and degrade to
+# a standalone implementation of the same contract when it is absent. numpy is
+# likewise optional: plain Python lists are accepted and returned.
+sklearn = ["scikit-learn>=1.3", "numpy>=1.23"]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
