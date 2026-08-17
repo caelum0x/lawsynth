@@ -16,6 +16,7 @@ from typing import Protocol
 from uuid import uuid4
 
 from .settings import GatewaySettings
+from .sso import ASSERTION_HEADER, TENANT_HEADER, SsoAuthenticator, SsoError
 
 StartResponse = Callable[[str, list[tuple[str, str]]], object]
 WsgiApplication = Callable[[MutableMapping[str, object], StartResponse], Iterable[bytes]]
@@ -95,9 +96,10 @@ class InProcessWsgiBackend:
 class GatewayApplication:
     """Canonicalize, authorize, rate-limit, and relay a request to local WSGI."""
 
-    def __init__(self, backend: WsgiApplication, settings: GatewaySettings | None = None) -> None:
+    def __init__(self, backend: WsgiApplication, settings: GatewaySettings | None = None, *, sso: SsoAuthenticator | None = None) -> None:
         self.settings = settings or GatewaySettings.from_environment()
         self._backend = InProcessWsgiBackend(backend)
+        self._sso = sso
         self._limiter = BoundedRateLimiter(
             requests=self.settings.requests_per_window,
             window_seconds=self.settings.rate_window_seconds,
@@ -130,6 +132,8 @@ class GatewayApplication:
                 else:
                     if not self._limiter.admit(client):
                         raise Problem(429, "rate_limited", "request rate limit exceeded", {"Retry-After": str(max(1, int(self.settings.rate_window_seconds)))})
+                    if self._sso is not None:
+                        headers = self._authenticate_sso(headers)
                     response = self._invoke(method, path, query, headers, body, client, request_id)
         except Problem as problem:
             response = self._error(problem, request_id)
@@ -214,6 +218,34 @@ class GatewayApplication:
         if body and not headers.get("Content-Type"):
             raise Problem(415, "missing_content_type", "request body requires Content-Type")
         return body
+
+    def _authenticate_sso(self, headers: Mapping[str, str]) -> dict[str, str]:
+        """Exchange an SSO assertion for a tenant-scoped backend credential.
+
+        Additive and non-breaking: when no assertion is present, an existing
+        bearer credential is passed through unchanged (bearer tokens remain the
+        machine surface); a request carrying neither on a protected route is
+        refused at the edge before it reaches the backend.  When an assertion is
+        present it MUST verify -- an invalid one is a 401 and an unprovisioned
+        tenant a 403 -- and the exchanged principal replaces any client-supplied
+        Authorization so a caller cannot smuggle a foreign tenant's bearer past
+        the seam.
+        """
+
+        assertion = headers.get(ASSERTION_HEADER)
+        if assertion is None:
+            if headers.get("Authorization"):
+                return dict(headers)
+            raise Problem(401, "authentication_required", "an identity assertion or bearer token is required")
+        try:
+            principal, token = self._sso.exchange(assertion)
+        except SsoError as error:
+            raise Problem(error.status, error.code, error.message) from error
+        exchanged = dict(headers)
+        exchanged.pop(ASSERTION_HEADER, None)
+        exchanged["Authorization"] = f"Bearer {token}"
+        exchanged[TENANT_HEADER] = principal.organization_id
+        return exchanged
 
     def _check_origin(self, origin: str | None) -> None:
         if origin is not None and origin not in self.settings.allowed_origins:
@@ -341,5 +373,5 @@ class GatewayApplication:
         return [payload]
 
 
-def create_gateway(backend: WsgiApplication, settings: GatewaySettings | None = None) -> GatewayApplication:
-    return GatewayApplication(backend, settings)
+def create_gateway(backend: WsgiApplication, settings: GatewaySettings | None = None, *, sso: SsoAuthenticator | None = None) -> GatewayApplication:
+    return GatewayApplication(backend, settings, sso=sso)

@@ -44,12 +44,17 @@ dependencies = [
  "lawsynth-data",
  "lawsynth-differentiate",
  "lawsynth-discovery",
+ "lawsynth-egraph",
  "lawsynth-expr",
+ "lawsynth-plugin-api",
+ "lawsynth-plugin-host",
+ "lawsynth-preprocess",
  "lawsynth-profile",
  "lawsynth-report",
  "lawsynth-sim",
  "lawsynth-stats",
  "lawsynth-symbolic",
+ "lawsynth-uncertainty",
  "lawsynth-world",
 ]
 
@@ -62,6 +67,7 @@ name = "lawsynth-data"
 version = "0.1.0"
 dependencies = [
  "lawsynth-core",
+ "lawsynth-profile",
 ]
 
 [[package]]
@@ -144,6 +150,7 @@ version = "0.1.0"
 name = "lawsynth-plugin-host"
 version = "0.1.0"
 dependencies = [
+ "lawsynth-bundle",
  "lawsynth-plugin-api",
 ]
 

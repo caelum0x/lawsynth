@@ -47,6 +47,8 @@ from lawsynth_server.native import discover_world, simulate_world
 
 from . import laws
 from .events import EventBus, EventKind
+from .metering import BYTES_STORED, RUN_SUBMITTED, MeteringLog
+from .quota import QuotaGuard, dataset_bytes
 
 # Discovery knobs accepted by ``lawsynth_server.native.discover_world`` (which
 # validates against the same set); this module normalises friendly aliases and a
@@ -104,9 +106,11 @@ class _Plan:
 class DiscoveryService:
     """Owns discovery-run submission, execution, and world retrieval."""
 
-    def __init__(self, services: Services, events: EventBus) -> None:
+    def __init__(self, services: Services, events: EventBus, quota: QuotaGuard, metering: MeteringLog) -> None:
         self._services = services
         self._events = events
+        self._quota = quota
+        self._metering = metering
         self._lock = RLock()
         self._threads: list[Thread] = []
 
@@ -132,6 +136,11 @@ class DiscoveryService:
         """
 
         plan = self._parse(organization_id, body)
+        new_bytes = self._new_dataset_bytes(plan)
+        # Quota is a hard pre-admission gate: enforced before the native probe so
+        # a tenant over its active-run or stored-bytes ceiling is turned away with
+        # a documented 429 identically whether or not native is installed.
+        self._quota.check_admission(self._services, organization_id, new_dataset_bytes=new_bytes)
         if not native_available():
             raise NativeUnavailableError(
                 "the LawSynth native runtime is unavailable; install the built lawsynth package"
@@ -149,6 +158,12 @@ class DiscoveryService:
                 values["project_id"] = plan.project_id
             run = self._services.runs.create(organization_id, values)
             run_id = str(run["id"])
+            # Metering: billable actions are appended once per admitted submit.
+            # This runs inside the idempotency handler, so a replayed key returns
+            # the stored response without re-billing.
+            self._metering.record(organization_id, RUN_SUBMITTED, 1, run_id)
+            if plan.dataset_ref is None and new_bytes > 0:
+                self._metering.record(organization_id, BYTES_STORED, new_bytes, dataset_id)
             self._emit(organization_id, EventKind.RUN_QUEUED, run_id, {"id": run_id, "status": "queued"})
             self._start_worker(organization_id, run_id, plan, dataset_record)
             return 201, run
@@ -316,6 +331,21 @@ class DiscoveryService:
         if not columns:
             raise ValidationError("inline csv must have at least one non-time column")
         return itime, columns
+
+    # -- quota sizing (no side effects) ------------------------------------ #
+
+    @staticmethod
+    def _new_dataset_bytes(plan: _Plan) -> int:
+        """Bytes a submit will newly store: the inline dataset size, else ``0``.
+
+        A submission that references an already-stored ``dataset_id`` stores no
+        new bytes, so it contributes nothing to the storage quota or to the
+        ``bytes_stored`` meter.
+        """
+
+        if plan.dataset_ref is not None:
+            return 0
+        return dataset_bytes(plan.inline_time, plan.inline_columns)
 
     # -- dataset materialisation (side-effecting; inside idempotency) ------- #
 

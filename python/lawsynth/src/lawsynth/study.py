@@ -23,6 +23,7 @@ from . import report as _report
 from .config import DiscoveryConfig
 from .dataset import Dataset
 from .errors import LawSynthError, NativeError, ValidationError
+from .lineage import Lineage
 from .trajectory import TrajectoryData
 
 __all__ = [
@@ -756,6 +757,22 @@ class DiscoveryResult:
             name=self._name,
         )
 
+    def validate(self, *, holdout: float = 0.25, step: float | None = None):
+        """Out-of-sample holdout validation (see :meth:`Study.validate`)."""
+        from .validation import validate as _validate
+
+        return _validate(
+            self._dataset, self._states, self._config,
+            holdout=holdout, step=step, name=self._name,
+        )
+
+    @property
+    def lineage(self) -> Lineage:
+        """A content-addressed lineage chain: dataset -> discovery -> world."""
+        return Lineage.from_dataset(self._dataset, self._states).record_discovery(
+            self._config, self._world
+        )
+
     def report(self, path: str | PathLike[str], *, theme: str = "light") -> Path:
         return _write_report(self._world, self._dataset, self._states, path, name=self._name, theme=theme)
 
@@ -797,7 +814,7 @@ def _write_report(world: object, dataset: Dataset, states: Sequence[str], path: 
 class Study:
     """A fluent workflow over one dataset: discover, explain, forecast, share."""
 
-    __slots__ = ("_dataset", "_states", "_name", "_world", "_config", "_scenarios")
+    __slots__ = ("_dataset", "_states", "_name", "_world", "_config", "_scenarios", "_lineage")
 
     def __init__(self, dataset: Dataset, states: Sequence[str], *, name: str = "study") -> None:
         if not states:
@@ -811,6 +828,9 @@ class Study:
         self._world: object | None = None
         self._config: DiscoveryConfig | None = None
         self._scenarios: dict[str, dict[str, float]] = {}
+        # Governance lineage is captured as the study progresses: it is rooted at
+        # the source dataset's content hash and extended at discover().
+        self._lineage: Lineage = Lineage.from_dataset(dataset, self._states)
 
     # -- construction ------------------------------------------------------- #
 
@@ -982,6 +1002,8 @@ class Study:
         world = _discover_world(self._dataset, self._states, base)
         self._world = world
         self._config = base
+        # Extend the lineage chain with the discovery config + world revision.
+        self._lineage = self._lineage.record_discovery(base, world)
         return DiscoveryResult(world, self._dataset, self._states, base, self._name)
 
     def explain(self) -> Explanation:
@@ -1011,6 +1033,49 @@ class Study:
             state=self._states, origins=origins, horizon=horizon, step=step,
             name=self._name,
         )
+
+    def validate(self, *, holdout: float = 0.25, step: float | None = None):
+        """Out-of-sample **holdout** validation of the discovery procedure.
+
+        Splits the observations in time, re-discovers a world on the leading
+        ``1 - holdout`` fraction under this study's config, and scores its forecast
+        on the held-out tail (RMSE/MAE/R² per state). Unlike in-window fit, this
+        estimates whether the recovered structure *generalizes*. Returns a
+        :class:`~lawsynth.validation.Validation`. Deterministic and offline.
+        """
+        from .validation import validate as _validate
+
+        self._require_world()
+        config = self._config if self._config is not None else DiscoveryConfig()
+        return _validate(
+            self._dataset, self._states, config,
+            holdout=holdout, step=step, name=self._name,
+        )
+
+    @property
+    def lineage(self):
+        """The content-addressed lineage chain captured so far for this study.
+
+        Rooted at the source dataset's content hash and extended at
+        :meth:`discover` with the discovery config, engine version and world
+        revision hash. See :class:`~lawsynth.lineage.Lineage`.
+        """
+        return self._lineage
+
+    def model_card(self, **options: object):
+        """Assemble a standardized governance **model card** for this world.
+
+        Orchestrates the real SDK evaluations (``explain`` + holdout ``validate``
+        + rolling-origin ``backtest`` + ``discover_ensemble`` + optional
+        ``monitor``) and assembles them into a :class:`~lawsynth.governance.ModelCard`,
+        honestly omitting any section whose evaluation was disabled or could not
+        run. Keyword options are forwarded to
+        :func:`lawsynth.governance.model_card`.
+        """
+        from .governance import model_card as _model_card
+
+        self._require_world()
+        return _model_card(self, **options)  # type: ignore[arg-type]
 
     def save_to_project(self, project: object, name: str, *, tags: Sequence[str] = (), note: str = ""):
         """Add this study's discovered world to a :class:`~lawsynth.project.Project`.

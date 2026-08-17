@@ -43,11 +43,7 @@ impl ProcessSpec {
             .stdout
             .take()
             .ok_or_else(|| HostError::Process("failed to open child stdout".into()))?;
-        Ok(ProcessHandle {
-            child,
-            stdin,
-            stdout,
-        })
+        Ok(ProcessHandle { child, stdin, stdout })
     }
 }
 pub struct ProcessHandle {

@@ -8,9 +8,7 @@ pub fn validate_wasi_component(bytes: &[u8]) -> Result<(), HostError> {
         return Err(HostError::Process("WASI component is truncated".into()));
     }
     if &bytes[..4] != b"\0asm" {
-        return Err(HostError::Process(
-            "WASI component has invalid magic".into(),
-        ));
+        return Err(HostError::Process("WASI component has invalid magic".into()));
     }
     if bytes[4..8] != [1, 0, 0, 0] {
         return Err(HostError::Process("unsupported WebAssembly version".into()));

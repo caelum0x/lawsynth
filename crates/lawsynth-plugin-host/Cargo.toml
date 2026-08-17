@@ -9,6 +9,7 @@ autoexamples = false
 
 [dependencies]
 lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
+lawsynth-bundle = { path = "../lawsynth-bundle" }
 
 [lib]
 path = "src/lib.rs"

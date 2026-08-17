@@ -16,6 +16,8 @@ from typing import Mapping
 from lawsynth_server.errors import ValidationError
 from lawsynth_server.settings import Settings as ServerSettings
 
+from .quota import QuotaPolicy
+
 
 def _positive_integer(values: Mapping[str, str], name: str, default: int) -> int:
     raw = values.get(name, str(default))
@@ -62,6 +64,7 @@ class ApiSettings:
     environment: str = "development"
     max_request_bytes: int = 64 * 1024 * 1024
     event_stream_retention: int = 1024
+    quota: QuotaPolicy = QuotaPolicy()
 
     def __post_init__(self) -> None:
         if self.environment not in {"development", "test", "staging", "production"}:
@@ -72,6 +75,8 @@ class ApiSettings:
             raise ValidationError("max_request_bytes cannot be lower than max_upload_bytes")
         if self.event_stream_retention < 1:
             raise ValidationError("event_stream_retention must be positive")
+        if not isinstance(self.quota, QuotaPolicy):
+            raise ValidationError("quota must be a QuotaPolicy")
 
     @classmethod
     def from_environment(cls, values: Mapping[str, str] | None = None) -> "ApiSettings":
@@ -82,6 +87,10 @@ class ApiSettings:
         upload_limit = _positive_integer(values, "LAWSYNTH_MAX_UPLOAD_BYTES", 64 * 1024 * 1024)
         request_limit = _positive_integer(values, "LAWSYNTH_API_MAX_REQUEST_BYTES", upload_limit)
         retention = _positive_integer(values, "LAWSYNTH_API_EVENT_RETENTION", 1024)
+        quota = QuotaPolicy(
+            max_active_runs=_positive_integer(values, "LAWSYNTH_API_MAX_ACTIVE_RUNS", 1000),
+            max_dataset_bytes=_positive_integer(values, "LAWSYNTH_API_MAX_DATASET_BYTES", 1024 * 1024 * 1024),
+        )
         if environment == "production":
             if database_url == ":memory:":
                 raise ValidationError("LAWSYNTH_DATABASE_URL must use durable storage in production")
@@ -95,4 +104,10 @@ class ApiSettings:
             max_upload_bytes=upload_limit,
             telemetry_enabled=values.get("LAWSYNTH_TELEMETRY", "false").lower() == "true",
         )
-        return cls(server=server, environment=environment, max_request_bytes=request_limit, event_stream_retention=retention)
+        return cls(
+            server=server,
+            environment=environment,
+            max_request_bytes=request_limit,
+            event_stream_retention=retention,
+            quota=quota,
+        )

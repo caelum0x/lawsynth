@@ -11,6 +11,8 @@ pub enum HostError {
     NotRegistered(String),
     Process(String),
     Resource(String),
+    Package(String),
+    Trust(String),
 }
 impl fmt::Display for HostError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -23,6 +25,8 @@ impl fmt::Display for HostError {
             Self::NotRegistered(v) => write!(f, "plugin is not registered: {v}"),
             Self::Process(v) => write!(f, "plugin process error: {v}"),
             Self::Resource(v) => write!(f, "plugin resource error: {v}"),
+            Self::Package(v) => write!(f, "plugin package error: {v}"),
+            Self::Trust(v) => write!(f, "plugin trust error: {v}"),
         }
     }
 }

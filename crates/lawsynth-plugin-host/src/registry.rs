@@ -22,37 +22,23 @@ impl PluginRegistry {
         }
         manifest.validate()?;
         if !config.maximum_limits.permits(manifest.limits) {
-            return Err(HostError::Resource(
-                "manifest requests more than host maximum".into(),
-            ));
+            return Err(HostError::Resource("manifest requests more than host maximum".into()));
         }
         let permissions = config.policy.grant(&manifest)?;
         if self.entries.contains_key(&manifest.id) {
             return Err(HostError::AlreadyRegistered(manifest.id));
         }
-        self.entries.insert(
-            manifest.id.clone(),
-            RegisteredPlugin {
-                manifest,
-                permissions,
-            },
-        );
+        self.entries.insert(manifest.id.clone(), RegisteredPlugin { manifest, permissions });
         Ok(())
     }
     pub fn get(&self, id: &str) -> Result<&RegisteredPlugin, HostError> {
-        self.entries
-            .get(id)
-            .ok_or_else(|| HostError::NotRegistered(id.into()))
+        self.entries.get(id).ok_or_else(|| HostError::NotRegistered(id.into()))
     }
     pub fn remove(&mut self, id: &str) -> Result<RegisteredPlugin, HostError> {
-        self.entries
-            .remove(id)
-            .ok_or_else(|| HostError::NotRegistered(id.into()))
+        self.entries.remove(id).ok_or_else(|| HostError::NotRegistered(id.into()))
     }
     pub fn iter(&self) -> impl Iterator<Item = (&str, &RegisteredPlugin)> {
-        self.entries
-            .iter()
-            .map(|(id, plugin)| (id.as_str(), plugin))
+        self.entries.iter().map(|(id, plugin)| (id.as_str(), plugin))
     }
     pub fn len(&self) -> usize {
         self.entries.len()

@@ -126,6 +126,23 @@ def __getattr__(name):
 
         _monitor = importlib.import_module(".monitor", __name__)
         return getattr(_monitor, name)
+    if name in {"validate", "Validation"}:
+        import importlib
+
+        _validation = importlib.import_module(".validation", __name__)
+        return getattr(_validation, name)
+    if name in {"model_card", "ModelCard"}:
+        from . import governance as _governance
+
+        return getattr(_governance, name)
+    if name in {"Lineage", "LineageLink"}:
+        from . import lineage as _lineage
+
+        return getattr(_lineage, name)
+    if name in {"AuditLog", "AuditEntry"}:
+        from . import audit as _audit
+
+        return getattr(_audit, name)
     raise AttributeError(name)
 
 
@@ -142,5 +159,7 @@ __all__ = [
     "Project", "ProjectEntry",
     "Ensemble", "ForecastBand", "TermStat",
     "monitor", "MonitorReport", "StateResidual", "Anomaly",
+    "validate", "Validation",
+    "model_card", "ModelCard", "Lineage", "LineageLink", "AuditLog", "AuditEntry",
     "__version__",
 ]

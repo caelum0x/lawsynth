@@ -11,11 +11,7 @@ pub struct HostedPlugin {
 impl HostedPlugin {
     pub fn new(manifest: PluginManifest, limits: ResourceLimits) -> Result<Self, HostError> {
         manifest.validate()?;
-        Ok(Self {
-            manifest,
-            state: PluginState::Discovered,
-            meter: ResourceMeter::new(limits)?,
-        })
+        Ok(Self { manifest, state: PluginState::Discovered, meter: ResourceMeter::new(limits)? })
     }
     pub const fn state(&self) -> PluginState {
         self.state

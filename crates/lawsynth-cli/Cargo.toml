@@ -33,6 +33,8 @@ lawsynth-discovery = { path = "../lawsynth-discovery" }
 lawsynth-differentiate = { path = "../lawsynth-differentiate" }
 lawsynth-egraph = { path = "../lawsynth-egraph" }
 lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
+lawsynth-plugin-host = { path = "../lawsynth-plugin-host" }
 lawsynth-preprocess = { path = "../lawsynth-preprocess" }
 lawsynth-profile = { path = "../lawsynth-profile" }
 lawsynth-report = { path = "../lawsynth-report" }

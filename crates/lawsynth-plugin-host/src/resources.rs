@@ -13,12 +13,7 @@ pub struct ResourceMeter {
 impl ResourceMeter {
     pub fn new(limits: ResourceLimits) -> Result<Self, HostError> {
         limits.validate()?;
-        Ok(Self {
-            limits,
-            started: Instant::now(),
-            requests: 0,
-            output_bytes: 0,
-        })
+        Ok(Self { limits, started: Instant::now(), requests: 0, output_bytes: 0 })
     }
     pub fn begin_request(&mut self) -> Result<(), HostError> {
         self.check_time()?;
@@ -50,9 +45,7 @@ impl ResourceMeter {
     }
     fn check_time(&self) -> Result<(), HostError> {
         if self.elapsed() > Duration::from_millis(self.limits.max_cpu_millis) {
-            Err(HostError::Resource(
-                "wall-clock execution limit exceeded".into(),
-            ))
+            Err(HostError::Resource("wall-clock execution limit exceeded".into()))
         } else {
             Ok(())
         }

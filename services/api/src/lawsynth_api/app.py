@@ -28,6 +28,9 @@ from .authorization import READ, WRITE, require_scope_or_problem
 from .database import ApiDatabase
 from .events import EventBus
 from .lifespan import ApiLifespan
+from .metering import MeteringLog
+from .quota import QuotaGuard
+from .tenancy import ArtifactOwnership
 from .middleware import (
     RequestProblem,
     error_envelope,
@@ -62,12 +65,15 @@ class WsgiApplication:
         self._lifespan = ApiLifespan(settings.server, domain)
         self._events = EventBus(retention=settings.event_stream_retention)
         self._telemetry = RequestTelemetry()
+        self._metering = MeteringLog()
+        self._artifacts = ArtifactOwnership()
+        self._quota = QuotaGuard(settings.quota)
         services = self._lifespan.application.services
         self._auth = ApiAuthenticator(services.auth)
         self._storage = ApiStorage(services.storage)
         self._database = ApiDatabase(services.database)
         self._repositories = ApiRepositories(services)
-        self._discovery = DiscoveryService(services, self._events)
+        self._discovery = DiscoveryService(services, self._events, self._quota, self._metering)
 
     def close(self) -> None:
         self._discovery.close()
@@ -105,10 +111,14 @@ class WsgiApplication:
                 return self._serve_report(request, parts, request_id, start_response)
             if product is not None:
                 response = self._handle_product(request, product, parts, request_id)
+            elif self._is_usage(request, parts):
+                response = self._handle_usage(request, request_id)
             elif self._is_discovery_submit(request, parts):
                 response = self._handle_discovery_submit(request, request_id)
             elif self._is_run_world(request, parts):
                 response = self._handle_run_world(request, parts, request_id)
+            elif self._is_artifact_download(request, parts):
+                response = self._handle_artifact_download(request, parts, request_id)
             elif request["path"].startswith("/v1/worker/") or request["path"] == "/v1/worker":
                 response = error_envelope(501, "worker_transport_unavailable", "worker HTTP transport is not deployed by this API process", request_id)
             else:
@@ -116,6 +126,7 @@ class WsgiApplication:
                 response.setdefault("headers", {}).setdefault("X-Request-ID", request_id)
                 self._emit_lifecycle(request, response)
                 self._decorate_download(request, response)
+                self._record_artifact_ownership(request, response)
         except RequestProblem as error:
             response = error_envelope(error.status, error.code, error.message, request_id)
         except RuntimeError:
@@ -254,6 +265,80 @@ class WsgiApplication:
         except ServerError as error:
             return error_envelope(error.status_code, error.code, error.message, request_id)
 
+    # -- Metering & usage reporting ----------------------------------------
+    #
+    # The metering log is an append-only, tenant-partitioned record of billable
+    # actions.  ``GET /v1/usage`` is its read surface: it authenticates, scopes
+    # to the caller's tenant, and returns only that tenant's usage -- never
+    # another's -- so a hosted deployment can bill from the same isolation
+    # boundary a token grants.
+
+    @staticmethod
+    def _is_usage(request: Mapping[str, object], parts: list[str]) -> bool:
+        return request["method"] == "GET" and parts == ["usage"]
+
+    def _handle_usage(self, request: Mapping[str, object], request_id: str) -> dict[str, object]:
+        principal = self._auth.authenticate_or_problem(request["headers"])
+        require_scope_or_problem(principal, READ)
+        return {
+            "status": 200,
+            "headers": {"X-Request-ID": request_id},
+            "body": self._metering.usage(principal.organization_id),
+        }
+
+    # -- Artifact download (tenant-scoped over content-addressed storage) ---
+    #
+    # Artifacts are stored content-addressed (dedup by SHA-256), but a hash is
+    # not a grant: a download MUST be authorized against the caller's tenant.
+    # The API records ownership on a successful upload and checks it here before
+    # delegating the actual byte-serving to the domain, so a tenant can never
+    # download a hash it did not store -- even one it somehow learned.
+
+    @staticmethod
+    def _is_artifact_download(request: Mapping[str, object], parts: list[str]) -> bool:
+        return request["method"] == "GET" and len(parts) == 2 and parts[0] == "artifacts"
+
+    def _handle_artifact_download(self, request: Mapping[str, object], parts: list[str], request_id: str) -> dict[str, object]:
+        principal = self._auth.authenticate_or_problem(request["headers"])
+        require_scope_or_problem(principal, READ)
+        # A malformed identifier is a request-shape error the domain reports as a
+        # 422; only well-formed hashes are subject to the ownership gate, so a
+        # tenant can never download a valid hash it did not store.
+        if self._is_sha256(parts[1]) and not self._artifacts.owns(principal.organization_id, parts[1]):
+            return error_envelope(404, "not_found", "artifact not found", request_id)
+        response = self._lifespan.application.dispatch(request)
+        response.setdefault("headers", {}).setdefault("X-Request-ID", request_id)
+        self._decorate_download(request, response)
+        return response
+
+    @staticmethod
+    def _is_sha256(value: str) -> bool:
+        return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+    def _record_artifact_ownership(self, request: Mapping[str, object], response: Mapping[str, object]) -> None:
+        """Grant the caller's tenant ownership of a just-stored artifact hash.
+
+        Runs after a successful ``POST /v1/artifacts`` (including idempotent
+        replays, which re-grant the same hash harmlessly).  Never raises: an
+        ownership-recording failure must not change the upload's outcome.
+        """
+
+        try:
+            if request["method"] != "POST" or self._parts(str(request["path"])) != ["artifacts"]:
+                return
+            if response.get("status") != 201:
+                return
+            body = response.get("body")
+            if not isinstance(body, Mapping):
+                return
+            sha256 = body.get("sha256")
+            principal = self._auth.silent(request["headers"])
+            if principal is None or not isinstance(sha256, str):
+                return
+            self._artifacts.grant(principal.organization_id, sha256)
+        except Exception:
+            pass
+
     def _serve_report(self, request: Mapping[str, object], parts: list[str], request_id: str, start_response: StartResponse) -> Iterable[bytes]:
         """Serve ``GET /v1/worlds/{id}/report`` as a self-contained HTML document.
 
@@ -310,7 +395,7 @@ class WsgiApplication:
         if not parts:
             return "root"
         segment = parts[0]
-        if segment in {"health", "version", "events", "worker"}:
+        if segment in {"health", "version", "events", "worker", "usage"}:
             return segment
         module = _RESOURCES.get(segment)
         if module is None:

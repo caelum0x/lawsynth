@@ -48,6 +48,12 @@ pub use scenarios::{
     ScenarioOutcome, ScenarioReport, render_scenarios, render_scenarios_with_theme,
 };
 
+mod model_card;
+pub use model_card::{
+    BacktestSection, EnsembleSection, FitRow, ModelCard, TermStability, ValidationSection,
+    render_model_card,
+};
+
 /// Observed samples overlaid on a report to show fit quality.
 ///
 /// Each column is aligned to the shared [`time`](Self::time) axis and keyed by

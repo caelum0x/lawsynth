@@ -5,11 +5,7 @@ use lawsynth_plugin_host::{HostConfig, PermissionPolicy, PermissionSet, PluginRe
 fn registry_requires_host_enablement_and_explicit_grants() {
     let manifest = PluginManifest::parse("id = adapter\nversion = 1.0.0\nkind = wasi\nentrypoint = adapter.wasm\ncapabilities = data.adapter\n").unwrap();
     let mut registry = PluginRegistry::default();
-    assert!(
-        registry
-            .register(&HostConfig::default(), manifest.clone())
-            .is_err()
-    );
+    assert!(registry.register(&HostConfig::default(), manifest.clone()).is_err());
     let config = HostConfig {
         enabled: true,
         policy: PermissionPolicy {
@@ -20,11 +16,5 @@ fn registry_requires_host_enablement_and_explicit_grants() {
     };
     registry.register(&config, manifest).unwrap();
     assert_eq!(registry.len(), 1);
-    assert!(
-        registry
-            .get("adapter")
-            .unwrap()
-            .permissions
-            .allows(Capability::DataAdapter)
-    );
+    assert!(registry.get("adapter").unwrap().permissions.allows(Capability::DataAdapter));
 }
