@@ -75,13 +75,16 @@ dependencies = [
 name = "lawsynth-discovery"
 version = "0.1.0"
 dependencies = [
+ "lawsynth-causal",
  "lawsynth-core",
  "lawsynth-data",
  "lawsynth-differentiate",
  "lawsynth-expr",
  "lawsynth-features",
+ "lawsynth-opt",
  "lawsynth-preprocess",
  "lawsynth-profile",
+ "lawsynth-regime",
  "lawsynth-score",
  "lawsynth-sparse",
  "lawsynth-stats",
