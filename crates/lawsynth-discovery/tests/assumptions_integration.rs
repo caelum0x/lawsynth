@@ -11,12 +11,7 @@ fn contradictory_required_and_forbidden_constraints_are_rejected_before_graph_fi
     let y = Identifier::new("y").unwrap();
     let edge = EdgeConstraint::new(x.clone(), y.clone());
     let graph = DependencyGraph {
-        edges: vec![DependencyEdge {
-            source: x,
-            target: y,
-            lag: 1,
-            correlation: 1.0,
-        }],
+        edges: vec![DependencyEdge { source: x, target: y, lag: 1, correlation: 1.0 }],
     };
     let assumptions = DependencyAssumptions {
         required: BTreeSet::from([edge.clone()]),

@@ -9,10 +9,7 @@ pub struct DiscoveryPlan {
 }
 impl DiscoveryPlan {
     pub fn from_config(config: &DiscoveryConfig) -> Self {
-        Self {
-            states: config.state.clone(),
-            stages: DiscoveryStage::all().into(),
-        }
+        Self { states: config.state.clone(), stages: DiscoveryStage::all().into() }
     }
     pub fn is_empty(&self) -> bool {
         self.states.is_empty()

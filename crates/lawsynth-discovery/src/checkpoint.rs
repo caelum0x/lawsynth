@@ -55,13 +55,7 @@ impl DiscoveryCheckpoint {
 
     pub fn record_law(&mut self, state: Identifier, expression: String, residual_sum_squares: f64) {
         self.completed_states.insert(state.clone());
-        self.laws.insert(
-            state,
-            CheckpointLaw {
-                expression,
-                residual_sum_squares,
-            },
-        );
+        self.laws.insert(state, CheckpointLaw { expression, residual_sum_squares });
     }
 
     pub fn is_compatible_with(&self, dataset_fingerprint: u64) -> bool {
@@ -113,9 +107,7 @@ impl DiscoveryCheckpoint {
             return load_legacy(lines);
         }
         if magic != Some(MAGIC) {
-            return Err(DiscoveryError::Checkpoint(
-                "unsupported checkpoint version".to_owned(),
-            ));
+            return Err(DiscoveryError::Checkpoint("unsupported checkpoint version".to_owned()));
         }
         let dataset_fingerprint = lines
             .next()
@@ -141,9 +133,7 @@ impl DiscoveryCheckpoint {
                 Some("S") => {
                     let state = parse_state(fields.next())?;
                     if fields.next().is_some() {
-                        return Err(DiscoveryError::Checkpoint(
-                            "invalid state record".to_owned(),
-                        ));
+                        return Err(DiscoveryError::Checkpoint("invalid state record".to_owned()));
                     }
                     completed_states.insert(state);
                 }
@@ -165,27 +155,14 @@ impl DiscoveryCheckpoint {
                         .ok_or_else(|| DiscoveryError::Checkpoint("missing expression".to_owned()))?
                         .to_owned();
                     completed_states.insert(state.clone());
-                    laws.insert(
-                        state,
-                        CheckpointLaw {
-                            expression,
-                            residual_sum_squares,
-                        },
-                    );
+                    laws.insert(state, CheckpointLaw { expression, residual_sum_squares });
                 }
                 _ => {
-                    return Err(DiscoveryError::Checkpoint(
-                        "invalid checkpoint record".to_owned(),
-                    ));
+                    return Err(DiscoveryError::Checkpoint("invalid checkpoint record".to_owned()));
                 }
             }
         }
-        Ok(Self {
-            dataset_fingerprint,
-            configuration_fingerprint,
-            completed_states,
-            laws,
-        })
+        Ok(Self { dataset_fingerprint, configuration_fingerprint, completed_states, laws })
     }
 }
 

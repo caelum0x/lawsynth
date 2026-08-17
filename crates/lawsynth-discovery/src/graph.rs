@@ -52,18 +52,9 @@ pub fn infer_lagged_dependencies(
             let (source, target, lag) = if estimate.lag > 0 {
                 (left_id.clone(), right_id.clone(), estimate.lag as usize)
             } else {
-                (
-                    right_id.clone(),
-                    left_id.clone(),
-                    estimate.lag.unsigned_abs(),
-                )
+                (right_id.clone(), left_id.clone(), estimate.lag.unsigned_abs())
             };
-            edges.push(DependencyEdge {
-                source,
-                target,
-                lag,
-                correlation: estimate.correlation,
-            });
+            edges.push(DependencyEdge { source, target, lag, correlation: estimate.correlation });
         }
     }
     Ok(DependencyGraph { edges })
@@ -90,12 +81,7 @@ mod tests {
         let graph = infer_lagged_dependencies(&dataset, 2, 0.99).unwrap();
         assert_eq!(
             graph.edges,
-            vec![DependencyEdge {
-                source: x,
-                target: y,
-                lag: 1,
-                correlation: 1.0,
-            }]
+            vec![DependencyEdge { source: x, target: y, lag: 1, correlation: 1.0 }]
         );
     }
 }

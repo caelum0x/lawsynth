@@ -30,10 +30,7 @@ fn simulate_applies_state_parameter_and_input_overrides() {
     let directory = std::env::temp_dir().join(format!(
         "lawsynth-cli-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     ));
     fs::create_dir_all(&directory).unwrap();
     let bundle = directory.join("controlled.lsworld");
@@ -57,15 +54,7 @@ fn simulate_applies_state_parameter_and_input_overrides() {
     ])
     .unwrap();
 
-    let final_x: f64 = output
-        .lines()
-        .nth(2)
-        .unwrap()
-        .split(',')
-        .nth(1)
-        .unwrap()
-        .parse()
-        .unwrap();
+    let final_x: f64 = output.lines().nth(2).unwrap().split(',').nth(1).unwrap().parse().unwrap();
     assert!((final_x - 5.6).abs() < 1e-12);
     fs::remove_dir_all(directory).unwrap();
 }
@@ -87,10 +76,7 @@ fn simulate_applies_a_scheduled_parameter_change() {
     let directory = std::env::temp_dir().join(format!(
         "lawsynth-cli-scheduled-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     ));
     fs::create_dir_all(&directory).unwrap();
     let bundle = directory.join("controlled.lsworld");
@@ -112,15 +98,7 @@ fn simulate_applies_a_scheduled_parameter_change() {
         "1".to_owned(),
     ])
     .unwrap();
-    let final_x: f64 = output
-        .lines()
-        .last()
-        .unwrap()
-        .split(',')
-        .nth(1)
-        .unwrap()
-        .parse()
-        .unwrap();
+    let final_x: f64 = output.lines().last().unwrap().split(',').nth(1).unwrap().parse().unwrap();
     assert!((final_x - 2.0).abs() < 1e-12);
     fs::remove_dir_all(directory).unwrap();
 }

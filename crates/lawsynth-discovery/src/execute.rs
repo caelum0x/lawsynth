@@ -5,7 +5,8 @@ use lawsynth_expr::{Environment, Expr, parse, print};
 use lawsynth_features::FeatureLibrary;
 use lawsynth_preprocess::{AppliedTransform, moving_average};
 use lawsynth_profile::profile;
-use lawsynth_score::{CandidateMetrics, expression_complexity, pareto_front};
+use lawsynth_regime::{Segmentation, pelt};
+use lawsynth_score::{CandidateMetrics, expression_complexity, selection_stability};
 use lawsynth_sparse::{RegressionProblem, SparseSolution, sr3_standardized, stlsq_standardized};
 use lawsynth_stats::{BootstrapConfig, PercentileInterval, bootstrap_indices, percentile_interval};
 use lawsynth_symbolic::{Grammar, calibrate_affine, enumerate};
@@ -69,9 +70,7 @@ pub fn discover_cancellable_with_checkpoint(
         }
     }
     let (working_dataset, preprocessing) = if let Some(pipeline) = &config.preprocessing {
-        pipeline
-            .apply(dataset)
-            .map_err(|error| DiscoveryError::Preprocess(error.to_string()))?
+        pipeline.apply(dataset).map_err(|error| DiscoveryError::Preprocess(error.to_string()))?
     } else if let Some(radius) = config.smoothing_radius {
         let (dataset, report) = moving_average(dataset, radius)
             .map_err(|error| DiscoveryError::Preprocess(error.to_string()))?;
@@ -84,11 +83,7 @@ pub fn discover_cancellable_with_checkpoint(
     ensure_active(cancellation)?;
     let derivatives = differentiate_dataset_with_config(&working_dataset, &config.derivative)
         .map_err(|error| DiscoveryError::Differentiate(error.to_string()))?;
-    let feature_variables = working_dataset
-        .columns()
-        .keys()
-        .cloned()
-        .collect::<Vec<_>>();
+    let feature_variables = working_dataset.columns().keys().cloned().collect::<Vec<_>>();
     let mut library =
         FeatureLibrary::polynomial(feature_variables.clone(), config.polynomial_degree, true)
             .map_err(|error| DiscoveryError::Features(error.to_string()))?;
@@ -161,18 +156,14 @@ pub fn discover_cancellable_with_checkpoint(
         .map(|id| {
             Variable::new(
                 id.clone(),
-                if config.state.contains(id) {
-                    VariableRole::State
-                } else {
-                    VariableRole::Control
-                },
+                if config.state.contains(id) { VariableRole::State } else { VariableRole::Control },
             )
         })
         .collect::<Vec<_>>();
     let world = World::new(variables.clone(), [], laws)
         .map_err(|error| DiscoveryError::World(error.to_string()))?;
     let observations = rows.len() * config.state.len();
-    let bootstrap_mse = bootstrap_mse(
+    let bootstrap = bootstrap_summary(
         &rows,
         &derivatives,
         &config.state,
@@ -187,7 +178,8 @@ pub fn discover_cancellable_with_checkpoint(
             mean_squared_error: total_rss / observations as f64,
             complexity,
         },
-        bootstrap_mse,
+        bootstrap_mse: bootstrap.as_ref().map(|summary| summary.mse_interval),
+        stability: bootstrap.as_ref().map(|summary| summary.stability),
     }];
     if let Some(symbolic_config) = &config.symbolic {
         candidates.push(symbolic_candidate(
@@ -203,20 +195,30 @@ pub fn discover_cancellable_with_checkpoint(
         .resource_limits
         .validate_candidate_count(candidates.len())
         .map_err(|error| DiscoveryError::Resource(error.to_string()))?;
-    let front = pareto_front(
-        &candidates
-            .iter()
-            .map(|candidate| candidate.metrics)
-            .collect::<Vec<_>>(),
-    );
-    Ok(DiscoveryResult {
-        profile: input_profile,
-        preprocessing,
-        candidates: front
-            .into_iter()
-            .map(|index| candidates[index].clone())
-            .collect(),
-    })
+    let frontier = DiscoveryResult::compute_frontier(&candidates);
+    let regimes = discover_regimes(&working_dataset, &config.state, config.regime.as_ref())?;
+    Ok(DiscoveryResult { profile: input_profile, preprocessing, candidates, frontier, regimes })
+}
+
+/// Runs the opt-in regime segmentation pass over the primary state's window.
+///
+/// Returns `None` when regime detection is disabled. The primary state is the
+/// first configured state; segmenting a single deterministic series keeps the
+/// result reproducible and cheap. Enabled explicitly so the default discovery
+/// path pays no cost.
+fn discover_regimes(
+    dataset: &Dataset,
+    states: &[lawsynth_core::Identifier],
+    config: Option<&lawsynth_regime::SegmentationConfig>,
+) -> Result<Option<Segmentation>, DiscoveryError> {
+    let Some(config) = config else {
+        return Ok(None);
+    };
+    let Some(primary) = states.first() else {
+        return Ok(None);
+    };
+    let series = &dataset.columns()[primary].values;
+    pelt(series, *config).map(Some).map_err(|error| DiscoveryError::Regime(error.to_string()))
 }
 
 fn symbolic_candidate(
@@ -247,15 +249,14 @@ fn symbolic_candidate(
             .iter()
             .filter_map(|expression| calibrate_affine(expression, &contexts, target).ok())
             .min_by(|left, right| {
-                left.fit
-                    .mean_squared_error
-                    .total_cmp(&right.fit.mean_squared_error)
-                    .then_with(|| {
+                left.fit.mean_squared_error.total_cmp(&right.fit.mean_squared_error).then_with(
+                    || {
                         left.expression
                             .to_canonical_string()
                             .len()
                             .cmp(&right.expression.to_canonical_string().len())
-                    })
+                    },
+                )
             })
             .ok_or_else(|| {
                 DiscoveryError::Symbolic(format!("no evaluable symbolic expression for '{state}'"))
@@ -273,10 +274,19 @@ fn symbolic_candidate(
             complexity,
         },
         bootstrap_mse: None,
+        stability: None,
     })
 }
 
-fn bootstrap_mse(
+/// Bootstrap uncertainty attached to the sparse candidate: a percentile
+/// interval over resampled mean-squared error, plus a selection-stability
+/// summary derived from `lawsynth_score::selection_stability`.
+struct BootstrapSummary {
+    mse_interval: PercentileInterval,
+    stability: f64,
+}
+
+fn bootstrap_summary(
     rows: &[Vec<f64>],
     derivatives: &Dataset,
     states: &[lawsynth_core::Identifier],
@@ -284,26 +294,23 @@ fn bootstrap_mse(
     method: SparseMethod,
     config: Option<&BootstrapConfig>,
     cancellation: &CancellationToken,
-) -> Result<Option<PercentileInterval>, DiscoveryError> {
+) -> Result<Option<BootstrapSummary>, DiscoveryError> {
     let Some(config) = config else {
         return Ok(None);
     };
     let samples = bootstrap_indices(rows.len(), config)
         .map_err(|error| DiscoveryError::Sparse(error.to_string()))?;
     let mut scores = Vec::with_capacity(samples.len());
+    // Per-state boolean selection masks, one row per bootstrap replicate, used
+    // to quantify how consistently each term survives resampling.
+    let mut selections: Vec<Vec<Vec<bool>>> = vec![Vec::new(); states.len()];
     for indices in samples {
         ensure_active(cancellation)?;
-        let sampled_rows = indices
-            .iter()
-            .map(|index| rows[*index].clone())
-            .collect::<Vec<_>>();
+        let sampled_rows = indices.iter().map(|index| rows[*index].clone()).collect::<Vec<_>>();
         let mut rss = 0.0;
-        for state in states {
+        for (position, state) in states.iter().enumerate() {
             let values = &derivatives.columns()[state].values;
-            let target = indices
-                .iter()
-                .map(|index| values[index + 1])
-                .collect::<Vec<_>>();
+            let target = indices.iter().map(|index| values[index + 1]).collect::<Vec<_>>();
             let solution = fit_sparse(
                 &RegressionProblem::new(sampled_rows.clone(), target)
                     .map_err(|error| DiscoveryError::Sparse(error.to_string()))?,
@@ -312,12 +319,37 @@ fn bootstrap_mse(
             )
             .map_err(|error| DiscoveryError::Sparse(error.to_string()))?;
             rss += solution.residual_sum_squares;
+            selections[position].push(
+                solution
+                    .coefficients
+                    .iter()
+                    .map(|coefficient| coefficient.abs() >= sparse.threshold)
+                    .collect(),
+            );
         }
         scores.push(rss / (indices.len() * states.len()) as f64);
     }
-    percentile_interval(&scores, 0.95)
-        .map(Some)
-        .map_err(|error| DiscoveryError::Sparse(error.to_string()))
+    let mse_interval = percentile_interval(&scores, 0.95)
+        .map_err(|error| DiscoveryError::Sparse(error.to_string()))?;
+    let stability = selection_stability_summary(&selections)?;
+    Ok(Some(BootstrapSummary { mse_interval, stability }))
+}
+
+/// Averages the mean pairwise Jaccard agreement of the per-state selection
+/// masks into a single stability score in `[0, 1]`.
+fn selection_stability_summary(selections: &[Vec<Vec<bool>>]) -> Result<f64, DiscoveryError> {
+    let mut total = 0.0;
+    let mut counted = 0usize;
+    for state in selections {
+        if state.is_empty() {
+            continue;
+        }
+        let stability =
+            selection_stability(state).map_err(|error| DiscoveryError::Score(error.to_string()))?;
+        total += stability.mean_pairwise_jaccard;
+        counted += 1;
+    }
+    Ok(if counted == 0 { 1.0 } else { total / counted as f64 })
 }
 
 fn fit_sparse(
@@ -332,11 +364,7 @@ fn fit_sparse(
 }
 
 fn ensure_active(cancellation: &CancellationToken) -> Result<(), DiscoveryError> {
-    if cancellation.is_cancelled() {
-        Err(DiscoveryError::Cancelled)
-    } else {
-        Ok(())
-    }
+    if cancellation.is_cancelled() { Err(DiscoveryError::Cancelled) } else { Ok(()) }
 }
 
 #[cfg(test)]
@@ -353,21 +381,13 @@ mod tests {
     fn discovers_a_linear_growth_world() {
         let id = Identifier::new("x").unwrap();
         let time = (0..101).map(|step| step as f64 * 0.01).collect::<Vec<_>>();
-        let values = time
-            .iter()
-            .map(|time| (2.0 * time).exp())
-            .collect::<Vec<_>>();
-        let data = Dataset::new(
-            TimeAxis::new(time).unwrap(),
-            [NumericColumn::new(id.clone(), values)],
-        )
-        .unwrap();
+        let values = time.iter().map(|time| (2.0 * time).exp()).collect::<Vec<_>>();
+        let data =
+            Dataset::new(TimeAxis::new(time).unwrap(), [NumericColumn::new(id.clone(), values)])
+                .unwrap();
         let mut config = DiscoveryConfig::new([id.clone()]);
-        config.bootstrap = Some(lawsynth_stats::BootstrapConfig {
-            replicates: 5,
-            block_size: 4,
-            seed: 7,
-        });
+        config.bootstrap =
+            Some(lawsynth_stats::BootstrapConfig { replicates: 5, block_size: 4, seed: 7 });
         let mut checkpoint = DiscoveryCheckpoint::new(data.fingerprint());
         let result = discover_cancellable_with_checkpoint(
             &data,
@@ -397,10 +417,7 @@ mod tests {
         let time = (0..101).map(|step| step as f64 * 0.01).collect::<Vec<_>>();
         let data = Dataset::new(
             TimeAxis::new(time.clone()).unwrap(),
-            [NumericColumn::new(
-                x.clone(),
-                time.iter().map(|time| (2.0 * time).exp()).collect(),
-            )],
+            [NumericColumn::new(x.clone(), time.iter().map(|time| (2.0 * time).exp()).collect())],
         )
         .unwrap();
         let mut config = DiscoveryConfig::new([x.clone()]);
@@ -421,10 +438,7 @@ mod tests {
         token.cancel();
         let data = Dataset::new(
             TimeAxis::new(vec![0.0, 1.0]).unwrap(),
-            [NumericColumn::new(
-                Identifier::new("x").unwrap(),
-                vec![1.0, 2.0],
-            )],
+            [NumericColumn::new(Identifier::new("x").unwrap(), vec![1.0, 2.0])],
         )
         .unwrap();
         assert!(matches!(
@@ -441,9 +455,7 @@ mod tests {
     fn discovers_a_trigonometric_control_law() {
         let x = Identifier::new("x").unwrap();
         let phase = Identifier::new("phase").unwrap();
-        let time = (0..401)
-            .map(|index| index as f64 * 0.01)
-            .collect::<Vec<_>>();
+        let time = (0..401).map(|index| index as f64 * 0.01).collect::<Vec<_>>();
         let data = Dataset::new(
             TimeAxis::new(time.clone()).unwrap(),
             [
@@ -505,10 +517,7 @@ mod tests {
         let time = (0..101).map(|step| step as f64 * 0.01).collect::<Vec<_>>();
         let data = Dataset::new(
             TimeAxis::new(time.clone()).unwrap(),
-            [NumericColumn::new(
-                x.clone(),
-                time.iter().map(|time| (2.0 * time).exp()).collect(),
-            )],
+            [NumericColumn::new(x.clone(), time.iter().map(|time| (2.0 * time).exp()).collect())],
         )
         .unwrap();
         let mut config = DiscoveryConfig::new([x.clone()]);
@@ -523,17 +532,11 @@ mod tests {
             .candidates
             .iter()
             .find(|candidate| {
-                candidate.world.laws()[&x]
-                    .expression
-                    .to_canonical_string()
-                    .contains("symbol:x")
+                candidate.world.laws()[&x].expression.to_canonical_string().contains("symbol:x")
             })
             .expect("symbolic branch should be retained");
-        let value = evaluate(
-            &symbolic.world.laws()[&x].expression,
-            &BTreeMap::from([(x, 1.0)]),
-        )
-        .unwrap();
+        let value =
+            evaluate(&symbolic.world.laws()[&x].expression, &BTreeMap::from([(x, 1.0)])).unwrap();
         assert!((value - 2.0).abs() < 0.02);
     }
 
@@ -547,12 +550,8 @@ mod tests {
         let mut zv = vec![1.0];
         let dt = 0.001;
         for _ in 0..2_000 {
-            let (next_x, next_y, next_z) = rk4_lorenz(
-                *xv.last().unwrap(),
-                *yv.last().unwrap(),
-                *zv.last().unwrap(),
-                dt,
-            );
+            let (next_x, next_y, next_z) =
+                rk4_lorenz(*xv.last().unwrap(), *yv.last().unwrap(), *zv.last().unwrap(), dt);
             xv.push(next_x);
             yv.push(next_y);
             zv.push(next_z);
@@ -580,15 +579,13 @@ mod tests {
                 include_trigonometric: false,
                 include_rational: false,
                 symbolic: None,
-                sparse: lawsynth_sparse::SparseConfig {
-                    threshold: 0.1,
-                    ..Default::default()
-                },
+                sparse: lawsynth_sparse::SparseConfig { threshold: 0.1, ..Default::default() },
                 sparse_method: SparseMethod::Stlsq,
                 derivative: Default::default(),
                 smoothing_radius: None,
                 preprocessing: None,
                 bootstrap: None,
+                regime: None,
                 resource_limits: Default::default(),
             },
         )
@@ -608,11 +605,8 @@ mod tests {
         let mut predator_values = vec![5.0];
         let dt = 0.001;
         for _ in 0..4_000 {
-            let (next_prey, next_predator) = rk4_lotka(
-                *prey_values.last().unwrap(),
-                *predator_values.last().unwrap(),
-                dt,
-            );
+            let (next_prey, next_predator) =
+                rk4_lotka(*prey_values.last().unwrap(), *predator_values.last().unwrap(), dt);
             prey_values.push(next_prey);
             predator_values.push(next_predator);
         }
@@ -622,9 +616,7 @@ mod tests {
             *prey += 1e-6 * (index as f64 * 0.17).sin();
             *predator += 1e-6 * (index as f64 * 0.31).cos();
         }
-        let time = (0..prey_values.len())
-            .map(|index| index as f64 * dt)
-            .collect();
+        let time = (0..prey_values.len()).map(|index| index as f64 * dt).collect();
         let data = Dataset::new(
             TimeAxis::new(time).unwrap(),
             [
@@ -641,15 +633,13 @@ mod tests {
                 include_trigonometric: false,
                 include_rational: false,
                 symbolic: None,
-                sparse: lawsynth_sparse::SparseConfig {
-                    threshold: 0.1,
-                    ..Default::default()
-                },
+                sparse: lawsynth_sparse::SparseConfig { threshold: 0.1, ..Default::default() },
                 sparse_method: SparseMethod::Stlsq,
                 derivative: Default::default(),
                 smoothing_radius: None,
                 preprocessing: None,
                 bootstrap: None,
+                regime: None,
                 resource_limits: Default::default(),
             },
         )
@@ -676,10 +666,7 @@ mod tests {
 
     fn rk4_lotka(prey: f64, predator: f64, dt: f64) -> (f64, f64) {
         let f = |prey: f64, predator: f64| {
-            (
-                1.5 * prey - prey * predator,
-                0.75 * prey * predator - predator,
-            )
+            (1.5 * prey - prey * predator, 0.75 * prey * predator - predator)
         };
         let (k1_prey, k1_predator) = f(prey, predator);
         let (k2_prey, k2_predator) =

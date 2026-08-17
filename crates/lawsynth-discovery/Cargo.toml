@@ -29,6 +29,7 @@ lawsynth-expr = { path = "../lawsynth-expr" }
 lawsynth-features = { path = "../lawsynth-features" }
 lawsynth-profile = { path = "../lawsynth-profile" }
 lawsynth-preprocess = { path = "../lawsynth-preprocess" }
+lawsynth-regime = { path = "../lawsynth-regime" }
 lawsynth-score = { path = "../lawsynth-score" }
 lawsynth-sparse = { path = "../lawsynth-sparse" }
 lawsynth-stats = { path = "../lawsynth-stats" }

@@ -1,6 +1,7 @@
 use lawsynth_core::{Identifier, ResourceLimits};
 use lawsynth_differentiate::DerivativeConfig;
 use lawsynth_preprocess::PreprocessPipeline;
+use lawsynth_regime::SegmentationConfig;
 use lawsynth_sparse::SparseConfig;
 use lawsynth_stats::BootstrapConfig;
 use lawsynth_symbolic::SymbolicConfig;
@@ -26,6 +27,9 @@ pub struct DiscoveryConfig {
     pub smoothing_radius: Option<usize>,
     pub preprocessing: Option<PreprocessPipeline>,
     pub bootstrap: Option<BootstrapConfig>,
+    /// Opt-in regime segmentation of the primary state window. Default `None`
+    /// keeps the fast path untouched; enable via [`DiscoveryConfig::enable_regimes`].
+    pub regime: Option<SegmentationConfig>,
     /// Hard bounds enforced before data profiling and feature expansion.
     pub resource_limits: ResourceLimits,
 }
@@ -44,7 +48,14 @@ impl DiscoveryConfig {
             smoothing_radius: None,
             preprocessing: None,
             bootstrap: None,
+            regime: None,
             resource_limits: ResourceLimits::default(),
         }
+    }
+
+    /// Enables regime segmentation with default penalty settings. Kept as a
+    /// helper so callers (e.g. the CLI) need not depend on `lawsynth-regime`.
+    pub fn enable_regimes(&mut self) {
+        self.regime = Some(SegmentationConfig::default());
     }
 }

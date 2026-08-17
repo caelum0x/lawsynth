@@ -27,11 +27,7 @@ pub struct DependencyAssumptions {
 impl DependencyAssumptions {
     /// Applies constraints to a graph and rejects incompatible or unmet claims.
     pub fn apply(&self, graph: &DependencyGraph) -> Result<DependencyGraph, DiscoveryError> {
-        if self
-            .required
-            .iter()
-            .any(|edge| self.forbidden.contains(edge))
-        {
+        if self.required.iter().any(|edge| self.forbidden.contains(edge)) {
             return Err(DiscoveryError::Graph(
                 "an edge cannot be both required and forbidden".to_owned(),
             ));
@@ -40,10 +36,9 @@ impl DependencyAssumptions {
             .edges
             .iter()
             .filter(|edge| {
-                !self.forbidden.contains(&EdgeConstraint::new(
-                    edge.source.clone(),
-                    edge.target.clone(),
-                ))
+                !self
+                    .forbidden
+                    .contains(&EdgeConstraint::new(edge.source.clone(), edge.target.clone()))
             })
             .cloned()
             .collect::<Vec<_>>();
@@ -78,18 +73,8 @@ mod tests {
         let yz = EdgeConstraint::new(id("y"), id("z"));
         let graph = DependencyGraph {
             edges: vec![
-                DependencyEdge {
-                    source: id("x"),
-                    target: id("y"),
-                    lag: 1,
-                    correlation: 0.9,
-                },
-                DependencyEdge {
-                    source: id("y"),
-                    target: id("z"),
-                    lag: 1,
-                    correlation: 0.8,
-                },
+                DependencyEdge { source: id("x"), target: id("y"), lag: 1, correlation: 0.9 },
+                DependencyEdge { source: id("y"), target: id("z"), lag: 1, correlation: 0.8 },
             ],
         };
         let assumptions = DependencyAssumptions {

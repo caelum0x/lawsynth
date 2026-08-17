@@ -6,8 +6,5 @@ fn main() {
     for _ in 0..1_000_000 {
         values += black_box(parse_assignment_text("growth=1.25").unwrap()).1;
     }
-    println!(
-        "parsed assignment total {values} in {:?}",
-        started.elapsed()
-    );
+    println!("parsed assignment total {values} in {:?}", started.elapsed());
 }

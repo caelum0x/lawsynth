@@ -15,6 +15,8 @@ pub enum DiscoveryError {
     Symbolic(String),
     World(String),
     Graph(String),
+    Score(String),
+    Regime(String),
     Resource(String),
 }
 
@@ -33,7 +35,9 @@ impl fmt::Display for DiscoveryError {
             | Self::Sparse(error)
             | Self::Symbolic(error)
             | Self::World(error)
-            | Self::Graph(error) => error.fmt(formatter),
+            | Self::Graph(error)
+            | Self::Score(error) => error.fmt(formatter),
+            Self::Regime(error) => write!(formatter, "regime segmentation error: {error}"),
             Self::Resource(error) => write!(formatter, "resource limit: {error}"),
         }
     }

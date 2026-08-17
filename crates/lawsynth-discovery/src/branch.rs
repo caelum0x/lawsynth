@@ -13,10 +13,6 @@ impl DiscoveryBranch {
         source: impl Into<String>,
         metrics: CandidateMetrics,
     ) -> Self {
-        Self {
-            name: name.into(),
-            source: source.into(),
-            metrics,
-        }
+        Self { name: name.into(), source: source.into(), metrics }
     }
 }

@@ -16,10 +16,7 @@ fn temporary_directory(label: &str) -> std::path::PathBuf {
     let directory = std::env::temp_dir().join(format!(
         "lawsynth-cli-inspect-{label}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     ));
     fs::create_dir_all(&directory).unwrap();
     directory
@@ -45,14 +42,8 @@ fn inspect_reports_a_serialized_continuous_world() {
 
     let output = run(&["inspect".to_owned(), bundle.display().to_string()]).unwrap();
 
-    assert_eq!(
-        output,
-        "continuous world: 1 states, 2 variables, 1 parameters\n"
-    );
-    assert_eq!(
-        output,
-        world_summary("continuous", world.state_ids().count(), 2, 1)
-    );
+    assert_eq!(output, "continuous world: 1 states, 2 variables, 1 parameters\n");
+    assert_eq!(output, world_summary("continuous", world.state_ids().count(), 2, 1));
     fs::remove_dir_all(directory).unwrap();
 }
 
@@ -63,20 +54,14 @@ fn inspect_falls_back_to_a_serialized_discrete_world() {
     let world = DiscreteWorld::new(
         [Variable::new(id("x"), VariableRole::State)],
         [],
-        [DiscreteLaw::new(
-            id("x"),
-            Expr::sum(Expr::symbol(id("x")), Expr::constant(1.0)),
-        )],
+        [DiscreteLaw::new(id("x"), Expr::sum(Expr::symbol(id("x")), Expr::constant(1.0)))],
     )
     .unwrap();
     write_discrete_world(&bundle, &world).unwrap();
 
     let output = run(&["inspect".to_owned(), bundle.display().to_string()]).unwrap();
 
-    assert_eq!(
-        output,
-        "discrete world: 1 states, 1 variables, 0 parameters\n"
-    );
+    assert_eq!(output, "discrete world: 1 states, 1 variables, 0 parameters\n");
     fs::remove_dir_all(directory).unwrap();
 }
 

@@ -68,6 +68,8 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     let mut bootstrap_replicates = None;
     let mut symbolic_depth = None;
     let mut sparse_method = SparseMethod::Stlsq;
+    let mut enable_regimes = false;
+    let mut report_pareto = false;
     let mut index = 1;
     while index < arguments.len() {
         let option = &arguments[index];
@@ -75,15 +77,17 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
             || option == "--rational"
             || option == "--spline"
             || option == "--spectral"
+            || option == "--regimes"
+            || option == "--pareto"
         {
-            if option == "--trigonometric" {
-                include_trigonometric = true;
-            } else if option == "--rational" {
-                include_rational = true;
-            } else if option == "--spectral" {
-                use_spectral = true;
-            } else {
-                use_spline = true;
+            match option.as_str() {
+                "--trigonometric" => include_trigonometric = true,
+                "--rational" => include_rational = true,
+                "--spectral" => use_spectral = true,
+                "--spline" => use_spline = true,
+                "--regimes" => enable_regimes = true,
+                "--pareto" => report_pareto = true,
+                _ => unreachable!(),
             }
             index += 1;
             continue;
@@ -146,17 +150,29 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
         config.symbolic =
             Some(lawsynth_symbolic::SymbolicConfig { max_depth, ..Default::default() });
     }
+    if enable_regimes {
+        config.enable_regimes();
+    }
     let result = discover(&dataset, &config).map_err(|error| error.to_string())?;
+    let frontier_size = result.frontier.len();
+    let regime_segments = result.regimes.as_ref().map(|segmentation| segmentation.segments.len());
     let candidate = result
         .candidates
         .into_iter()
         .next()
         .ok_or_else(|| "discovery produced no candidates".to_owned())?;
     write_world(output.ok_or_else(usage)?, &candidate.world).map_err(|error| error.to_string())?;
-    Ok(format!(
+    let mut summary = format!(
         "discovered world: mse={:.6e}, complexity={}\n",
         candidate.metrics.mean_squared_error, candidate.metrics.complexity
-    ))
+    );
+    if report_pareto {
+        writeln!(&mut summary, "pareto frontier: {frontier_size} candidate(s)").unwrap();
+    }
+    if let Some(segments) = regime_segments {
+        writeln!(&mut summary, "regimes: {segments} segment(s)").unwrap();
+    }
+    Ok(summary)
 }
 
 /// Reads observations through the native CSV, TSV, or Parquet data boundary.
@@ -374,5 +390,5 @@ fn parse_steps(value: &str) -> Result<usize, String> {
 }
 
 fn usage() -> String {
-    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]".to_owned()
+    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N] [--regimes] [--pareto]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]".to_owned()
 }

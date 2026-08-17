@@ -131,6 +131,49 @@ fn discover_command_writes_a_simulatable_world() {
 }
 
 #[test]
+fn discover_command_reports_pareto_frontier_and_regimes() {
+    let directory = std::env::temp_dir().join(format!(
+        "lawsynth-cli-regimes-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    fs::create_dir_all(&directory).unwrap();
+    let csv = directory.join("step.csv");
+    // A single-jump piecewise-constant signal segments into two regimes.
+    let contents = (0..30)
+        .map(|step| {
+            let level = if step < 15 { 0.0 } else { 10.0 };
+            format!("{step},{level:.1}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&csv, format!("t,x\n{contents}\n")).unwrap();
+    let bundle = directory.join("step.lsworld");
+
+    let output = run(&[
+        "discover".to_owned(),
+        csv.display().to_string(),
+        "--time".to_owned(),
+        "t".to_owned(),
+        "--state".to_owned(),
+        "x".to_owned(),
+        "--output".to_owned(),
+        bundle.display().to_string(),
+        "--degree".to_owned(),
+        "1".to_owned(),
+        "--pareto".to_owned(),
+        "--regimes".to_owned(),
+    ])
+    .unwrap();
+
+    assert!(output.starts_with("discovered world:"));
+    assert!(output.contains("pareto frontier: 1 candidate(s)"));
+    assert!(output.contains("regimes: 2 segment(s)"));
+    assert!(read_world(&bundle).is_ok());
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn discover_command_accepts_tv_regularized_differentiation() {
     let directory = std::env::temp_dir().join(format!(
         "lawsynth-cli-tvreg-{}-{}",

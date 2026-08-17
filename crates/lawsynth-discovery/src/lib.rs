@@ -9,6 +9,7 @@ mod config;
 mod error;
 mod execute;
 mod graph;
+mod pareto;
 mod plan;
 mod stage;
 
@@ -21,5 +22,6 @@ pub use config::{DiscoveryConfig, SparseMethod};
 pub use error::DiscoveryError;
 pub use execute::{discover, discover_cancellable, discover_cancellable_with_checkpoint};
 pub use graph::{DependencyEdge, DependencyGraph, infer_lagged_dependencies};
+pub use pareto::{CandidateScore, frontier_of, pareto_frontier};
 pub use plan::DiscoveryPlan;
 pub use stage::DiscoveryStage;
