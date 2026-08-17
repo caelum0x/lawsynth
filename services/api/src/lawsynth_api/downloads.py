@@ -76,6 +76,32 @@ def open_stream(events: list[ApiEvent], request_id: str, start_response) -> Iter
     return body()
 
 
+def html_headers(request_id: str) -> dict[str, str]:
+    """Response headers for a self-contained HTML document (the world report)."""
+
+    return {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "X-Api-Version": "1",
+        "X-Request-ID": request_id,
+    }
+
+
+def open_html(document: str, request_id: str, start_response) -> Iterable[bytes]:
+    """Serve a rendered HTML document as a complete, single-shot 200 response.
+
+    HTML cannot flow through the JSON ``finalize_response`` path, so the report
+    route frames its own response here (mirroring the SSE stream construction).
+    """
+
+    payload = document.encode("utf-8")
+    headers = html_headers(request_id)
+    headers["Content-Length"] = str(len(payload))
+    start_response("200 OK", list(headers.items()))
+    return [payload]
+
+
 def artifact_download_headers(body: object) -> dict[str, str]:
     """Derive cache-revalidation headers for a served artifact body.
 

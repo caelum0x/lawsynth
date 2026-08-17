@@ -4,6 +4,7 @@
 //! interchange-oriented form with 17-digit constants, this module renders
 //! precedence-aware, compactly formatted equations meant for people to read.
 
+use lawsynth_core::Identifier;
 use lawsynth_expr::{BinaryOperator, Expr, UnaryOperator};
 
 const PREC_ADD: u8 = 1;
@@ -111,10 +112,160 @@ fn render_binary(operator: BinaryOperator, left: &Expr, right: &Expr) -> String 
     format!("{} {symbol} {}", render(left, precedence), render(right, right_precedence))
 }
 
+// --- Python emitter ------------------------------------------------------
+
+/// Formats a floating-point constant as a round-trippable Python literal.
+///
+/// Unlike [`format_number`], this preserves full precision so the generated
+/// Python reproduces the world's dynamics exactly.
+pub fn python_number(value: f64) -> String {
+    if value == 0.0 {
+        return "0.0".to_owned();
+    }
+    // Rust's `Debug` formatting for `f64` yields the shortest string that
+    // round-trips, and always includes a decimal point or exponent, so the
+    // literal is unambiguously a Python float.
+    format!("{value:?}")
+}
+
+/// Renders an expression as Python arithmetic.
+///
+/// Each symbol is resolved through `resolve`, letting the caller map state
+/// variables and parameters onto whatever Python bindings the generated
+/// module uses (for example `state['x']` or `params['k']`).
+pub fn render_python_expression(
+    expression: &Expr,
+    resolve: &dyn Fn(&Identifier) -> String,
+) -> String {
+    render_python(expression, 0, resolve)
+}
+
+fn render_python(
+    expression: &Expr,
+    parent_precedence: u8,
+    resolve: &dyn Fn(&Identifier) -> String,
+) -> String {
+    let this_precedence = precedence(expression);
+    let text = match expression {
+        Expr::Constant(value) => python_number(*value),
+        Expr::Symbol(id) => resolve(id),
+        Expr::Unary { operator, operand } => match operator {
+            UnaryOperator::Negate => format!("-{}", render_python(operand, PREC_ATOM, resolve)),
+            UnaryOperator::Exp => format!("math.exp({})", render_python(operand, 0, resolve)),
+            UnaryOperator::Log => format!("math.log({})", render_python(operand, 0, resolve)),
+            UnaryOperator::Sin => format!("math.sin({})", render_python(operand, 0, resolve)),
+            UnaryOperator::Cos => format!("math.cos({})", render_python(operand, 0, resolve)),
+        },
+        Expr::Binary { operator, left, right } => {
+            let (symbol, precedence) = match operator {
+                BinaryOperator::Add => ("+", PREC_ADD),
+                BinaryOperator::Subtract => ("-", PREC_ADD),
+                BinaryOperator::Multiply => ("*", PREC_MUL),
+                BinaryOperator::Divide => ("/", PREC_MUL),
+                BinaryOperator::Power => ("**", PREC_POW),
+            };
+            // Exponentiation is right-associative in Python; parenthesize both
+            // sides one level tighter so a nested `(a**b)**c` keeps its meaning.
+            let (left_precedence, right_precedence) = match operator {
+                BinaryOperator::Power => (precedence + 1, precedence + 1),
+                BinaryOperator::Subtract | BinaryOperator::Divide => (precedence, precedence + 1),
+                _ => (precedence, precedence),
+            };
+            format!(
+                "{} {symbol} {}",
+                render_python(left, left_precedence, resolve),
+                render_python(right, right_precedence, resolve)
+            )
+        }
+    };
+    if this_precedence < parent_precedence { format!("({text})") } else { text }
+}
+
+// --- LaTeX emitter -------------------------------------------------------
+
+/// Renders a continuous law as a LaTeX `\dot{target} = ...` equation body.
+///
+/// The returned string is a single row suitable for an `align*` environment
+/// (without the trailing `\\`).
+pub fn render_latex_law(target: &str, expression: &Expr) -> String {
+    format!("\\dot{{{}}} &= {}", latex_symbol_name(target), render_latex_expression(expression))
+}
+
+/// Renders an expression as LaTeX math (no surrounding `$`).
+pub fn render_latex_expression(expression: &Expr) -> String {
+    render_latex(expression, 0)
+}
+
+fn latex_precedence(expression: &Expr) -> u8 {
+    match expression {
+        Expr::Binary { operator: BinaryOperator::Add | BinaryOperator::Subtract, .. } => PREC_ADD,
+        Expr::Binary { operator: BinaryOperator::Multiply, .. } => PREC_MUL,
+        // Division renders as a self-delimiting \frac, and powers/functions are
+        // self-delimiting too, so they never need outer parentheses.
+        _ => PREC_ATOM,
+    }
+}
+
+fn render_latex(expression: &Expr, parent_precedence: u8) -> String {
+    let this_precedence = latex_precedence(expression);
+    let text = match expression {
+        Expr::Constant(value) => format_number(*value),
+        Expr::Symbol(id) => latex_symbol_name(id.as_str()),
+        Expr::Unary { operator, operand } => match operator {
+            UnaryOperator::Negate => format!("-{}", render_latex(operand, PREC_MUL)),
+            UnaryOperator::Exp => format!("\\exp\\!\\left({}\\right)", render_latex(operand, 0)),
+            UnaryOperator::Log => format!("\\ln\\!\\left({}\\right)", render_latex(operand, 0)),
+            UnaryOperator::Sin => format!("\\sin\\!\\left({}\\right)", render_latex(operand, 0)),
+            UnaryOperator::Cos => format!("\\cos\\!\\left({}\\right)", render_latex(operand, 0)),
+        },
+        Expr::Binary { operator, left, right } => render_latex_binary(*operator, left, right),
+    };
+    if this_precedence < parent_precedence { format!("\\left({text}\\right)") } else { text }
+}
+
+fn render_latex_binary(operator: BinaryOperator, left: &Expr, right: &Expr) -> String {
+    match operator {
+        BinaryOperator::Add => {
+            format!("{} + {}", render_latex(left, PREC_ADD), render_latex(right, PREC_ADD))
+        }
+        BinaryOperator::Subtract => {
+            format!("{} - {}", render_latex(left, PREC_ADD), render_latex(right, PREC_MUL))
+        }
+        BinaryOperator::Multiply => {
+            // Render `-1 * rhs` as a leading minus, matching the readable renderer.
+            if let Expr::Constant(value) = left {
+                if *value == -1.0 {
+                    return format!("-{}", render_latex(right, PREC_MUL));
+                }
+            }
+            if let Expr::Constant(value) = right {
+                if *value == -1.0 {
+                    return format!("-{}", render_latex(left, PREC_MUL));
+                }
+            }
+            format!("{} \\cdot {}", render_latex(left, PREC_MUL), render_latex(right, PREC_MUL))
+        }
+        BinaryOperator::Divide => {
+            format!("\\frac{{{}}}{{{}}}", render_latex(left, 0), render_latex(right, 0))
+        }
+        BinaryOperator::Power => {
+            format!("{}^{{{}}}", render_latex(left, PREC_ATOM), render_latex(right, 0))
+        }
+    }
+}
+
+/// Maps a small set of spelled-out Greek letter names onto LaTeX commands,
+/// leaving all other identifiers unchanged.
+fn latex_symbol_name(name: &str) -> String {
+    const GREEK: &[&str] = &[
+        "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa",
+        "lambda", "mu", "nu", "xi", "pi", "rho", "sigma", "tau", "phi", "chi", "psi", "omega",
+    ];
+    if GREEK.contains(&name) { format!("\\{name}") } else { name.to_owned() }
+}
+
 #[cfg(test)]
 mod tests {
-    use lawsynth_core::Identifier;
-
     use super::*;
 
     fn sym(name: &str) -> Expr {
@@ -150,5 +301,40 @@ mod tests {
             render_continuous_law("x", &Expr::product(Expr::constant(2.0), sym("x"))),
             "dx/dt = 2 * x"
         );
+    }
+
+    #[test]
+    fn renders_python_arithmetic_with_symbol_resolution() {
+        let expression = Expr::difference(
+            Expr::product(Expr::symbol(Identifier::new("alpha").unwrap()), sym("x")),
+            Expr::product(sym("x"), sym("y")),
+        );
+        let rendered = render_python_expression(&expression, &|id| match id.as_str() {
+            "alpha" => "params['alpha']".to_owned(),
+            other => format!("state['{other}']"),
+        });
+        assert_eq!(rendered, "params['alpha'] * state['x'] - state['x'] * state['y']");
+    }
+
+    #[test]
+    fn python_numbers_round_trip() {
+        assert_eq!(python_number(1.0), "1.0");
+        assert_eq!(python_number(-2.6666666666666665), "-2.6666666666666665");
+        assert_eq!(python_number(0.0), "0.0");
+    }
+
+    #[test]
+    fn renders_latex_with_greek_and_fractions() {
+        let expression = Expr::quotient(
+            Expr::product(Expr::symbol(Identifier::new("sigma").unwrap()), sym("y")),
+            sym("x"),
+        );
+        assert_eq!(render_latex_expression(&expression), "\\frac{\\sigma \\cdot y}{x}");
+    }
+
+    #[test]
+    fn renders_latex_law_with_dot_notation() {
+        let law = render_latex_law("x", &Expr::product(Expr::constant(-1.0), sym("x")));
+        assert_eq!(law, "\\dot{x} &= -x");
     }
 }

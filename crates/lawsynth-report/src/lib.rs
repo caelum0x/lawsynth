@@ -16,7 +16,10 @@ use lawsynth_core::Identifier;
 use lawsynth_sim::{SimulationConfig, SimulationRequest, Trajectory, simulate};
 use lawsynth_world::World;
 
-pub use render::{format_number, render_continuous_law, render_discrete_law, render_expression};
+pub use render::{
+    format_number, python_number, render_continuous_law, render_discrete_law, render_expression,
+    render_latex_expression, render_latex_law, render_python_expression,
+};
 
 /// Rendering and simulation options for a world report.
 #[derive(Clone, Debug, PartialEq)]

@@ -19,10 +19,11 @@ from urllib.parse import parse_qsl
 from uuid import uuid4
 
 from lawsynth_server.app import Application
+from lawsynth_server.errors import ServerError
 
-from . import artifacts, datasets, downloads, projects, runs, uploads, worlds
+from . import artifacts, datasets, downloads, products, projects, runs, uploads, worlds
 from .auth import ApiAuthenticator
-from .authorization import READ, require_scope_or_problem
+from .authorization import READ, WRITE, require_scope_or_problem
 from .database import ApiDatabase
 from .events import EventBus
 from .lifespan import ApiLifespan
@@ -95,7 +96,13 @@ class WsgiApplication:
             request = self._request(environ)
             if request["method"] == "GET" and request["path"] == "/v1/events" and downloads.wants_sse(request["headers"]):
                 return self._stream_events(request, request_id, start_response)
-            if request["path"].startswith("/v1/worker/") or request["path"] == "/v1/worker":
+            parts = self._parts(str(request["path"]))
+            product = products.match(str(request["method"]), parts)
+            if product == "report":
+                return self._serve_report(request, parts, request_id, start_response)
+            if product is not None:
+                response = self._handle_product(request, product, parts, request_id)
+            elif request["path"].startswith("/v1/worker/") or request["path"] == "/v1/worker":
                 response = error_envelope(501, "worker_transport_unavailable", "worker HTTP transport is not deployed by this API process", request_id)
             else:
                 response = self._lifespan.application.dispatch(request)
@@ -159,6 +166,59 @@ class WsgiApplication:
         now = int(time.time() * 1000)
         for kind, payload, run_id in module.lifecycle_events(str(request["method"]), body):
             self._events.append(scope, now, kind, payload, run_id=run_id)
+
+    # -- Product features ---------------------------------------------------
+    #
+    # The product surface (explain/forecast/report/compare) is composed at this
+    # boundary rather than in the domain dispatcher: it reuses the domain's
+    # world repository and native engine, but its request/response shapes are a
+    # transport concern.  Every handler authenticates and scopes exactly like
+    # the rest of the API, translates a domain :class:`ServerError` into the
+    # shared error envelope, and returns honest capability boundaries (404 for
+    # an unknown world, 422 for bad input, 503 when the native engine backs an
+    # operation and is absent).
+
+    # explain/report/compare read only declarative structure; forecast runs the
+    # native simulator, so it requires the same write scope as ``/simulate``.
+    _PRODUCT_SCOPES = {"explain": READ, "forecast": WRITE, "report": READ, "compare": READ}
+
+    def _handle_product(self, request: Mapping[str, object], action: str, parts: list[str], request_id: str) -> dict[str, object]:
+        """Authenticate, scope, and run a JSON product action (not the report)."""
+
+        principal = self._auth.authenticate_or_problem(request["headers"])
+        require_scope_or_problem(principal, self._PRODUCT_SCOPES[action])
+        worlds_repo = self._repositories.get("worlds")
+        try:
+            if action == "compare":
+                left_id, right_id = products.compare_refs(request.get("body"))
+                left = worlds_repo.get(principal.organization_id, left_id)
+                right = worlds_repo.get(principal.organization_id, right_id)
+                body = products.compare(left, right)
+            else:
+                world = worlds_repo.get(principal.organization_id, parts[1])
+                body = products.explain(world) if action == "explain" else products.forecast(world, request.get("body"))
+        except ServerError as error:
+            return error_envelope(error.status_code, error.code, error.message, request_id)
+        return {"status": 200, "headers": {"X-Request-ID": request_id}, "body": body}
+
+    def _serve_report(self, request: Mapping[str, object], parts: list[str], request_id: str, start_response: StartResponse) -> Iterable[bytes]:
+        """Serve ``GET /v1/worlds/{id}/report`` as a self-contained HTML document.
+
+        HTML cannot flow through the JSON finalizer, so this path frames its own
+        response.  Auth/scope/domain failures still render the shared JSON error
+        envelope so error semantics stay uniform across the surface.
+        """
+
+        try:
+            principal = self._auth.authenticate_or_problem(request["headers"])
+            require_scope_or_problem(principal, READ)
+            world = self._repositories.get("worlds").get(principal.organization_id, parts[1])
+            document = products.report_html(world)
+        except RequestProblem as error:
+            return finalize_response(error_envelope(error.status, error.code, error.message, request_id), start_response)
+        except ServerError as error:
+            return finalize_response(error_envelope(error.status_code, error.code, error.message, request_id), start_response)
+        return downloads.open_html(document, request_id, start_response)
 
     def _decorate_download(self, request: Mapping[str, object], response: MutableMapping[str, object]) -> None:
         """Add content-revalidation headers to a served artifact download.

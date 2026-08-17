@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Mapping, Sequence
 
-from . import simulations
+from . import products, simulations
 from .events import EventKind
 
 SEGMENT = "worlds"
@@ -28,6 +28,9 @@ def classify(method: str, parts: Sequence[str]) -> str:
     action = simulations.classify(method, parts)
     if action is not None:
         return action
+    product = products.classify(method, parts)
+    if product is not None:
+        return product
     if len(parts) == 1:
         return "worlds.list" if method == "GET" else "worlds.create" if method == "POST" else "worlds.other"
     if len(parts) == 2:
