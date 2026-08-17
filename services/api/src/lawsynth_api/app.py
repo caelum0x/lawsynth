@@ -23,6 +23,7 @@ from lawsynth_server.errors import ServerError
 
 from . import artifacts, datasets, downloads, products, projects, runs, uploads, worlds
 from .auth import ApiAuthenticator
+from .discovery import DiscoveryService
 from .authorization import READ, WRITE, require_scope_or_problem
 from .database import ApiDatabase
 from .events import EventBus
@@ -66,8 +67,10 @@ class WsgiApplication:
         self._storage = ApiStorage(services.storage)
         self._database = ApiDatabase(services.database)
         self._repositories = ApiRepositories(services)
+        self._discovery = DiscoveryService(services, self._events)
 
     def close(self) -> None:
+        self._discovery.close()
         self._lifespan.close()
 
     @property
@@ -102,6 +105,10 @@ class WsgiApplication:
                 return self._serve_report(request, parts, request_id, start_response)
             if product is not None:
                 response = self._handle_product(request, product, parts, request_id)
+            elif self._is_discovery_submit(request, parts):
+                response = self._handle_discovery_submit(request, request_id)
+            elif self._is_run_world(request, parts):
+                response = self._handle_run_world(request, parts, request_id)
             elif request["path"].startswith("/v1/worker/") or request["path"] == "/v1/worker":
                 response = error_envelope(501, "worker_transport_unavailable", "worker HTTP transport is not deployed by this API process", request_id)
             else:
@@ -200,6 +207,52 @@ class WsgiApplication:
         except ServerError as error:
             return error_envelope(error.status_code, error.code, error.message, request_id)
         return {"status": 200, "headers": {"X-Request-ID": request_id}, "body": body}
+
+    # -- Discovery-as-a-service ---------------------------------------------
+    #
+    # The discovery run workflow is composed at this boundary rather than in the
+    # domain dispatcher: submitting a run creates a domain run record, runs the
+    # native engine in-process (queued -> running -> succeeded/failed on a worker
+    # thread), stores the resulting world through the domain, and emits the
+    # run-lifecycle ``ApiEvent``s through the same bus that backs ``/v1/events``.
+    # A discovery submit is a ``POST /v1/runs`` that names a dataset (an uploaded
+    # ``dataset_id`` or an inline ``dataset``); a plain run create -- no dataset
+    # reference -- still flows through the domain dispatcher unchanged.
+
+    @staticmethod
+    def _is_discovery_submit(request: Mapping[str, object], parts: list[str]) -> bool:
+        if request["method"] != "POST" or parts != ["runs"]:
+            return False
+        body = request.get("body")
+        return isinstance(body, Mapping) and ("dataset_id" in body or "dataset" in body)
+
+    @staticmethod
+    def _is_run_world(request: Mapping[str, object], parts: list[str]) -> bool:
+        return request["method"] == "GET" and len(parts) == 3 and parts[0] == "runs" and parts[2] == "world"
+
+    def _handle_discovery_submit(self, request: Mapping[str, object], request_id: str) -> dict[str, object]:
+        """Authenticate, scope, and submit a discovery run (honest 503 if native absent)."""
+
+        headers = request["headers"]
+        principal = self._auth.authenticate_or_problem(headers)
+        require_scope_or_problem(principal, WRITE)
+        key = headers.get("Idempotency-Key")
+        if not isinstance(key, str) or not key:
+            return error_envelope(422, "validation_error", "Idempotency-Key is required for writes", request_id)
+        try:
+            return self._discovery.submit(principal.organization_id, request.get("body"), key, request_id)
+        except ServerError as error:
+            return error_envelope(error.status_code, error.code, error.message, request_id)
+
+    def _handle_run_world(self, request: Mapping[str, object], parts: list[str], request_id: str) -> dict[str, object]:
+        """Authenticate, scope, and return the world a completed run discovered."""
+
+        principal = self._auth.authenticate_or_problem(request["headers"])
+        require_scope_or_problem(principal, READ)
+        try:
+            return self._discovery.run_world(principal.organization_id, parts[1], request_id)
+        except ServerError as error:
+            return error_envelope(error.status_code, error.code, error.message, request_id)
 
     def _serve_report(self, request: Mapping[str, object], parts: list[str], request_id: str, start_response: StartResponse) -> Iterable[bytes]:
         """Serve ``GET /v1/worlds/{id}/report`` as a self-contained HTML document.

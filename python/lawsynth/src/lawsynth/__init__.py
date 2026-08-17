@@ -6,9 +6,10 @@ native classes are resolved lazily when a simulation or discovery is requested.
 
 from . import recipes
 from ._version import __version__
+from .client import Client, Run
 from .config import DiscoveryConfig
 from .dataset import Dataset
-from .errors import LawSynthError, NativeError, ValidationError
+from .errors import ApiError, LawSynthError, NativeError, RunTimeout, ValidationError
 from .profile import ColumnProfile, DataProfile, TimeProfile, profile
 from .sources import SourceError, load_source
 
@@ -76,6 +77,7 @@ def __getattr__(name):
 
 __all__ = [
     "Dataset", "DiscoveryConfig", "LawSynthError", "NativeError", "ValidationError",
+    "ApiError", "RunTimeout", "Client", "Run",
     "SourceError", "load_source", "recipes",
     "profile", "DataProfile", "ColumnProfile", "TimeProfile",
     "discover", "Scenario", "Trajectory", "World",

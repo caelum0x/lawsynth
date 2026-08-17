@@ -19,7 +19,7 @@ TOKEN = "0123456789abcdef0123456789abcdef"
 TOKEN_GLOBEX = "fedcba9876543210fedcba9876543210"
 
 
-def make_app(tmp_path, *, scopes=("read", "write"), extra_tokens=None):
+def make_app(tmp_path, *, scopes=("read", "write"), extra_tokens=None, max_bytes=1024):
     tokens = {TOKEN: ("acme", frozenset(scopes))}
     if extra_tokens:
         tokens.update(extra_tokens)
@@ -27,9 +27,9 @@ def make_app(tmp_path, *, scopes=("read", "write"), extra_tokens=None):
         database_url=f"sqlite:///{tmp_path / 'metadata.sqlite3'}",
         object_root=tmp_path / "objects",
         tokens=tokens,
-        max_upload_bytes=1024,
+        max_upload_bytes=max_bytes,
     )
-    return create_wsgi_app(ApiSettings(server=server, environment="test", max_request_bytes=1024))
+    return create_wsgi_app(ApiSettings(server=server, environment="test", max_request_bytes=max_bytes))
 
 
 def request(app, method: str, path: str, *, body: object | None = None, headers: dict[str, str] | None = None, query: str = "") -> tuple[int, dict[str, str], dict[str, Any] | None]:

@@ -60,6 +60,8 @@ def classify(method: str, parts: Sequence[str]) -> str:
         return "runs.cancel"
     if len(parts) == 3 and parts[2] == "events" and method == "GET":
         return "runs.events"
+    if len(parts) == 3 and parts[2] == "world" and method == "GET":
+        return "runs.world"
     if len(parts) == 1:
         return "runs.list" if method == "GET" else "runs.create" if method == "POST" else "runs.other"
     if len(parts) == 2:
