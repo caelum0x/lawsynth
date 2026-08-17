@@ -1,0 +1,20 @@
+# Staging profile for lawsynth-scheduler.
+#
+# Mirrors production shape at reduced scale against a persistent store root so
+# lease recovery, cancellation, and durable checkpoints can be validated before
+# release. Fields map to SchedulerConfig (config.rs); `store` maps to StoreConfig.
+
+profile: staging
+
+scheduler:
+  maximum_queued_jobs: 20000
+  maximum_attempts: 3
+  lease_duration_ms: 30000            # 30 s
+  maximum_checkpoint_bytes: 16384     # 16 KiB
+
+# Persistent host path owned by the service user; passed as the `serve` root so
+# checkpoints survive a restart.
+store:
+  root: /var/lib/lawsynth/scheduler
+  max_object_bytes: 134217728         # 128 MiB
+  cache_capacity_bytes: 134217728     # 128 MiB

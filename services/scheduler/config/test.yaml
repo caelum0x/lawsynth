@@ -1,0 +1,21 @@
+# Test profile for lawsynth-scheduler.
+#
+# Small bounds and a short lease so queue-full, lease-expiry/recovery, and
+# checkpoint-size rejection paths are fast to exercise. Fields map to
+# SchedulerConfig (config.rs); `store` maps to StoreConfig. Values still satisfy
+# config.rs validation (maximum_checkpoint_bytes >= 5 KiB).
+
+profile: test
+
+scheduler:
+  # Small so QueueFull is easy to trigger.
+  maximum_queued_jobs: 16
+  maximum_attempts: 2
+  # Short lease so expiry + recover() are quick to assert.
+  lease_duration_ms: 1000             # 1 s
+  # Minimum permitted checkpoint ceiling (config.rs requires >= 5 KiB).
+  maximum_checkpoint_bytes: 5120      # 5 KiB
+
+store:
+  max_object_bytes: 1048576           # 1 MiB
+  cache_capacity_bytes: 1048576       # 1 MiB

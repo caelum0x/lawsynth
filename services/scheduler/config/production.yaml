@@ -1,0 +1,21 @@
+# Production profile for lawsynth-scheduler.
+#
+# Higher queue ceiling and a durable store root on a dedicated host. Fields map to
+# SchedulerConfig (config.rs); `store` maps to lawsynth_store::StoreConfig. Size
+# lease_duration to the worst-case in-process job runtime plus a margin: a lease
+# that expires while a worker is still executing lets `recover` re-queue live
+# work, so it must comfortably exceed real execution time.
+
+profile: production
+
+scheduler:
+  maximum_queued_jobs: 100000
+  maximum_attempts: 3
+  lease_duration_ms: 60000            # 60 s
+  maximum_checkpoint_bytes: 16384     # 16 KiB
+
+# Durable root on the scheduler data volume, owned by the non-root service user.
+store:
+  root: /var/lib/lawsynth/scheduler
+  max_object_bytes: 268435456         # 256 MiB
+  cache_capacity_bytes: 268435456     # 256 MiB

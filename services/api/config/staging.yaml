@@ -1,0 +1,33 @@
+# Staging profile for lawsynth-api.
+#
+# Mirrors production shape against a persistent, durable database and object
+# root so a pre-release environment validates real storage, telemetry, and
+# event streaming. Fields map to ApiSettings (settings.py) and ServerSettings.
+
+profile: staging
+
+# environment -> LAWSYNTH_API_ENV.
+environment: staging
+
+server:
+  # database_url -> LAWSYNTH_DATABASE_URL; a durable on-disk SQLite database.
+  # Provide the real DSN from the deployment's secret/config manager.
+  database_url: "sqlite:////var/lib/lawsynth/metadata.sqlite3"
+  # object_root -> LAWSYNTH_OBJECT_ROOT; an absolute path owned by the service user.
+  object_root: /var/lib/lawsynth/objects
+  max_page_size: 100
+  max_upload_bytes: 67108864          # 64 MiB
+  # telemetry_enabled -> LAWSYNTH_TELEMETRY; on so counters can be scraped.
+  telemetry_enabled: true
+
+# max_request_bytes -> LAWSYNTH_API_MAX_REQUEST_BYTES.
+max_request_bytes: 67108864           # 64 MiB
+
+# event_stream_retention -> LAWSYNTH_API_EVENT_RETENTION.
+event_stream_retention: 2048
+
+api_protocol_version: "1"
+
+# tokens -> LAWSYNTH_API_TOKENS_JSON. Inject the real JSON from a secret manager;
+# do not commit tokens here.
+tokens: {}

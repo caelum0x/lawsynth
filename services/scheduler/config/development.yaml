@@ -1,0 +1,28 @@
+# Development profile for lawsynth-scheduler.
+#
+# Fields map 1:1 to SchedulerConfig (services/scheduler/src/config.rs); the `store`
+# block maps to lawsynth_store::StoreConfig, used only when `serve <addr> <root>`
+# is given a durable root. The CLI does not read a YAML file: it constructs
+# SchedulerConfig::default() and StoreConfig::default(). This document records the
+# intended local shape and reproduces those defaults so a developer sees the same
+# behavior the binary applies out of the box.
+
+profile: development
+
+scheduler:
+  # Maximum jobs held in the queue before QueueFull is returned.
+  maximum_queued_jobs: 10000
+  # Delivery attempts before a job is dead-lettered (must be positive).
+  maximum_attempts: 3
+  # Lease lifetime; an expired lease is reclaimable by `recover`. In milliseconds
+  # to match the control plane's lease_duration_ms field. Must be positive.
+  lease_duration_ms: 30000            # 30 s
+  # Ceiling on one durable checkpoint record. Must be at least 5 KiB so every
+  # valid lifecycle transition (with a 2 KiB failure reason) stays persistable.
+  maximum_checkpoint_bytes: 16384     # 16 KiB
+
+# Applied only when a durable `<root>` is passed to `serve` (a LocalStore). With
+# no root, `serve` runs against an in-memory store and this block is unused.
+store:
+  max_object_bytes: 134217728         # 128 MiB
+  cache_capacity_bytes: 33554432      # 32 MiB

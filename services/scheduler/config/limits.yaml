@@ -1,0 +1,27 @@
+# Canonical bounds for lawsynth-scheduler.
+#
+# These keys mirror the immutable Rust types the service enforces:
+#   - `scheduler` -> SchedulerConfig      (services/scheduler/src/config.rs)
+#   - `store`     -> lawsynth_store::StoreConfig (crates/lawsynth-store/src/config.rs)
+#
+# The `lawsynth-scheduler` binary constructs SchedulerConfig::default() and
+# StoreConfig::default(); this file is the reviewed source for those numbers and
+# the profile the per-environment files inherit. Validation invariants
+# (config.rs::new):
+#   maximum_queued_jobs > 0
+#   maximum_attempts    > 0
+#   lease_duration      > 0
+#   maximum_checkpoint_bytes >= 5 KiB (5120)
+# The HTTP control plane also caps a request line + header block and a request
+# body at 64 KiB each (http.rs), independent of these domain bounds.
+
+scheduler:
+  maximum_queued_jobs: 10000          # queue depth before QueueFull (409)
+  maximum_attempts: 3                 # attempts before dead-letter
+  lease_duration_ms: 30000            # 30 s lease before expiry/recovery
+  maximum_checkpoint_bytes: 16384     # 16 KiB durable checkpoint ceiling (413 over)
+
+# Durable checkpoint store, used only when `serve` is given a root.
+store:
+  max_object_bytes: 134217728         # 128 MiB - largest stored checkpoint object
+  cache_capacity_bytes: 33554432      # 32 MiB - in-process read cache budget

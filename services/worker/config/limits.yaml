@@ -1,0 +1,29 @@
+# Canonical bounds for lawsynth-worker.
+#
+# These keys mirror the immutable Rust types the worker enforces:
+#   - `capacity`                 -> lawsynth_runner::ResourceRequest (crates/lawsynth-runner)
+#   - `maximum_checkpoint_bytes` -> WorkerConfig (services/worker/src/config.rs)
+#   - `store`                    -> lawsynth_store::StoreConfig
+#
+# The `lawsynth-worker` binary constructs WorkerConfig::default() and
+# StoreConfig::default(); this file is the reviewed source for those numbers and
+# the profile the per-environment files inherit. Validation invariants:
+#   ResourceRequest::new: cpu_millis > 0, memory_bytes > 0.
+#   WorkerConfig::new:    maximum_checkpoint_bytes >= 128.
+# The HTTP status transport also caps the request line + header block and a
+# declared request body at 64 KiB each (http.rs); those endpoints are read-only.
+
+# Admission budget: a job's declared resources must fit within capacity or it is
+# rejected before execution. These gate admission; they are not OS enforcement.
+capacity:
+  cpu_millis: 4000                    # 4 CPU-seconds of budget
+  memory_bytes: 4294967296            # 4 GiB
+  disk_bytes: 8589934592              # 8 GiB
+
+# Ceiling on one durable lifecycle checkpoint record.
+maximum_checkpoint_bytes: 16384       # 16 KiB (minimum 128)
+
+# Durable checkpoint store opened at the `serve` root.
+store:
+  max_object_bytes: 134217728         # 128 MiB - largest stored checkpoint object
+  cache_capacity_bytes: 33554432      # 32 MiB - in-process read cache budget

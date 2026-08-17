@@ -1,0 +1,19 @@
+# Staging profile for lawsynth-gateway.
+#
+# Production-shaped admission with a real browser origin allowlist so CORS and
+# rate limiting can be validated before release. Fields map to GatewaySettings
+# (settings.py); the process reads the matching environment variables.
+
+profile: staging
+
+max_body_bytes: 67108864              # 64 MiB - keep aligned with the API's max_request_bytes
+max_header_bytes: 32768               # 32 KiB
+max_headers: 64
+max_clients: 10000
+requests_per_window: 120
+rate_window_seconds: 60
+# Exact, bare http(s) origins only (scheme + host[:port], no path/query/fragment).
+allowed_origins:
+  - https://staging.lawsynth.example
+
+api_prefix: /v1

@@ -1,0 +1,22 @@
+# Production profile for lawsynth-worker.
+#
+# Full-capacity admission budget and a durable store root on a dedicated host.
+# Fields map to WorkerConfig (config.rs); `capacity` -> ResourceRequest, `store`
+# -> lawsynth_store::StoreConfig. Set `capacity` to the container's real
+# cgroup/host allocation: these are admission limits the worker enforces before
+# accepting a job, NOT OS-level resource enforcement (see docs/security.md).
+
+profile: production
+
+capacity:
+  cpu_millis: 8000                    # 8 CPU-seconds of budget; match the host allocation
+  memory_bytes: 8589934592            # 8 GiB
+  disk_bytes: 17179869184             # 16 GiB
+
+maximum_checkpoint_bytes: 16384       # 16 KiB
+
+# Durable root on the worker data volume, owned by the non-root service user.
+store:
+  root: /var/lib/lawsynth/worker
+  max_object_bytes: 268435456         # 256 MiB
+  cache_capacity_bytes: 268435456     # 256 MiB

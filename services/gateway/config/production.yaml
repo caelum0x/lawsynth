@@ -1,0 +1,26 @@
+# Production profile for lawsynth-gateway.
+#
+# The gateway is the public entry point; the API it fronts is not internet-
+# exposed (see docs/security.md). Size these limits to the front door's real
+# capacity and set the allowlist to the exact browser origins that must reach the
+# API. Fields map to GatewaySettings (settings.py); the process reads the
+# matching environment variables.
+
+profile: production
+
+# Keep max_body_bytes aligned with the API's max_upload_bytes/max_request_bytes
+# so the two boundaries agree on the largest admitted request.
+max_body_bytes: 134217728             # 128 MiB
+max_header_bytes: 32768               # 32 KiB
+max_headers: 64
+# max_clients bounds the rate-limiter key-space (one bucket per client address).
+# Size it above the expected distinct-client count so the LRU does not thrash.
+max_clients: 50000
+requests_per_window: 120
+rate_window_seconds: 60
+# REPLACE with the real production browser origins. Leave empty if no browser
+# client needs cross-origin access; non-browser callers do not send Origin.
+allowed_origins:
+  - https://app.lawsynth.example
+
+api_prefix: /v1

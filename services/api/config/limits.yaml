@@ -1,0 +1,40 @@
+# Canonical request and streaming ceilings for lawsynth-api.
+#
+# These keys mirror the immutable settings the process actually enforces:
+#   - server.*                 -> ServerSettings (lawsynth_server/settings.py)
+#   - max_request_bytes,
+#     event_stream_retention   -> ApiSettings   (lawsynth_api/settings.py)
+#   - event.payload_limit_bytes-> events.PAYLOAD_LIMIT_BYTES (lawsynth_api/events.py)
+#
+# The process constructs ApiSettings.from_environment() from environment variables
+# with the built-in defaults reproduced below; this file is the reviewed source
+# for those numbers and documents the validation invariants each one satisfies.
+#
+# Validation invariants:
+#   ServerSettings: 1 <= max_page_size <= 1000; max_upload_bytes >= 1.
+#   ApiSettings:    max_request_bytes >= 1 and >= server.max_upload_bytes;
+#                   event_stream_retention >= 1.
+
+server:
+  max_page_size: 100                  # server-wide cap on a single page (1..1000)
+  max_upload_bytes: 67108864          # 64 MiB - largest single artifact body
+
+# Whole-request body ceiling enforced at the WSGI boundary before dispatch. A
+# request whose Content-Length exceeds this is rejected 413 payload_too_large.
+max_request_bytes: 67108864           # 64 MiB (>= server.max_upload_bytes)
+
+# Per-scope SSE ring-buffer depth. Older events are evicted permanently once the
+# buffer overflows; there is no durable event journal.
+event_stream_retention: 1024
+
+# Structural bound on one streamed event payload, in UTF-8 bytes. Mirrors the
+# Rust ApiEvent payload_limit; oversized payloads are rejected as ValidationError.
+event:
+  payload_limit_bytes: 4096
+
+# WSGI request admission also enforces fixed structural limits in app.py that are
+# not environment-tunable and are recorded here for review:
+#   - only GET, POST, PATCH, DELETE methods are accepted;
+#   - request bodies must be application/json objects;
+#   - at most 32 query parameters, no duplicates;
+#   - /v1/worker/* returns 501 (no worker transport in this process).

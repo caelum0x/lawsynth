@@ -1,0 +1,23 @@
+# Staging profile for lawsynth-worker.
+#
+# Mirrors production shape at reduced capacity against a persistent store root so
+# discovery/simulation execution, admission, and durable checkpoints can be
+# validated before release. Fields map to WorkerConfig (config.rs); `capacity` ->
+# ResourceRequest, `store` -> StoreConfig. Size `capacity` to the process's real
+# cgroup/host allocation — worker limits are admission limits, not OS enforcement.
+
+profile: staging
+
+capacity:
+  cpu_millis: 4000                    # 4 CPU-seconds of budget
+  memory_bytes: 4294967296            # 4 GiB
+  disk_bytes: 8589934592              # 8 GiB
+
+maximum_checkpoint_bytes: 16384       # 16 KiB
+
+# Persistent host path owned by the service user; passed as the `serve` root so
+# lifecycle checkpoints survive a restart.
+store:
+  root: /var/lib/lawsynth/worker
+  max_object_bytes: 134217728         # 128 MiB
+  cache_capacity_bytes: 134217728     # 128 MiB

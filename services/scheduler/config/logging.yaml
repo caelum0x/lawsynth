@@ -1,0 +1,32 @@
+# Observability profile for lawsynth-scheduler.
+#
+# The service links no logging framework. It emits one human-readable startup
+# line on stderr from `serve` (main.rs) and one line per connection error from
+# the HTTP transport (http.rs). No job payloads, checkpoint bytes, or failure
+# reasons are written to stderr. This file documents what an operator's log
+# pipeline should scrape and how to route the stderr stream; the binary does not
+# parse it.
+
+# Startup line format written by `serve`:
+#   lawsynth-scheduler: serving control plane on <addr> store=<root|memory>
+stderr:
+  destination: journald        # capture the process stderr stream
+  format: text                 # single lines, not structured JSON
+
+# There are no in-process counters. Operational state is observed through the
+# control plane instead of a metrics endpoint:
+#   GET /health  -> queued_count and the effective config (maximum_queued_jobs,
+#                   maximum_attempts, lease_duration_ms, maximum_checkpoint_bytes)
+#   GET /jobs/{id}            -> a job's current lifecycle state
+#   GET /jobs/{id}/checkpoint -> a job's durable lifecycle checkpoint (no payload)
+health_surface:
+  readiness: GET /health
+  queued_gauge: /health -> queued_count
+
+# Redaction is structural: the transport never serializes the executable
+# JobEnvelope payload (it has no wire codec), and error bodies carry only a
+# stable code plus the Display message. Keep it that way in any adapter.
+redaction:
+  never_log:
+    - job_payload
+    - checkpoint_bytes

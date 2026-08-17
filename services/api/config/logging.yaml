@@ -1,0 +1,38 @@
+# Observability profile for lawsynth-api.
+#
+# The application links no logging framework. Log routing is owned by the WSGI
+# server that hosts it (the Dockerfile runs gunicorn with access and error logs
+# on stdout/stderr); the stdlib development server prints one startup line to
+# stderr (main.py). The domain core keeps privacy-preserving in-process counters
+# (lawsynth_server/telemetry.py) gated by telemetry_enabled. This file documents
+# what an operator's log/metrics pipeline should collect; the process does not
+# parse it.
+
+# Correlation: every response carries X-Request-ID (generated per request in
+# app.py / middleware.py) and every error body repeats it under
+# error.request_id. Log lines and traces should key on this id.
+correlation:
+  request_id_header: X-Request-ID
+
+# Where the hosting WSGI server should send its streams.
+streams:
+  access: stdout                      # gunicorn --access-logfile -
+  error: stderr                       # gunicorn --error-logfile -
+  format: text                        # not structured JSON; no framework linked
+
+# In-process domain counters (Telemetry.snapshot), enabled by LAWSYNTH_TELEMETRY.
+# Keyed as "<operation>:<status>"; counts only, never payload or dataset content.
+metrics:
+  enabled_via: LAWSYNTH_TELEMETRY     # "true"/"false"
+  snapshot_shape: "<operation>:<status_code> -> count"
+
+# Redaction is structural: bearer tokens, Idempotency-Key values, request/response
+# JSON bodies, artifact bytes, and the token grant map are never logged. The
+# authenticated principal subject is derived as "token:<first 8 chars>" and even
+# that is not emitted by the core. Keep it that way in any adapter.
+redaction:
+  never_log:
+    - authorization_header
+    - api_tokens
+    - request_body
+    - artifact_bytes

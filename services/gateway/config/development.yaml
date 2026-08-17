@@ -1,0 +1,30 @@
+# Development profile for lawsynth-gateway.
+#
+# Fields map 1:1 to GatewaySettings (services/gateway/src/lawsynth_gateway/
+# settings.py). The process reads these from environment variables at startup
+# (GatewaySettings.from_environment); it does not parse this YAML. Values below
+# reproduce the built-in defaults, so a developer sees the out-of-the-box
+# admission behavior. api_prefix is a fixed default ("/v1") and is not read from
+# the environment.
+
+profile: development
+
+# max_body_bytes -> LAWSYNTH_GATEWAY_MAX_BODY_BYTES; largest admitted body.
+max_body_bytes: 67108864              # 64 MiB
+# max_header_bytes -> LAWSYNTH_GATEWAY_MAX_HEADER_BYTES; total header block size.
+max_header_bytes: 32768               # 32 KiB
+# max_headers -> LAWSYNTH_GATEWAY_MAX_HEADERS; count of admitted headers.
+max_headers: 64
+# max_clients -> LAWSYNTH_GATEWAY_MAX_CLIENTS; bounded rate-limiter key-space.
+max_clients: 10000
+# requests_per_window -> LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW; sliding-window cap.
+requests_per_window: 120
+# rate_window_seconds -> LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS; window length.
+rate_window_seconds: 60
+# allowed_origins -> LAWSYNTH_GATEWAY_ALLOWED_ORIGINS (comma-separated, exact
+# http(s) origins). Empty means no browser origin is permitted; CORS/preflight
+# are rejected. Add the dev front-end origin here when testing from a browser.
+allowed_origins: []
+
+# Fixed default; the gateway only exposes this prefix (plus /healthz, /readyz).
+api_prefix: /v1

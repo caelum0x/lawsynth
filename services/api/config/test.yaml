@@ -1,0 +1,35 @@
+# Test profile for lawsynth-api.
+#
+# Deliberately small ceilings so tests exercise pagination, upload rejection, and
+# event-retention eviction quickly against ephemeral storage. Fields map to
+# ApiSettings (settings.py) and ServerSettings; the process reads the matching
+# environment variables, not this file.
+
+profile: test
+
+# environment -> LAWSYNTH_API_ENV. The "test" value relaxes the production-only
+# durability checks so an in-memory database is permitted.
+environment: test
+
+server:
+  # database_url -> LAWSYNTH_DATABASE_URL; in-memory keeps each test isolated.
+  database_url: ":memory:"
+  # object_root -> LAWSYNTH_OBJECT_ROOT; per-run scratch, typically a temp dir.
+  object_root: ./target/api-test-objects
+  # max_page_size -> LAWSYNTH_MAX_PAGE_SIZE; small so pagination boundaries hit.
+  max_page_size: 25
+  # max_upload_bytes -> LAWSYNTH_MAX_UPLOAD_BYTES; small to exercise 413 paths.
+  max_upload_bytes: 1048576           # 1 MiB
+  telemetry_enabled: false
+
+# max_request_bytes -> LAWSYNTH_API_MAX_REQUEST_BYTES; equal to max_upload_bytes
+# is valid (the invariant is max_request_bytes >= max_upload_bytes).
+max_request_bytes: 1048576            # 1 MiB
+
+# event_stream_retention -> LAWSYNTH_API_EVENT_RETENTION; tiny so overflow and
+# cursor-gap behavior are easy to assert.
+event_stream_retention: 16
+
+api_protocol_version: "1"
+
+tokens: {}

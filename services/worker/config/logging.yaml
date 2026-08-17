@@ -1,0 +1,33 @@
+# Observability profile for lawsynth-worker.
+#
+# The service links no logging framework. It emits one human-readable startup
+# line on stderr from `serve` (main.rs) and one line per connection error from
+# the HTTP status transport (http.rs). No job payloads, results, or checkpoint
+# bytes are written to stderr. This file documents what an operator's log
+# pipeline should scrape and how to route the stderr stream; the binary does not
+# parse it.
+
+# Startup line format written by `serve`:
+#   lawsynth-worker: serving HTTP status on <addr> store-root=<root>
+stderr:
+  destination: journald        # capture the process stderr stream
+  format: text                 # single lines, not structured JSON
+
+# There are no in-process counters. Operational state is observed through the
+# read-only HTTP status surface instead of a metrics endpoint:
+#   GET /health      -> readiness plus config + live admission snapshot
+#   GET /jobs        -> the set of durable checkpoints recorded
+#   GET /jobs/{id}   -> one job's lifecycle checkpoint (no payload)
+status_surface:
+  readiness: GET /health
+  admission_snapshot: /health
+
+# Redaction is structural: the status transport never accepts or serializes an
+# executable JobEnvelope (it has no wire codec), and it returns only lifecycle
+# metadata, never job inputs, results, or checkpoint bytes. Error bodies carry
+# only a stable code and message. Keep it that way in any adapter.
+redaction:
+  never_log:
+    - job_payload
+    - job_result
+    - checkpoint_bytes

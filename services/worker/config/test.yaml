@@ -1,0 +1,21 @@
+# Test profile for lawsynth-worker.
+#
+# Small capacity and the minimum checkpoint ceiling so admission-rejection and
+# checkpoint paths are fast to exercise against ephemeral storage. Fields map to
+# WorkerConfig (config.rs); `capacity` -> ResourceRequest, `store` -> StoreConfig.
+# Values satisfy validation (cpu_millis > 0, memory_bytes > 0,
+# maximum_checkpoint_bytes >= 128).
+
+profile: test
+
+capacity:
+  cpu_millis: 1000                    # small so oversized jobs are rejected on admission
+  memory_bytes: 268435456             # 256 MiB
+  disk_bytes: 268435456               # 256 MiB
+
+# Minimum permitted checkpoint ceiling (config.rs requires >= 128 bytes).
+maximum_checkpoint_bytes: 128
+
+store:
+  max_object_bytes: 1048576           # 1 MiB
+  cache_capacity_bytes: 1048576       # 1 MiB

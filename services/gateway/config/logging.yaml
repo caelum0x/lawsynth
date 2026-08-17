@@ -1,0 +1,39 @@
+# Observability profile for lawsynth-gateway.
+#
+# The gateway links no logging framework. Access/error logging is owned by the
+# WSGI server that hosts the composed application (the API + gateway process,
+# e.g. gunicorn); the stdlib development server (main.py) is silent apart from
+# its stack. Backend failures during admission are surfaced as a 502 response,
+# not logged with payload detail. This file documents what an operator's pipeline
+# should collect; the process does not parse it.
+
+# Correlation: the gateway owns the client-safe request id. It validates an
+# inbound X-Request-Id (strict charset/length) or mints a UUID, forwards it to
+# the backend as X-Request-Id / X-Forwarded-For, and always stamps the final
+# response X-Request-Id itself (a backend cannot override it). Key logs on this.
+correlation:
+  request_id_header: X-Request-Id
+  forwarded_headers:
+    - X-Forwarded-For          # set to the admitted client address
+    - X-Forwarded-Proto        # set to "http"; the TLS terminator is upstream
+
+# Where the hosting WSGI server should send its streams.
+streams:
+  access: stdout
+  error: stderr
+  format: text                 # no structured framework linked
+
+# The gateway keeps no metrics of its own. Rate-limit rejections (429),
+# oversized requests (413/431), and backend failures (502) are visible only as
+# response status codes; scrape them from the hosting server's access log.
+
+# Redaction is structural: request/response bodies are relayed but never logged
+# by the gateway, and Authorization plus other sensitive headers are passed to
+# the backend untouched and never written to a log line here. Client-supplied
+# forwarding headers are dropped during admission, so a caller cannot spoof the
+# logged client identity.
+redaction:
+  never_log:
+    - request_body
+    - response_body
+    - authorization_header

@@ -1,0 +1,27 @@
+# Development profile for lawsynth-worker.
+#
+# Fields map 1:1 to WorkerConfig (services/worker/src/config.rs); `capacity` maps
+# to lawsynth_runner::ResourceRequest and `store` to lawsynth_store::StoreConfig
+# (used by the `serve <store-root> <addr>` status transport). The binary does not
+# read a YAML file: it constructs WorkerConfig::default() and StoreConfig::default().
+# This document records the intended local shape and reproduces those defaults so
+# a developer sees the same admission behavior the binary applies out of the box.
+
+profile: development
+
+# capacity -> ResourceRequest: the total admission budget for this instance. A
+# job whose declared resources exceed capacity is rejected, not executed.
+# ResourceRequest::new requires cpu_millis > 0 and memory_bytes > 0.
+capacity:
+  cpu_millis: 4000                    # 4 CPU-seconds of budget
+  memory_bytes: 4294967296            # 4 GiB
+  disk_bytes: 8589934592              # 8 GiB
+
+# maximum_checkpoint_bytes: ceiling on one durable lifecycle record. config.rs
+# requires at least 128 bytes so a complete lifecycle record always fits.
+maximum_checkpoint_bytes: 16384       # 16 KiB
+
+# Durable checkpoint store opened at the `serve` root.
+store:
+  max_object_bytes: 134217728         # 128 MiB
+  cache_capacity_bytes: 33554432      # 32 MiB

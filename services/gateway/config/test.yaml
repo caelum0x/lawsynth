@@ -1,0 +1,25 @@
+# Test profile for lawsynth-gateway.
+#
+# Small ceilings and a tight rate limit so admission, rejection (413/431/429),
+# and CORS paths are fast to exercise. Fields map to GatewaySettings
+# (settings.py); the process reads the matching environment variables.
+
+profile: test
+
+# max_body_bytes -> LAWSYNTH_GATEWAY_MAX_BODY_BYTES; small to hit 413 quickly.
+max_body_bytes: 1048576               # 1 MiB
+# max_header_bytes -> LAWSYNTH_GATEWAY_MAX_HEADER_BYTES.
+max_header_bytes: 8192                # 8 KiB
+# max_headers -> LAWSYNTH_GATEWAY_MAX_HEADERS.
+max_headers: 32
+# max_clients -> LAWSYNTH_GATEWAY_MAX_CLIENTS; small to exercise LRU eviction.
+max_clients: 128
+# requests_per_window -> LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW; low to hit 429.
+requests_per_window: 5
+# rate_window_seconds -> LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS.
+rate_window_seconds: 1
+# allowed_origins -> LAWSYNTH_GATEWAY_ALLOWED_ORIGINS; a single exact test origin.
+allowed_origins:
+  - http://localhost:3000
+
+api_prefix: /v1

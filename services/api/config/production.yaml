@@ -1,0 +1,38 @@
+# Production profile for lawsynth-api.
+#
+# Fields map to ApiSettings (settings.py) and ServerSettings. In production the
+# process enforces two extra invariants (ApiSettings.from_environment):
+#   - LAWSYNTH_DATABASE_URL must NOT be ":memory:" (durable storage required);
+#   - LAWSYNTH_OBJECT_ROOT must be an absolute path.
+# Run one API worker per process: the alpha domain repositories are process-local,
+# so scale horizontally behind a load balancer, not by adding worker processes
+# that would each hold a separate in-memory catalog.
+
+profile: production
+
+# environment -> LAWSYNTH_API_ENV.
+environment: production
+
+server:
+  # database_url -> LAWSYNTH_DATABASE_URL. REPLACE with the real durable DSN,
+  # supplied from a secret/config manager. Must be durable, never ":memory:".
+  database_url: "sqlite:////var/lib/lawsynth/metadata.sqlite3"
+  # object_root -> LAWSYNTH_OBJECT_ROOT; MUST be absolute and owned by the
+  # non-root service user (the Dockerfile uses uid 65532).
+  object_root: /var/lib/lawsynth/objects
+  max_page_size: 100
+  max_upload_bytes: 134217728         # 128 MiB
+  telemetry_enabled: true
+
+# max_request_bytes -> LAWSYNTH_API_MAX_REQUEST_BYTES; must be >= max_upload_bytes.
+max_request_bytes: 134217728          # 128 MiB
+
+# event_stream_retention -> LAWSYNTH_API_EVENT_RETENTION. Retention is bounded and
+# in-process; size it to the reconnect window clients need, not durable history.
+event_stream_retention: 4096
+
+api_protocol_version: "1"
+
+# tokens -> LAWSYNTH_API_TOKENS_JSON. Never commit real tokens. Inject the JSON
+# grant map from the platform secret manager at deploy time.
+tokens: {}

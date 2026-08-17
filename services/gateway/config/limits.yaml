@@ -1,0 +1,33 @@
+# Canonical admission ceilings for lawsynth-gateway.
+#
+# These keys mirror the immutable GatewaySettings the process enforces
+# (services/gateway/src/lawsynth_gateway/settings.py). The process constructs
+# GatewaySettings.from_environment() from environment variables with the built-in
+# defaults reproduced below; this file is the reviewed source for those numbers
+# and documents the validation invariants.
+#
+# Validation invariants (GatewaySettings.__post_init__):
+#   max_body_bytes, max_header_bytes, max_headers all >= 1;
+#   max_clients, requests_per_window >= 1; rate_window_seconds > 0;
+#   api_prefix starts with exactly one "/" and does not end with "/".
+# Allowed origins must be bare http(s) origins (scheme + netloc, no path/query/
+# fragment) or _origins() rejects the configuration.
+
+# Body and header admission.
+max_body_bytes: 67108864              # 64 MiB - request body ceiling (else 413)
+max_header_bytes: 32768               # 32 KiB - total header block (else 431)
+max_headers: 64                       # header count (else 431)
+
+# Bounded sliding-window rate limit (BoundedRateLimiter).
+max_clients: 10000                    # LRU-bounded per-client bucket key-space
+requests_per_window: 120              # requests admitted per window per client
+rate_window_seconds: 60               # window length; 429 with Retry-After on excess
+
+# Fixed structural admission rules enforced in app.py, recorded here for review
+# (not environment-tunable):
+#   - methods limited to GET, POST, PATCH, DELETE, OPTIONS;
+#   - only the api_prefix (default /v1) plus /healthz and /readyz are routable;
+#   - hop-by-hop and client-supplied forwarding headers are stripped;
+#   - Transfer-Encoding / chunked bodies are rejected;
+#   - a body without Content-Type is rejected 415.
+api_prefix: /v1
