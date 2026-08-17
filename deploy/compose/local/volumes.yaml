@@ -8,10 +8,11 @@
 # place that documents the persistent state of the stack.
 #
 # Persistent state:
-#   lawsynth_pgdata     Postgres metadata database
-#   lawsynth_minio      MinIO object store (artifacts, exports, checkpoints)
-#   lawsynth_nats       NATS JetStream durable streams
-#   lawsynth_artifacts  Artifact service content-addressed store
+#   lawsynth_api_data   API SQLite metadata database + filesystem object store
+#   lawsynth_pgdata     Postgres metadata database (Rust scheduler/worker plane)
+#   lawsynth_minio      MinIO object store (Rust plane: artifacts, exports, checkpoints)
+#   lawsynth_nats       NATS JetStream durable streams (Rust plane)
+#   lawsynth_artifacts  Artifact service content-addressed store (Rust plane)
 #
 # Reset the whole stack (DESTROYS DATA):
 #   docker compose -f compose.yaml down --volumes
@@ -20,6 +21,7 @@ networks:
   lawsynth:
 
 volumes:
+  lawsynth_api_data:
   lawsynth_pgdata:
   lawsynth_minio:
   lawsynth_nats:

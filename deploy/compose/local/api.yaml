@@ -5,6 +5,20 @@
 #           wrapping the API, exposed to the host on :8081. Studio and the CLI
 #           talk to the gateway, not the API, in a realistic setup.
 #
+# IMPORTANT — the API's real backing services:
+#   The LawSynth API is SQLite + filesystem, not Postgres + S3. The domain core
+#   (`lawsynth_server.database.Database`) accepts ONLY SQLite URLs and raises on
+#   anything else; storage is a content-addressed filesystem tree at
+#   LAWSYNTH_OBJECT_ROOT. It reads NONE of the LAWSYNTH_S3_*, LAWSYNTH_EVENT_BUS_URL,
+#   or LAWSYNTH_ARTIFACT_ENDPOINT variables. Discovery runs on the compiled
+#   `lawsynth` engine IN-PROCESS. The Postgres/MinIO/NATS services in this stack
+#   back the separate Rust scheduler/worker/artifact plane (worker.yaml), which
+#   is not yet wired to the API's discovery path — see the README "boundaries".
+#
+#   The API also needs the compiled `lawsynth` engine baked into its image. The
+#   stock deploy/docker/images/api.Dockerfile builds it; if you see
+#   `503 native_unavailable` on POST /v1/runs, rebuild with `--build`.
+#
 # Both build from the repository root using the Dockerfiles under
 # deploy/docker/images/. Included by compose.yaml.
 
@@ -15,35 +29,23 @@ services:
       context: ../../..
       dockerfile: deploy/docker/images/api.Dockerfile
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
     environment:
       LAWSYNTH_API_ENV: development
-      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-debug}
-      GUNICORN_WORKERS: ${LAWSYNTH_API_WORKERS:-2}
-      # Metadata database.
-      LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:-lawsynth}:${POSTGRES_PASSWORD:-lawsynth_local_password}@postgres:5432/${POSTGRES_DB:-lawsynth}
-      # Object store (S3-compatible MinIO).
-      LAWSYNTH_S3_ENDPOINT: http://minio:9000
-      LAWSYNTH_S3_REGION: ${LAWSYNTH_S3_REGION:-us-east-1}
-      LAWSYNTH_S3_BUCKET: ${LAWSYNTH_S3_BUCKET:-lawsynth-artifacts}
-      LAWSYNTH_S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-lawsynth}
-      LAWSYNTH_S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-lawsynth_local_password}
-      LAWSYNTH_S3_FORCE_PATH_STYLE: "true"
-      # Event bus + downstream services.
-      LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
-      LAWSYNTH_ARTIFACT_ENDPOINT: http://artifact:8082
-      # Local bearer tokens (map form: token=org:scope). Local-only value.
-      LAWSYNTH_API_TOKENS: ${LAWSYNTH_API_TOKENS:-local-dev-token=local:admin}
+      GUNICORN_WORKERS: ${LAWSYNTH_API_WORKERS:-1}
+      # Metadata: durable SQLite on the API data volume.
+      LAWSYNTH_DATABASE_URL: sqlite:////var/lib/lawsynth/metadata.sqlite3
+      # Object store: content-addressed files under an absolute root.
+      LAWSYNTH_OBJECT_ROOT: /var/lib/lawsynth/objects
+      # Bearer grant: token -> {organization_id, scopes}. Token must be >= 16
+      # chars; scopes subset of read/write/admin. Local-only default value.
+      LAWSYNTH_API_TOKENS_JSON: >-
+        {"${LAWSYNTH_API_TOKEN:-local-dev-token-change-me-please}":{"organization_id":"local","scopes":["read","write"]}}
     expose:
       - "8080"
     ports:
       - "${LAWSYNTH_API_HOST_PORT:-8080}:8080"
+    volumes:
+      - lawsynth_api_data:/var/lib/lawsynth
     networks:
       - lawsynth
 
@@ -57,28 +59,30 @@ services:
       api:
         condition: service_healthy
     environment:
-      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-debug}
-      GUNICORN_WORKERS: ${LAWSYNTH_GATEWAY_WORKERS:-2}
+      GUNICORN_WORKERS: ${LAWSYNTH_GATEWAY_WORKERS:-1}
       LAWSYNTH_GATEWAY_BACKEND: lawsynth_api.main:application
       LAWSYNTH_GATEWAY_MAX_BODY_BYTES: ${LAWSYNTH_GATEWAY_MAX_BODY_BYTES:-67108864}
       LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW: ${LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW:-120}
       LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS: ${LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS:-60}
       LAWSYNTH_GATEWAY_ALLOWED_ORIGINS: ${LAWSYNTH_GATEWAY_ALLOWED_ORIGINS:-http://localhost:8083}
-      # The gateway bundles the API package and applies the same database and
-      # object-store configuration so the wrapped backend resolves identically.
-      LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:-lawsynth}:${POSTGRES_PASSWORD:-lawsynth_local_password}@postgres:5432/${POSTGRES_DB:-lawsynth}
-      LAWSYNTH_S3_ENDPOINT: http://minio:9000
-      LAWSYNTH_S3_BUCKET: ${LAWSYNTH_S3_BUCKET:-lawsynth-artifacts}
-      LAWSYNTH_S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-lawsynth}
-      LAWSYNTH_S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-lawsynth_local_password}
-      LAWSYNTH_S3_FORCE_PATH_STYLE: "true"
-      LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
-      LAWSYNTH_ARTIFACT_ENDPOINT: http://artifact:8082
-      LAWSYNTH_API_TOKENS: ${LAWSYNTH_API_TOKENS:-local-dev-token=local:admin}
+      # The gateway image bundles the API package and runs it in-process, so it
+      # resolves the same SQLite + object store as the api service. Both share
+      # the data volume so the wrapped backend sees identical metadata/objects.
+      LAWSYNTH_API_ENV: development
+      LAWSYNTH_DATABASE_URL: sqlite:////var/lib/lawsynth/metadata.sqlite3
+      LAWSYNTH_OBJECT_ROOT: /var/lib/lawsynth/objects
+      LAWSYNTH_API_TOKENS_JSON: >-
+        {"${LAWSYNTH_API_TOKEN:-local-dev-token-change-me-please}":{"organization_id":"local","scopes":["read","write"]}}
     ports:
       - "${LAWSYNTH_GATEWAY_HOST_PORT:-8081}:8081"
+    volumes:
+      - lawsynth_api_data:/var/lib/lawsynth
     networks:
       - lawsynth
 
 networks:
   lawsynth:
+
+volumes:
+  # SQLite metadata database + content-addressed object store for the API.
+  lawsynth_api_data:

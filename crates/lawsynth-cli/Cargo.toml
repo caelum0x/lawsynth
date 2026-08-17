@@ -31,6 +31,7 @@ lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }
 lawsynth-discovery = { path = "../lawsynth-discovery" }
 lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-egraph = { path = "../lawsynth-egraph" }
 lawsynth-expr = { path = "../lawsynth-expr" }
 lawsynth-preprocess = { path = "../lawsynth-preprocess" }
 lawsynth-profile = { path = "../lawsynth-profile" }

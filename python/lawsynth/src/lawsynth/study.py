@@ -729,6 +729,17 @@ class DiscoveryResult:
     def explain(self) -> Explanation:
         return _explain(self._world, self._dataset, self._states, name=self._name)
 
+    def simplify(self):
+        """Simplify each law into a canonical, equivalence-checked form.
+
+        Returns a :class:`~lawsynth.simplification.SimplifiedWorld` report; its
+        ``.world`` is a new, equivalent native world and ``.verify(initial)``
+        confirms the trajectories match to floating-point precision.
+        """
+        from .simplification import simplify_world
+
+        return simplify_world(self._world)
+
     def simulate(self, *, horizon: float | None = None, initial: Mapping[str, float] | None = None, start: float | None = None, step: float | None = None) -> TrajectoryData:
         return _simulate(self._world, self._dataset, self._states, horizon=horizon, initial=initial, start=start, step=step)
 
@@ -945,6 +956,12 @@ class Study:
         if self._world is None:
             raise LawSynthError("call discover() before using the world")
         return self._world
+
+    def simplify(self):
+        """Simplify each law of the discovered world (see :meth:`DiscoveryResult.simplify`)."""
+        from .simplification import simplify_world
+
+        return simplify_world(self._require_world())
 
     def discover(
         self,
@@ -1221,4 +1238,10 @@ def enable_rich_display() -> None:
                 setattr(getattr(_native, cls_name), "_repr_html_", handler)
             except (AttributeError, TypeError):  # pragma: no cover
                 pass
+    # Attach the simplification and editing methods to the native World so that
+    # ``world.simplify()`` / ``world.rename(...)`` etc. work on discovered worlds.
+    try:
+        from . import composition, simplification  # noqa: F401
+    except Exception:  # pragma: no cover - native optional at import time
+        pass
     _RICH_DISPLAY_WIRED = True

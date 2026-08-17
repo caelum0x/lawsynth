@@ -60,6 +60,30 @@ def discover(
     )
 
 
+def simplify(world):
+    """Simplify every law of ``world`` into a canonical, equivalent form.
+
+    Returns a :class:`~lawsynth.simplification.SimplifiedWorld` report holding
+    the new equivalent world, per-law before/after expressions and AST node
+    counts, and a :meth:`~lawsynth.simplification.SimplifiedWorld.verify` method
+    that simulates both worlds and returns the maximum trajectory deviation.
+    """
+    from . import simplification
+
+    return simplification.simplify_world(world)
+
+
+def compose(world_a, world_b, *, prefix_a="", prefix_b=""):
+    """Combine two worlds into one coupled system (union of states/params/laws).
+
+    Colliding identifiers are namespaced; ``prefix_a`` / ``prefix_b`` prefix all
+    of a world's identifiers. Returns a valid native ``World`` that simulates.
+    """
+    from . import composition
+
+    return composition.compose(world_a, world_b, prefix_a=prefix_a, prefix_b=prefix_b)
+
+
 def __getattr__(name):
     if name in {"Scenario", "Trajectory", "World"}:
         try:
@@ -68,6 +92,8 @@ def __getattr__(name):
             raise NativeError(
                 "the lawsynth native extension is unavailable; install the built package"
             ) from error
+        # Ensure editing/simplification methods are attached to the native World.
+        from . import composition, simplification  # noqa: F401
         return getattr(_native, name)
     if name in {"Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "ScenarioComparison"}:
         from . import study as _study
@@ -85,6 +111,14 @@ def __getattr__(name):
         from . import ensemble as _ensemble
 
         return getattr(_ensemble, name)
+    if name in {"SimplifiedWorld", "LawSimplification", "simplify_world"}:
+        from . import simplification as _simplification
+
+        return getattr(_simplification, name)
+    if name in {"WorldSpec", "spec_of"}:
+        from . import worldspec as _worldspec
+
+        return getattr(_worldspec, name)
     if name in {"monitor", "MonitorReport", "StateResidual", "Anomaly"}:
         # Import via importlib: the submodule shares the name ``monitor`` with the
         # function, so ``from . import monitor`` would re-enter this hook.
@@ -101,6 +135,7 @@ __all__ = [
     "SourceError", "load_source", "recipes",
     "profile", "DataProfile", "ColumnProfile", "TimeProfile",
     "preprocess",
+    "simplify", "compose", "SimplifiedWorld", "LawSimplification", "WorldSpec", "spec_of",
     "discover", "Scenario", "Trajectory", "World",
     "Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "ScenarioComparison",
     "backtest", "Backtest", "OriginResult",

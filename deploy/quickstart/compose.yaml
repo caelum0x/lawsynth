@@ -1,0 +1,112 @@
+# LawSynth — quickstart profile: the smallest stack that serves a discovery
+# over HTTP.
+#
+#   client ──▶ gateway :8081 (admission) ──▶ api :8080 (discovery-as-a-service)
+#                                             │
+#                                             ├─ SQLite  metadata   (/data/metadata.sqlite3)
+#                                             └─ files   object store (/data/objects)
+#
+# This is deliberately NOT the full service graph. The LawSynth API is a Python
+# WSGI process over the `lawsynth-server` domain core: it keeps metadata in
+# SQLite and content-addressed objects on the filesystem, and runs discovery on
+# the compiled `lawsynth` engine IN-PROCESS. It does not talk to Postgres,
+# S3/MinIO, or NATS — those back the separate Rust scheduler/worker/artifact
+# execution plane, which is not yet wired to this API's discovery path. For the
+# aspirational full graph see ../compose/local (and read its "boundaries" note).
+#
+# Both services run from ONE image (built once, from deploy/quickstart/Dockerfile)
+# that bundles the compiled engine. They share the same /data volume so the
+# gateway's in-process API and the direct API see the same metadata + objects.
+#
+# Usage:
+#   cp .env.example .env                 # then set a real token
+#   docker compose -f compose.yaml up --build -d
+#   curl http://localhost:8081/healthz   # gateway liveness
+#   # ...then follow docs/self-hosting/quickstart.md to run a discovery.
+#
+# Validate the config without a daemon:
+#   docker compose -f compose.yaml config -q
+
+name: lawsynth-quickstart
+
+services:
+  api:
+    image: lawsynth-quickstart:local
+    build:
+      context: ../..
+      dockerfile: deploy/quickstart/Dockerfile
+    restart: unless-stopped
+    environment:
+      LAWSYNTH_API_ENV: ${LAWSYNTH_API_ENV:-production}
+      # Metadata: durable SQLite on the shared data volume.
+      LAWSYNTH_DATABASE_URL: sqlite:////data/metadata.sqlite3
+      # Object store: content-addressed files under an absolute root.
+      LAWSYNTH_OBJECT_ROOT: /data/objects
+      # Bearer grant: token -> {organization_id, scopes}. Tokens must be >= 16
+      # chars and scopes are a subset of read/write/admin.
+      LAWSYNTH_API_TOKENS_JSON: >-
+        {"${LAWSYNTH_API_TOKEN:-quickstart-local-token-change-me}":{"organization_id":"local","scopes":["read","write"]}}
+    ports:
+      - "${LAWSYNTH_API_HOST_PORT:-8080}:8080"
+    volumes:
+      - lawsynth_data:/data
+    networks:
+      - lawsynth
+
+  gateway:
+    image: lawsynth-quickstart:local
+    # Reuses the image built by the `api` service; no second build.
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      LAWSYNTH_API_ENV: ${LAWSYNTH_API_ENV:-production}
+      LAWSYNTH_DATABASE_URL: sqlite:////data/metadata.sqlite3
+      LAWSYNTH_OBJECT_ROOT: /data/objects
+      LAWSYNTH_API_TOKENS_JSON: >-
+        {"${LAWSYNTH_API_TOKEN:-quickstart-local-token-change-me}":{"organization_id":"local","scopes":["read","write"]}}
+      # Admission policy read by GatewaySettings.from_environment.
+      LAWSYNTH_GATEWAY_BACKEND: lawsynth_api.main:application
+      LAWSYNTH_GATEWAY_MAX_BODY_BYTES: ${LAWSYNTH_GATEWAY_MAX_BODY_BYTES:-67108864}
+      LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW: ${LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW:-120}
+      LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS: ${LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS:-60}
+      # Browser origins allowed through CORS (Studio dev server, etc.).
+      LAWSYNTH_GATEWAY_ALLOWED_ORIGINS: ${LAWSYNTH_GATEWAY_ALLOWED_ORIGINS:-http://localhost:5173}
+    command:
+      - gunicorn
+      - --bind
+      - 0.0.0.0:8081
+      - --workers
+      - "1"
+      - --timeout
+      - "180"
+      - --graceful-timeout
+      - "30"
+      - --access-logfile
+      - "-"
+      - --error-logfile
+      - "-"
+      - wsgi_gateway:application
+    # The gateway serves its OWN liveness at /healthz (only /v1/* is proxied
+    # to the API); /readyz reports draining state.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8081/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "${LAWSYNTH_GATEWAY_HOST_PORT:-8081}:8081"
+    volumes:
+      - lawsynth_data:/data
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:
+
+volumes:
+  # Holds the SQLite metadata database and the content-addressed object store.
+  # Delete with `docker compose -f compose.yaml down --volumes` for a clean slate.
+  lawsynth_data:

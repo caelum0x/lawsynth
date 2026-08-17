@@ -1,16 +1,21 @@
 # LawSynth — local single-node development stack.
 #
-# Brings up the full service graph on one machine:
+# Brings up two planes on one machine:
 #
-#   studio ─▶ gateway :8081 ─▶ api :8080 ─┬─▶ postgres :5432   (metadata)
-#                                         ├─▶ minio :9000      (object store)
-#                                         └─▶ nats :4222       (event bus)
-#   scheduler ─▶ postgres, nats
-#   worker    ─▶ postgres, nats, artifact :8082
+#   Product loop (runnable today):
+#     client ─▶ gateway :8081 ─▶ api :8080 ─┬─▶ SQLite  (metadata,   api volume)
+#                                           └─▶ files   (object store, api volume)
+#     The API runs discovery on the compiled `lawsynth` engine IN-PROCESS; it
+#     does NOT use Postgres/MinIO/NATS. For a minimal, self-contained version of
+#     just this loop see ../../quickstart.
 #
-# This is the "Single-node server" deployment mode from the architecture: API +
-# worker + Postgres + MinIO, plus the scheduler, gateway, and artifact service.
-# It is for local development and evaluation only — it ships local-only default
+#   Rust execution plane (infrastructure present; NOT yet wired to the API):
+#     scheduler ─▶ postgres :5432, nats :4222
+#     worker    ─▶ postgres, nats, artifact :8082
+#     postgres / minio :9000 / nats :4222 back THIS plane, not the API.
+#
+# This is the "Single-node server" deployment mode from the architecture. It is
+# for local development and evaluation only — it ships local-only default
 # credentials and no TLS. For a hardened deployment use ../production.
 #
 # Usage:

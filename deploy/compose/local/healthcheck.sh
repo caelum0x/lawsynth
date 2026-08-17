@@ -39,9 +39,9 @@ compose() {
 
 # name|url pairs. Empty url => check container health only (no HTTP surface).
 CHECKS=(
-  "gateway|http://127.0.0.1:${GATEWAY_PORT}/v1/health"
+  "gateway|http://127.0.0.1:${GATEWAY_PORT}/healthz"
   "api|http://127.0.0.1:${API_PORT}/v1/health"
-  "artifact|http://127.0.0.1:${ARTIFACT_PORT}/healthz"
+  "artifact|http://127.0.0.1:${ARTIFACT_PORT}/health"
   "nats|http://127.0.0.1:${NATS_PORT}/healthz"
   "minio|http://127.0.0.1:${MINIO_PORT}/minio/health/ready"
   "postgres|"
