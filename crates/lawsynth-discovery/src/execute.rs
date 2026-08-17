@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use lawsynth_core::stable_hash;
 use lawsynth_data::Dataset;
 use lawsynth_differentiate::differentiate_dataset_with_config;
@@ -41,6 +43,24 @@ pub fn discover_cancellable_with_checkpoint(
     config: &DiscoveryConfig,
     cancellation: &CancellationToken,
     checkpoint: &mut DiscoveryCheckpoint,
+) -> Result<DiscoveryResult, DiscoveryError> {
+    // The public single-node path always uses one feature partition, which
+    // routes feature evaluation through `FeatureLibrary::evaluate` unchanged.
+    let single_node = NonZeroUsize::new(1).expect("one is nonzero");
+    run_discovery(dataset, config, cancellation, checkpoint, single_node)
+}
+
+/// Shared discovery driver. `feature_partitions` selects how many deterministic
+/// column partitions the feature-library evaluation is split across; one keeps
+/// the byte-identical single-node path, higher counts use the additive
+/// partitioned path in [`crate::distributed`]. Every other stage is identical
+/// regardless of partition count, so the [`DiscoveryResult`] is bit-identical.
+pub(crate) fn run_discovery(
+    dataset: &Dataset,
+    config: &DiscoveryConfig,
+    cancellation: &CancellationToken,
+    checkpoint: &mut DiscoveryCheckpoint,
+    feature_partitions: NonZeroUsize,
 ) -> Result<DiscoveryResult, DiscoveryError> {
     ensure_active(cancellation)?;
     config
@@ -103,9 +123,9 @@ pub fn discover_cancellable_with_checkpoint(
         .resource_limits
         .validate_feature_count(library.terms().len())
         .map_err(|error| DiscoveryError::Resource(error.to_string()))?;
-    let matrix = library
-        .evaluate(&working_dataset)
-        .map_err(|error| DiscoveryError::Features(error.to_string()))?;
+    let matrix =
+        crate::distributed::evaluate_library(&library, &working_dataset, feature_partitions)
+            .map_err(|error| DiscoveryError::Features(error.to_string()))?;
     ensure_active(cancellation)?;
     let rows = matrix.rows[1..matrix.rows.len() - 1].to_vec();
     let mut laws = Vec::new();

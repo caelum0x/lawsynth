@@ -21,6 +21,11 @@ name = "candidate_throughput"
 path = "benches/candidate_throughput.rs"
 harness = false
 
+[[bench]]
+name = "distributed_throughput"
+path = "benches/distributed_throughput.rs"
+harness = false
+
 [dependencies]
 lawsynth-causal = { path = "../lawsynth-causal" }
 lawsynth-core = { path = "../lawsynth-core" }
