@@ -14,6 +14,7 @@ mod intervene;
 mod library;
 mod output;
 mod pipeline;
+mod presets;
 mod profile;
 mod report;
 mod scenarios;
@@ -63,6 +64,7 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
         "scenarios" => scenarios::run(&arguments[1..]),
         "doctor" => doctor::run(&arguments[1..]),
         "library" => library::run(&arguments[1..]),
+        "presets" => presets::run(&arguments[1..]),
         "export" => export::run(&arguments[1..]),
         "new" => templates::run_new(&arguments[1..]),
         "templates" => templates::run_templates(&arguments[1..]),
@@ -73,16 +75,20 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
 }
 
 fn discover_command(arguments: &[String]) -> Result<String, String> {
+    // A `--preset <name>` seeds the discovery defaults for this run; explicit
+    // flags below override those seeds because they are parsed afterwards.
+    let (preset, arguments) = presets::extract(arguments)?;
+    let seed = preset.unwrap_or_default();
     let Some(input) = arguments.first() else {
         return Err(usage());
     };
     let mut time = None;
     let mut state = None;
     let mut output = None;
-    let mut degree = 2;
-    let mut threshold = 0.05;
-    let mut include_trigonometric = false;
-    let mut include_rational = false;
+    let mut degree = seed.degree;
+    let mut threshold = seed.threshold;
+    let mut include_trigonometric = seed.include_trigonometric;
+    let mut include_rational = seed.include_rational;
     let mut use_spline = false;
     let mut use_spectral = false;
     let mut savgol_window = None;
@@ -91,10 +97,10 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     let mut smoothing_radius = None;
     let mut bootstrap_replicates = None;
     let mut symbolic_depth = None;
-    let mut sparse_method = SparseMethod::Stlsq;
+    let mut sparse_method = seed.sparse_method;
     let mut enable_regimes = false;
     let mut report_pareto = false;
-    let mut enable_refine = false;
+    let mut enable_refine = seed.enable_refine;
     let mut enable_causal = false;
     let mut index = 1;
     while index < arguments.len() {
@@ -439,5 +445,5 @@ fn parse_steps(value: &str) -> Result<usize, String> {
 }
 
 fn usage() -> String {
-    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N] [--regimes] [--pareto] [--refine] [--causal]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|remove> [--dir DIR] ...\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n\nRun any command with --help for details.".to_owned()
+    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--preset NAME] [--degree N] [--threshold VALUE] [--solver stlsq|sr3] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--bootstrap REPLICATES] [--symbolic-depth N] [--regimes] [--pareto] [--refine] [--causal]\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|search|compare|remove> [--dir DIR] ...\n  lawsynth presets\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n\nRun any command with --help for details.".to_owned()
 }

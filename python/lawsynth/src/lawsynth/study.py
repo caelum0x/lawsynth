@@ -36,6 +36,20 @@ def _default_source_name(kind: str, resource: str) -> str:
     return f"{kind}:{stem}"
 
 
+def _apply_overrides(base: DiscoveryConfig, overrides: Mapping[str, object]) -> DiscoveryConfig:
+    """Return a new config = ``base`` with ``overrides`` layered on (overrides win).
+
+    A slots dataclass has no ``__dict__``, so rebuild from its declared fields
+    explicitly rather than copying an instance dict.
+    """
+    merged = {name: getattr(base, name) for name in DiscoveryConfig.__dataclass_fields__}
+    unknown = set(overrides) - set(merged)
+    if unknown:
+        raise ValidationError(f"unknown discovery options: {sorted(unknown)}")
+    merged.update(overrides)
+    return DiscoveryConfig(**merged)
+
+
 # --------------------------------------------------------------------------- #
 # Equation understanding — parse native expressions into readable, ranked laws #
 # --------------------------------------------------------------------------- #
@@ -823,26 +837,33 @@ class Study:
             raise LawSynthError("call discover() before using the world")
         return self._world
 
-    def discover(self, config: DiscoveryConfig | None = None, **overrides: object) -> DiscoveryResult:
-        """Discover an executable world from the study's observations."""
-        base = config or DiscoveryConfig()
-        if overrides:
-            # A slots dataclass has no __dict__; rebuild from its fields explicitly.
-            merged = {
-                "polynomial_degree": base.polynomial_degree,
-                "threshold": base.threshold,
-                "solver": base.solver,
-                "derivative_method": base.derivative_method,
-                "include_trigonometric": base.include_trigonometric,
-                "include_rational": base.include_rational,
-                "smoothing_radius": base.smoothing_radius,
-                "symbolic_depth": base.symbolic_depth,
-            }
-            unknown = set(overrides) - set(merged)
-            if unknown:
-                raise ValidationError(f"unknown discovery options: {sorted(unknown)}")
-            merged.update(overrides)
-            base = DiscoveryConfig(**merged)
+    def discover(
+        self,
+        config: DiscoveryConfig | None = None,
+        *,
+        recipe: str | None = None,
+        **overrides: object,
+    ) -> DiscoveryResult:
+        """Discover an executable world from the study's observations.
+
+        Pass ``recipe="ecology"`` (etc.) to start from a curated, per-domain
+        preset — see :mod:`lawsynth.recipes`. Any explicit ``**overrides`` layer
+        on top of the recipe (or ``config``) and always win. ``recipe`` and
+        ``config`` are mutually exclusive: a recipe *is* a starting config.
+        """
+        if recipe is not None:
+            if config is not None:
+                raise ValidationError(
+                    "pass either a recipe or a config, not both; explicit "
+                    "**overrides refine whichever you choose"
+                )
+            from .recipes import get as _get_recipe
+
+            base = _get_recipe(recipe).merge(overrides)
+        else:
+            base = config or DiscoveryConfig()
+            if overrides:
+                base = _apply_overrides(base, overrides)
         enable_rich_display()
         time, columns = self._dataset.as_native_arguments()
         try:

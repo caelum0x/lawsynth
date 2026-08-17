@@ -4,6 +4,7 @@ Importing data-model modules does not require loading the compiled extension;
 native classes are resolved lazily when a simulation or discovery is requested.
 """
 
+from . import recipes
 from ._version import __version__
 from .config import DiscoveryConfig
 from .dataset import Dataset
@@ -74,7 +75,7 @@ def __getattr__(name):
 
 __all__ = [
     "Dataset", "DiscoveryConfig", "LawSynthError", "NativeError", "ValidationError",
-    "SourceError", "load_source",
+    "SourceError", "load_source", "recipes",
     "discover", "Scenario", "Trajectory", "World",
     "Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "ScenarioComparison",
     "__version__",
