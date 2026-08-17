@@ -735,6 +735,16 @@ class DiscoveryResult:
     def forecast(self, interventions: Mapping[str, float], *, horizon: float | None = None, step: float | None = None) -> Forecast:
         return _forecast(self._world, self._dataset, self._states, interventions=interventions, horizon=horizon, step=step)
 
+    def backtest(self, *, origins: int = 5, horizon: int | None = None, step: float | None = None):
+        """Rolling-origin forecast evaluation (see :meth:`Study.backtest`)."""
+        from .backtesting import backtest as _backtest
+
+        return _backtest(
+            self._world, self._dataset,
+            state=self._states, origins=origins, horizon=horizon, step=step,
+            name=self._name,
+        )
+
     def report(self, path: str | PathLike[str], *, theme: str = "light") -> Path:
         return _write_report(self._world, self._dataset, self._states, path, name=self._name, theme=theme)
 
@@ -966,6 +976,36 @@ class Study:
     def forecast(self, interventions: Mapping[str, float], *, horizon: float | None = None, step: float | None = None) -> Forecast:
         """Run a what-if: override initial conditions and compare to baseline."""
         return _forecast(self._require_world(), self._dataset, self._states, interventions=interventions, horizon=horizon, step=step)
+
+    def backtest(self, *, origins: int = 5, horizon: int | None = None, step: float | None = None):
+        """Rolling-origin (walk-forward) forecast evaluation of the world.
+
+        Selects ``origins`` evenly spaced forecast origins across the observed
+        series; from each, seeds the discovered world with the observed state and
+        simulates forward ``horizon`` steps, scoring the forecast against the
+        actual observations (RMSE/MAE/R² per state) and building a skill-vs-horizon
+        decay curve. Returns a :class:`~lawsynth.backtest.Backtest`. Deterministic
+        and offline — extrapolation quality, not just in-window fit.
+        """
+        from .backtesting import backtest as _backtest
+
+        return _backtest(
+            self._require_world(), self._dataset,
+            state=self._states, origins=origins, horizon=horizon, step=step,
+            name=self._name,
+        )
+
+    def save_to_project(self, project: object, name: str, *, tags: Sequence[str] = (), note: str = ""):
+        """Add this study's discovered world to a :class:`~lawsynth.project.Project`.
+
+        A convenience over :meth:`Project.add` + :meth:`Project.save`: registers
+        the world under ``name`` with optional ``tags``/``note``, persists the
+        workspace to disk, and returns the ``project`` for chaining.
+        """
+        self._require_world()
+        project.add(name, self, tags=tags, note=note)  # type: ignore[attr-defined]
+        project.save()  # type: ignore[attr-defined]
+        return project
 
     # -- uncertainty via ensemble discovery --------------------------------- #
 

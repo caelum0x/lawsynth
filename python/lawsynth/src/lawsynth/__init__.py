@@ -73,6 +73,14 @@ def __getattr__(name):
         from . import study as _study
 
         return getattr(_study, name)
+    if name in {"backtest", "Backtest", "OriginResult"}:
+        from . import backtesting as _backtesting
+
+        return getattr(_backtesting, name)
+    if name in {"Project", "ProjectEntry"}:
+        from . import project as _project
+
+        return getattr(_project, name)
     if name in {"Ensemble", "ForecastBand", "TermStat"}:
         from . import ensemble as _ensemble
 
@@ -95,6 +103,8 @@ __all__ = [
     "preprocess",
     "discover", "Scenario", "Trajectory", "World",
     "Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "ScenarioComparison",
+    "backtest", "Backtest", "OriginResult",
+    "Project", "ProjectEntry",
     "Ensemble", "ForecastBand", "TermStat",
     "monitor", "MonitorReport", "StateResidual", "Anomaly",
     "__version__",

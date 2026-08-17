@@ -40,6 +40,9 @@ pub use svg::{
 mod comparison;
 pub use comparison::{render_comparison, render_comparison_with_theme};
 
+mod backtest;
+pub use backtest::{BacktestHorizonPoint, BacktestOriginRow, BacktestReport, render_backtest};
+
 mod scenarios;
 pub use scenarios::{
     ScenarioOutcome, ScenarioReport, render_scenarios, render_scenarios_with_theme,

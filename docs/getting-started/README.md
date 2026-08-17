@@ -20,6 +20,15 @@ SDK, Studio, and the HTTP services — operates on that same artifact.
 4. **[your first world](first-world.md)** — discover, inspect, and reuse a bundle.
 5. Pick a surface: **[CLI](cli.md)**, **[Python](python.md)**, or **[Studio](studio.md)**.
 
+Then go deeper with task-oriented, copy-pasteable material:
+
+6. **[Cookbook](../cookbook/README.md)** — short recipes for each task (discover,
+   clean, forecast, validate, monitor, export, organize, pipeline, service,
+   Jupyter), each with a CLI recipe *and* its Python-SDK equivalent.
+7. **[Tutorials](../tutorials/README.md)** — longer end-to-end walkthroughs that
+   chain many features into one narrative (messy sensor → trusted model,
+   predator–prey ecology, monitoring a running system).
+
 The checked-in [examples](examples.md) and the workspace tests are executable and
 are the source of truth for supported inputs. Discovery finds a sparse fit from the
 implemented feature library — it is not evidence that an inferred relation is causal

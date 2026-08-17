@@ -13,7 +13,10 @@ use std::path::{Path, PathBuf};
 
 use lawsynth_bundle::{read_world, sha256_hex};
 
-const HEADER: &str = "name\tpath\ttags\tdescription\tworld_hash\tdata_hash\tdata_columns\tconfig";
+/// TSV header for the library index. Shared with `workspace` so exported and
+/// imported indexes stay byte-compatible with `library`'s own writer.
+pub(crate) const HEADER: &str =
+    "name\tpath\ttags\tdescription\tworld_hash\tdata_hash\tdata_columns\tconfig";
 
 /// Help text for `lawsynth library`.
 pub fn help() -> String {
