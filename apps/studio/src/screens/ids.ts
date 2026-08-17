@@ -4,18 +4,24 @@
  * models that pull in the chart/world packages.
  */
 export type ScreenId =
+  | "data-lens"
   | "discovery-canvas"
   | "equation-explorer"
+  | "structure-map"
   | "regime-timeline"
   | "uncertainty-lens"
-  | "world-lab";
+  | "world-lab"
+  | "export-screen";
 
 export const SCREEN_IDS: readonly ScreenId[] = Object.freeze([
+  "data-lens",
   "discovery-canvas",
   "equation-explorer",
+  "structure-map",
   "regime-timeline",
   "uncertainty-lens",
   "world-lab",
+  "export-screen",
 ]);
 
 export function isScreenId(value: unknown): value is ScreenId {

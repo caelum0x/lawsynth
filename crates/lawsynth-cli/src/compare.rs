@@ -2,18 +2,20 @@
 
 use std::collections::BTreeSet;
 use std::fmt::Write;
+use std::fs;
 
 use lawsynth_bundle::read_world;
 use lawsynth_core::Identifier;
 use lawsynth_expr::Expr;
-use lawsynth_report::{format_number, render_expression};
+use lawsynth_report::{format_number, render_comparison, render_expression};
 use lawsynth_world::{Variable, VariableRole, World};
 
 /// Help text for `lawsynth compare`.
 pub fn help() -> String {
-    "lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json]\n\n\
+    "lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n\n\
 Diffs two worlds: variables and parameters added/removed/changed, per-law \
-structural and parameter differences, and a complexity comparison."
+structural and parameter differences, and a complexity comparison. With --html, \
+writes a self-contained side-by-side HTML diff instead of text."
         .to_owned()
 }
 
@@ -28,14 +30,34 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
         return Err(help());
     };
     let mut json = false;
-    for option in &arguments[2..] {
-        match option.as_str() {
-            "--json" => json = true,
+    let mut html: Option<String> = None;
+    let mut index = 2;
+    while index < arguments.len() {
+        match arguments[index].as_str() {
+            "--json" => {
+                json = true;
+                index += 1;
+            }
+            "--html" => {
+                let value = arguments
+                    .get(index + 1)
+                    .ok_or_else(|| "missing value for --html".to_owned())?;
+                html = Some(value.clone());
+                index += 2;
+            }
             _ => return Err(help()),
         }
     }
     let world_a = read_world(path_a).map_err(|error| error.to_string())?;
     let world_b = read_world(path_b).map_err(|error| error.to_string())?;
+
+    if let Some(html_path) = html {
+        let document = render_comparison(&world_a, path_a, &world_b, path_b);
+        fs::write(&html_path, &document)
+            .map_err(|error| format!("failed to write {html_path}: {error}"))?;
+        return Ok(format!("wrote comparison: {html_path} ({} bytes)\n", document.len()));
+    }
+
     let diff = WorldDiff::compute(&world_a, &world_b);
     if json { Ok(diff.to_json(path_a, path_b)) } else { Ok(diff.to_text(path_a, path_b)) }
 }

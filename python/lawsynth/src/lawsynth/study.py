@@ -27,6 +27,11 @@ from .trajectory import TrajectoryData
 __all__ = ["Study", "DiscoveryResult", "Explanation", "Law", "Forecast", "enable_rich_display"]
 
 
+def _default_source_name(kind: str, resource: str) -> str:
+    stem = Path(resource).stem or resource
+    return f"{kind}:{stem}"
+
+
 # --------------------------------------------------------------------------- #
 # Equation understanding — parse native expressions into readable, ranked laws #
 # --------------------------------------------------------------------------- #
@@ -563,6 +568,42 @@ class Study:
             raise ValidationError("CSV contains a header but no data rows")
         dataset = Dataset.from_columns(times, columns)
         return cls(dataset, state, name=name or source.stem)
+
+    @classmethod
+    def from_source(
+        cls,
+        kind: str,
+        resource: str,
+        *,
+        time: str,
+        state: Sequence[str],
+        options: Mapping[str, object] | None = None,
+        credentials: object = None,
+        name: str | None = None,
+    ) -> "Study":
+        """Ingest observations from any registered connector into a study.
+
+        Bridges the ``lawsynth_connectors`` library through
+        :func:`lawsynth.load_source`: it creates the named connector, reads a
+        ``time``/``state`` projection in bounded batches, coerces the raw
+        records into finite floats, and binds the resulting validated dataset
+        to a study ready to :meth:`discover`. Example::
+
+            Study.from_source("filesystem", "obs.csv", time="t", state=["x", "y"],
+                              options={"root": "."}).discover().explain()
+        """
+        from .sources import load_source
+
+        states = list(state)
+        dataset = load_source(
+            kind,
+            resource,
+            time=time,
+            state=states,
+            options=options,
+            credentials=credentials,
+        )
+        return cls(dataset, states, name=name or _default_source_name(kind, resource))
 
     # -- workflow ----------------------------------------------------------- #
 

@@ -7,10 +7,14 @@ use lawsynth_sim::Trajectory;
 use lawsynth_world::{VariableRole, World};
 
 use crate::render::{format_number, render_continuous_law};
-use crate::svg::{line_chart, phase_portrait, series_color};
+use crate::svg::{
+    FitSeries, fit_overlay_chart, line_chart, phase_portrait, regime_timeline, residual_strip,
+    series_color, uncertainty_band_chart,
+};
+use crate::{ReportObservations, ReportOptions, UncertaintyBand};
 
 /// Escapes text for safe inclusion in HTML element content or attributes.
-pub fn escape(text: &str) -> String {
+pub(crate) fn escape(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
@@ -35,7 +39,12 @@ fn role_name(role: VariableRole) -> &'static str {
 }
 
 /// Assembles the complete standalone HTML document.
-pub fn page(title: &str, world: &World, trajectory: &Trajectory) -> String {
+pub fn page(
+    title: &str,
+    world: &World,
+    trajectory: &Trajectory,
+    options: &ReportOptions,
+) -> String {
     let mut body = String::new();
     let total_complexity: usize =
         world.laws().values().map(|law| complexity(&law.expression)).sum();
@@ -52,9 +61,163 @@ pub fn page(title: &str, world: &World, trajectory: &Trajectory) -> String {
     variables_section(&mut body, world);
     parameters_section(&mut body, world);
     trajectory_section(&mut body, world, trajectory);
+    if let Some(observations) = &options.observations {
+        fit_section(&mut body, world, trajectory, observations);
+    }
+    if let Some(regimes) = &options.regimes {
+        regime_section(&mut body, regimes);
+    }
+    if let Some(bands) = &options.uncertainty {
+        uncertainty_section(&mut body, bands);
+    }
     phase_section(&mut body, world, trajectory);
 
     document(title, &body)
+}
+
+/// Linearly interpolates `(source_times, source_values)` onto `query_times`.
+///
+/// Both series are strictly increasing; out-of-range queries clamp to the
+/// nearest endpoint. Empty sources yield NaN so downstream rendering skips them.
+fn interpolate_onto(source_times: &[f64], source_values: &[f64], query_times: &[f64]) -> Vec<f64> {
+    if source_times.is_empty() {
+        return vec![f64::NAN; query_times.len()];
+    }
+    let last = source_times.len() - 1;
+    let mut cursor = 0;
+    query_times
+        .iter()
+        .map(|&query| {
+            while cursor + 1 < source_times.len() && source_times[cursor + 1] < query {
+                cursor += 1;
+            }
+            if query <= source_times[0] {
+                return source_values[0];
+            }
+            if query >= source_times[last] {
+                return source_values[last];
+            }
+            let left = cursor;
+            let right = (cursor + 1).min(last);
+            let span = source_times[right] - source_times[left];
+            if span <= 0.0 {
+                return source_values[left];
+            }
+            let fraction = (query - source_times[left]) / span;
+            source_values[left] + fraction * (source_values[right] - source_values[left])
+        })
+        .collect()
+}
+
+/// Fit overlay (simulated vs observed) and residual strip for observed states.
+fn fit_section(
+    body: &mut String,
+    world: &World,
+    trajectory: &Trajectory,
+    observations: &ReportObservations,
+) {
+    let mut fit_series: Vec<FitSeries> = Vec::new();
+    let mut residuals: Vec<(String, Vec<f64>)> = Vec::new();
+    for state in world.state_ids() {
+        let (Some(simulated), Some(observed)) =
+            (trajectory.values.get(state), observations.columns.get(state))
+        else {
+            continue;
+        };
+        // Residual = simulated (interpolated onto observation times) - observed.
+        let predicted = interpolate_onto(&trajectory.time, simulated, &observations.time);
+        let residual: Vec<f64> = predicted
+            .iter()
+            .zip(observed.iter())
+            .map(|(prediction, actual)| prediction - actual)
+            .collect();
+        fit_series.push(FitSeries {
+            label: state.as_str().to_owned(),
+            observed: observed.clone(),
+            simulated: simulated.clone(),
+        });
+        residuals.push((state.as_str().to_owned(), residual));
+    }
+    if fit_series.is_empty() {
+        return;
+    }
+    // Aggregate RMSE across all overlaid states.
+    let (mut sum_squared, mut count) = (0.0, 0usize);
+    for (_, residual) in &residuals {
+        for value in residual {
+            if value.is_finite() {
+                sum_squared += value * value;
+                count += 1;
+            }
+        }
+    }
+    let rmse = if count > 0 { (sum_squared / count as f64).sqrt() } else { f64::NAN };
+
+    body.push_str("  <section>\n    <h2>Fit vs observations</h2>\n");
+    let _ = writeln!(
+        body,
+        "    <p class=\"muted\">Simulated trajectory (solid) over observed samples (markers) for {} state(s); aggregate RMSE {}.</p>",
+        fit_series.len(),
+        format_number(rmse)
+    );
+    body.push_str("    <div class=\"chart\">\n");
+    body.push_str(&fit_overlay_chart(
+        &trajectory.time,
+        &observations.time,
+        &fit_series,
+        720.0,
+        340.0,
+    ));
+    body.push_str("    </div>\n");
+    body.push_str("    <p class=\"muted\">Residuals (simulated &minus; observed); stems above the line overpredict, below underpredict.</p>\n");
+    body.push_str("    <div class=\"chart\">\n");
+    body.push_str(&residual_strip(&observations.time, &residuals, 720.0, 170.0));
+    body.push_str("    </div>\n  </section>\n");
+}
+
+/// Regime timeline for a discovery that carries a segmentation.
+fn regime_section(body: &mut String, regimes: &[crate::RegimeSpan]) {
+    if regimes.is_empty() {
+        return;
+    }
+    let total = regimes.iter().map(|span| span.end).max().unwrap_or(0);
+    body.push_str("  <section>\n    <h2>Regime timeline</h2>\n");
+    let _ = writeln!(
+        body,
+        "    <p class=\"muted\">{} regime(s) detected across {} sample(s); vertical ticks mark change points.</p>",
+        regimes.len(),
+        total
+    );
+    body.push_str("    <div class=\"chart\">\n");
+    body.push_str(&regime_timeline(regimes, total, 720.0, 110.0));
+    body.push_str("    </div>\n  </section>\n");
+}
+
+/// Per-state uncertainty bands for a discovery that carries an envelope.
+fn uncertainty_section(body: &mut String, bands: &[UncertaintyBand]) {
+    let bands: Vec<&UncertaintyBand> = bands.iter().filter(|band| band.time.len() >= 2).collect();
+    if bands.is_empty() {
+        return;
+    }
+    body.push_str("  <section>\n    <h2>Uncertainty bands</h2>\n");
+    body.push_str(
+        "    <p class=\"muted\">Median trajectory with its uncertainty envelope per state.</p>\n",
+    );
+    for band in bands {
+        let _ = writeln!(body, "    <h3 class=\"mono\">{}</h3>", escape(band.state.as_str()));
+        body.push_str("    <div class=\"chart\">\n");
+        body.push_str(&uncertainty_band_chart(
+            &band.time,
+            &band.lower,
+            &band.median,
+            &band.upper,
+            band.state.as_str(),
+            720.0,
+            300.0,
+        ));
+        body.push_str("    </div>\n");
+    }
+    body.push_str("  </section>\n");
 }
 
 fn laws_section(body: &mut String, world: &World) {
@@ -156,7 +319,7 @@ fn phase_section(body: &mut String, world: &World, trajectory: &Trajectory) {
     body.push_str("    </div>\n  </section>\n");
 }
 
-fn document(title: &str, body: &str) -> String {
+pub(crate) fn document(title: &str, body: &str) -> String {
     format!(
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n<title>{}</title>\n<style>\n{}\n</style>\n</head>\n<body>\n<main>\n{}</main>\n</body>\n</html>\n",
         escape(title),
@@ -165,13 +328,14 @@ fn document(title: &str, body: &str) -> String {
     )
 }
 
-const STYLE: &str = "* { box-sizing: border-box; }
+pub(crate) const STYLE: &str = "* { box-sizing: border-box; }
 body { margin: 0; background: #f1f5f9; color: #0f172a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
 main { max-width: 820px; margin: 0 auto; padding: 32px 20px 64px; }
 header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 8px; }
 h1 { font-size: 1.7rem; margin: 0 0 4px; }
 h2 { font-size: 1.15rem; margin: 0 0 12px; color: #1e293b; }
+h3 { font-size: 0.95rem; margin: 16px 0 6px; color: #334155; }
 .subtitle { margin: 0; color: #475569; font-size: 0.9rem; }
 section { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;
   padding: 20px 24px; margin-top: 20px; }
@@ -220,10 +384,42 @@ mod tests {
             time: vec![0.0, 1.0],
             values: [(id("x"), vec![1.0, 0.37])].into_iter().collect(),
         };
-        let html = page("Test", &world, &trajectory);
+        let html = page("Test", &world, &trajectory, &ReportOptions::default());
         assert!(html.starts_with("<!DOCTYPE html>"));
         assert!(html.contains("dx/dt = -x"));
         assert!(html.contains("<svg"));
         assert!(html.contains("</html>"));
+    }
+
+    #[test]
+    fn observations_render_a_fit_section() {
+        let world = World::new(
+            [Variable::new(id("x"), VariableRole::State)],
+            [Parameter::new(id("k"), 0.5)],
+            [ContinuousLaw::new(
+                id("x"),
+                Expr::product(Expr::constant(-1.0), Expr::symbol(id("x"))),
+            )],
+        )
+        .unwrap();
+        let trajectory = Trajectory {
+            time: vec![0.0, 1.0, 2.0],
+            values: [(id("x"), vec![1.0, 0.37, 0.14])].into_iter().collect(),
+        };
+        let options = ReportOptions {
+            observations: Some(ReportObservations {
+                time: vec![0.0, 1.0, 2.0],
+                columns: [(id("x"), vec![1.0, 0.40, 0.12])].into_iter().collect(),
+            }),
+            regimes: Some(vec![
+                crate::RegimeSpan { start: 0, end: 1, label: "0.5".to_owned() },
+                crate::RegimeSpan { start: 1, end: 3, label: "0.2".to_owned() },
+            ]),
+            ..ReportOptions::default()
+        };
+        let html = page("Fit", &world, &trajectory, &options);
+        assert!(html.contains("Fit vs observations"));
+        assert!(html.contains("Residuals"));
+        assert!(html.contains("Regime timeline"));
     }
 }

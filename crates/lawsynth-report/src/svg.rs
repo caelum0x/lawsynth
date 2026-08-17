@@ -166,6 +166,274 @@ pub fn phase_portrait(
     svg
 }
 
+/// One state's observed samples and the simulated trajectory to compare against.
+///
+/// `observed` is aligned to the `obs_time` axis and `simulated` to the
+/// `sim_time` axis passed to [`fit_overlay_chart`]; the two axes need not match.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FitSeries {
+    /// State label shown in the legend.
+    pub label: String,
+    /// Observed samples aligned to the observation time axis.
+    pub observed: Vec<f64>,
+    /// Simulated samples aligned to the simulation time axis.
+    pub simulated: Vec<f64>,
+}
+
+/// Overlays simulated trajectories (solid lines) on observed samples (markers).
+///
+/// This is the "how well does the model fit?" view: each state's simulated line
+/// is drawn over its observed scatter so systematic bias is visible at a glance.
+pub fn fit_overlay_chart(
+    sim_time: &[f64],
+    obs_time: &[f64],
+    series: &[FitSeries],
+    width: f64,
+    height: f64,
+) -> String {
+    let frame = Frame::new(width, height);
+    let x_bounds = Bounds::of(sim_time.iter().chain(obs_time.iter()).copied());
+    let y_bounds = Bounds::of(
+        series
+            .iter()
+            .flat_map(|entry| entry.simulated.iter().chain(entry.observed.iter()).copied()),
+    );
+
+    let mut svg = String::new();
+    open_svg(&mut svg, width, height);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+
+    for (index, entry) in series.iter().enumerate() {
+        let color = series_color(index);
+        // Simulated trajectory as a solid line.
+        let mut points = String::new();
+        for (position, value) in entry.simulated.iter().enumerate() {
+            let time_value = sim_time.get(position).copied().unwrap_or(0.0);
+            if !value.is_finite() {
+                continue;
+            }
+            let x = frame.x(x_bounds.normalize(time_value));
+            let y = frame.y(y_bounds.normalize(*value));
+            if !points.is_empty() {
+                points.push(' ');
+            }
+            let _ = write!(points, "{x:.2},{y:.2}");
+        }
+        let _ = writeln!(
+            svg,
+            "  <polyline fill=\"none\" stroke=\"{color}\" stroke-width=\"1.8\" points=\"{points}\" />"
+        );
+        // Observed samples as small hollow markers.
+        for (position, value) in entry.observed.iter().enumerate() {
+            let time_value = obs_time.get(position).copied().unwrap_or(0.0);
+            if !value.is_finite() {
+                continue;
+            }
+            let x = frame.x(x_bounds.normalize(time_value));
+            let y = frame.y(y_bounds.normalize(*value));
+            let _ = writeln!(
+                svg,
+                "  <circle cx=\"{x:.2}\" cy=\"{y:.2}\" r=\"2.1\" fill=\"#ffffff\" stroke=\"{color}\" stroke-width=\"1\" />"
+            );
+        }
+        legend_swatch(&mut svg, &frame, index, &entry.label, color);
+    }
+
+    axis_label(&mut svg, &frame, "time");
+    svg.push_str("</svg>\n");
+    svg
+}
+
+/// Renders a residual strip: per-state `simulated - observed` against a zero line.
+///
+/// Residuals are drawn as vertical stems from the zero baseline, so both the
+/// magnitude and the sign of the misfit are legible.
+pub fn residual_strip(
+    obs_time: &[f64],
+    residuals: &[(String, Vec<f64>)],
+    width: f64,
+    height: f64,
+) -> String {
+    let frame = Frame::new(width, height);
+    let x_bounds = Bounds::of(obs_time.iter().copied());
+    // Symmetric y bounds centred on zero so the baseline sits in the middle.
+    let extent = residuals
+        .iter()
+        .flat_map(|(_, values)| values.iter().copied())
+        .filter(|value| value.is_finite())
+        .fold(0.0_f64, |acc, value| acc.max(value.abs()));
+    let extent = if extent > 0.0 { extent } else { 1.0 };
+    let y_bounds = Bounds { min: -extent, max: extent };
+
+    let mut svg = String::new();
+    open_svg(&mut svg, width, height);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+
+    // Emphasised zero baseline.
+    let zero_y = frame.y(y_bounds.normalize(0.0));
+    let _ = writeln!(
+        svg,
+        "  <line x1=\"{:.1}\" y1=\"{zero_y:.1}\" x2=\"{:.1}\" y2=\"{zero_y:.1}\" stroke=\"#94a3b8\" stroke-width=\"1.2\" />",
+        frame.x(0.0),
+        frame.x(1.0)
+    );
+
+    for (index, (label, values)) in residuals.iter().enumerate() {
+        let color = series_color(index);
+        for (position, value) in values.iter().enumerate() {
+            let time_value = obs_time.get(position).copied().unwrap_or(0.0);
+            if !value.is_finite() {
+                continue;
+            }
+            let x = frame.x(x_bounds.normalize(time_value));
+            let y = frame.y(y_bounds.normalize(*value));
+            let _ = writeln!(
+                svg,
+                "  <line x1=\"{x:.2}\" y1=\"{zero_y:.2}\" x2=\"{x:.2}\" y2=\"{y:.2}\" stroke=\"{color}\" stroke-width=\"1.1\" />"
+            );
+        }
+        legend_swatch(&mut svg, &frame, index, &format!("{label} residual"), color);
+    }
+
+    axis_label(&mut svg, &frame, "time");
+    svg.push_str("</svg>\n");
+    svg
+}
+
+/// A contiguous regime span over sample indices `[start, end)`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RegimeSpan {
+    /// Inclusive start sample index.
+    pub start: usize,
+    /// Exclusive end sample index.
+    pub end: usize,
+    /// Human-readable label for the regime (e.g. its mean level).
+    pub label: String,
+}
+
+/// Renders a horizontal regime timeline coloured by segment, with change-point ticks.
+///
+/// `total` is the number of samples the spans partition; empty input yields an
+/// empty (but still self-contained) SVG so callers can degrade gracefully.
+pub fn regime_timeline(spans: &[RegimeSpan], total: usize, width: f64, height: f64) -> String {
+    let frame = Frame::new(width, height);
+    let mut svg = String::new();
+    open_svg(&mut svg, width, height);
+    if spans.is_empty() || total == 0 {
+        svg.push_str("</svg>\n");
+        return svg;
+    }
+    let bar_top = frame.top + 6.0;
+    let bar_height = (frame.plot_height() - 24.0).max(18.0);
+    let span = |index: usize| frame.left + (index as f64 / total as f64) * frame.plot_width();
+
+    for (order, regime) in spans.iter().enumerate() {
+        let x0 = span(regime.start);
+        let x1 = span(regime.end.min(total));
+        let color = series_color(order);
+        let _ = writeln!(
+            svg,
+            "  <rect x=\"{x0:.2}\" y=\"{bar_top:.2}\" width=\"{:.2}\" height=\"{bar_height:.2}\" fill=\"{color}\" fill-opacity=\"0.55\" stroke=\"{color}\" stroke-width=\"1\" />",
+            (x1 - x0).max(0.0)
+        );
+        let _ = writeln!(
+            svg,
+            "  <text x=\"{:.2}\" y=\"{:.2}\" font-size=\"10\" text-anchor=\"middle\" fill=\"#0f172a\">{}</text>",
+            (x0 + x1) / 2.0,
+            bar_top + bar_height / 2.0 + 3.0,
+            escape_text(&regime.label)
+        );
+        // Change-point tick + sample index at each internal boundary.
+        if order + 1 < spans.len() {
+            let _ = writeln!(
+                svg,
+                "  <line x1=\"{x1:.2}\" y1=\"{:.2}\" x2=\"{x1:.2}\" y2=\"{:.2}\" stroke=\"#0f172a\" stroke-width=\"1.2\" />",
+                bar_top - 4.0,
+                bar_top + bar_height + 4.0
+            );
+            let _ = writeln!(
+                svg,
+                "  <text x=\"{x1:.2}\" y=\"{:.2}\" font-size=\"9\" text-anchor=\"middle\" fill=\"#475569\">t={}</text>",
+                bar_top + bar_height + 16.0,
+                regime.end
+            );
+        }
+    }
+    svg.push_str("</svg>\n");
+    svg
+}
+
+/// Renders an uncertainty band: a filled polygon between `lower` and `upper`
+/// with the `median` drawn as a line on top.
+///
+/// All three series share the `time` axis. Mismatched or empty inputs yield a
+/// self-contained (possibly empty) SVG rather than panicking.
+pub fn uncertainty_band_chart(
+    time: &[f64],
+    lower: &[f64],
+    median: &[f64],
+    upper: &[f64],
+    label: &str,
+    width: f64,
+    height: f64,
+) -> String {
+    let frame = Frame::new(width, height);
+    let x_bounds = Bounds::of(time.iter().copied());
+    let y_bounds = Bounds::of(lower.iter().chain(median.iter()).chain(upper.iter()).copied());
+
+    let mut svg = String::new();
+    open_svg(&mut svg, width, height);
+    axes(&mut svg, &frame, &x_bounds, &y_bounds);
+
+    let count = time.len().min(lower.len()).min(upper.len());
+    if count >= 2 {
+        // Band polygon: upper edge left-to-right, then lower edge right-to-left.
+        let mut polygon = String::new();
+        for position in 0..count {
+            let x = frame.x(x_bounds.normalize(time[position]));
+            let y = frame.y(y_bounds.normalize(upper[position]));
+            if !polygon.is_empty() {
+                polygon.push(' ');
+            }
+            let _ = write!(polygon, "{x:.2},{y:.2}");
+        }
+        for position in (0..count).rev() {
+            let x = frame.x(x_bounds.normalize(time[position]));
+            let y = frame.y(y_bounds.normalize(lower[position]));
+            let _ = write!(polygon, " {x:.2},{y:.2}");
+        }
+        let color = series_color(0);
+        let _ = writeln!(
+            svg,
+            "  <polygon fill=\"{color}\" fill-opacity=\"0.18\" stroke=\"none\" points=\"{polygon}\" />"
+        );
+    }
+    // Median line.
+    let mut points = String::new();
+    for (position, value) in median.iter().enumerate() {
+        let time_value = time.get(position).copied().unwrap_or(0.0);
+        if !value.is_finite() {
+            continue;
+        }
+        let x = frame.x(x_bounds.normalize(time_value));
+        let y = frame.y(y_bounds.normalize(*value));
+        if !points.is_empty() {
+            points.push(' ');
+        }
+        let _ = write!(points, "{x:.2},{y:.2}");
+    }
+    let _ = writeln!(
+        svg,
+        "  <polyline fill=\"none\" stroke=\"{}\" stroke-width=\"1.8\" points=\"{points}\" />",
+        series_color(0)
+    );
+    legend_swatch(&mut svg, &frame, 0, label, series_color(0));
+
+    axis_label(&mut svg, &frame, "time");
+    svg.push_str("</svg>\n");
+    svg
+}
+
 fn open_svg(svg: &mut String, width: f64, height: f64) {
     let _ = writeln!(
         svg,
@@ -298,6 +566,64 @@ mod tests {
     #[test]
     fn flat_series_still_renders() {
         let svg = line_chart(&[0.0, 1.0], &[("c".to_owned(), vec![3.0, 3.0])], 320.0, 200.0);
+        assert!(svg.contains("polyline"));
+    }
+
+    #[test]
+    fn fit_overlay_draws_line_and_markers() {
+        let series = vec![FitSeries {
+            label: "x".to_owned(),
+            observed: vec![1.0, 0.6, 0.4],
+            simulated: vec![1.0, 0.5, 0.25, 0.12],
+        }];
+        let svg = fit_overlay_chart(&[0.0, 1.0, 2.0, 3.0], &[0.0, 1.0, 2.0], &series, 640.0, 320.0);
+        assert!(svg.starts_with("<svg"));
+        assert!(svg.contains("polyline"));
+        assert!(svg.contains("<circle"));
+    }
+
+    #[test]
+    fn residual_strip_has_zero_baseline_and_stems() {
+        let svg = residual_strip(
+            &[0.0, 1.0, 2.0],
+            &[("x".to_owned(), vec![0.1, -0.2, 0.05])],
+            640.0,
+            160.0,
+        );
+        assert!(svg.contains("<line"));
+        assert!(svg.contains("residual"));
+    }
+
+    #[test]
+    fn regime_timeline_renders_segments_and_change_points() {
+        let spans = vec![
+            RegimeSpan { start: 0, end: 4, label: "0.5".to_owned() },
+            RegimeSpan { start: 4, end: 10, label: "1.5".to_owned() },
+        ];
+        let svg = regime_timeline(&spans, 10, 720.0, 90.0);
+        assert!(svg.contains("<rect"));
+        assert!(svg.contains("t=4"));
+    }
+
+    #[test]
+    fn empty_regime_timeline_degrades_gracefully() {
+        let svg = regime_timeline(&[], 0, 720.0, 90.0);
+        assert!(svg.starts_with("<svg"));
+        assert!(svg.trim_end().ends_with("</svg>"));
+    }
+
+    #[test]
+    fn uncertainty_band_draws_polygon_and_median() {
+        let svg = uncertainty_band_chart(
+            &[0.0, 1.0, 2.0],
+            &[0.8, 0.4, 0.2],
+            &[1.0, 0.5, 0.25],
+            &[1.2, 0.6, 0.3],
+            "x",
+            640.0,
+            320.0,
+        );
+        assert!(svg.contains("<polygon"));
         assert!(svg.contains("polyline"));
     }
 }

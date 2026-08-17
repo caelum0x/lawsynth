@@ -42,7 +42,10 @@ export function buildPlot(lines: readonly PlotLine[], width: number, height: num
   const xDomain = padDomain(extent(xs.length === 0 ? [0, 1] : xs));
   const yDomain = padDomain(extent(ys.length === 0 ? [0, 1] : ys), 0.08);
   const toX = createScale(xDomain, { min: padding, max: width - padding });
-  const toY = createScale(yDomain, { min: height - padding, max: padding });
+  // `createScale` requires an ascending pixel range; SVG y grows downward, so we
+  // build an ascending scale and mirror it to place larger values near the top.
+  const yScale = createScale(yDomain, { min: padding, max: height - padding });
+  const toY = (value: number): number => height - yScale(value);
   const paths: SvgPath[] = lines.map((line) => ({
     id: line.id,
     label: line.label,

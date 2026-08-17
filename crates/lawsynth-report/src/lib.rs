@@ -20,6 +20,38 @@ pub use render::{
     format_number, python_number, render_continuous_law, render_discrete_law, render_expression,
     render_latex_expression, render_latex_law, render_python_expression,
 };
+pub use svg::RegimeSpan;
+
+mod comparison;
+pub use comparison::render_comparison;
+
+/// Observed samples overlaid on a report to show fit quality.
+///
+/// Each column is aligned to the shared [`time`](Self::time) axis and keyed by
+/// the state identifier it measures. When present, the report renders a fit
+/// overlay (simulated vs observed) and a residual strip.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ReportObservations {
+    /// Observation timestamps shared by every column.
+    pub time: Vec<f64>,
+    /// Observed samples keyed by state identifier.
+    pub columns: BTreeMap<Identifier, Vec<f64>>,
+}
+
+/// A per-state uncertainty envelope rendered as a band + median line.
+#[derive(Clone, Debug, PartialEq)]
+pub struct UncertaintyBand {
+    /// State the band describes.
+    pub state: Identifier,
+    /// Shared time axis for all three envelopes.
+    pub time: Vec<f64>,
+    /// Lower envelope.
+    pub lower: Vec<f64>,
+    /// Median trajectory.
+    pub median: Vec<f64>,
+    /// Upper envelope.
+    pub upper: Vec<f64>,
+}
 
 /// Rendering and simulation options for a world report.
 #[derive(Clone, Debug, PartialEq)]
@@ -36,6 +68,12 @@ pub struct ReportOptions {
     pub default_initial: f64,
     /// Per-state initial-value overrides.
     pub initial_overrides: BTreeMap<Identifier, f64>,
+    /// Optional observed data overlaid to show fit quality (residual view).
+    pub observations: Option<ReportObservations>,
+    /// Optional discovered regime spans rendered as a timeline.
+    pub regimes: Option<Vec<RegimeSpan>>,
+    /// Optional per-state uncertainty bands.
+    pub uncertainty: Option<Vec<UncertaintyBand>>,
 }
 
 impl Default for ReportOptions {
@@ -47,6 +85,9 @@ impl Default for ReportOptions {
             step: 0.1,
             default_initial: 1.0,
             initial_overrides: BTreeMap::new(),
+            observations: None,
+            regimes: None,
+            uncertainty: None,
         }
     }
 }
@@ -90,7 +131,7 @@ pub fn simulate_default(world: &World, options: &ReportOptions) -> Result<Trajec
 /// Renders a complete standalone HTML report for a world.
 pub fn render_report(world: &World, options: &ReportOptions) -> Result<String, ReportError> {
     let trajectory = simulate_default(world, options)?;
-    Ok(html::page(&options.title, world, &trajectory))
+    Ok(html::page(&options.title, world, &trajectory, options))
 }
 
 #[cfg(test)]

@@ -38,7 +38,11 @@ const STUDIO_CSS = `.lss{--ink:#18201d;--paper:#f3f0e8;--surface:#fffdf7;--line:
 .lss-scr-table{width:100%;border-collapse:collapse;font-size:13px}.lss-scr-table th,.lss-scr-table td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line)}.lss-scr-table th{font:600 10px/1 ui-monospace,monospace;text-transform:uppercase;color:#8a9089}.lss-scr-table .lss-end{text-align:right}.lss-scr-table tr.lss-selected{background:#efe7d8}.lss-scr-table tr.lss-emphasis td{font-weight:600}
 .lss-scr-chart,.lss-scr-timeline{width:100%;height:auto;border:1px solid var(--line);background:var(--surface)}
 .lss-scr-equations{display:flex;flex-direction:column;gap:10px}.lss-scr-equation{border:1px solid var(--line);background:var(--surface);padding:10px 12px}.lss-scr-equation.lss-selected{border-color:var(--accent);border-left-width:4px}.lss-scr-equation.lss-disabled{opacity:.55}.lss-scr-equation-head{display:block;width:100%;text-align:left;border:0;background:transparent;font:600 12px/1.2 ui-monospace,monospace;color:#59635e;cursor:pointer;padding:0 0 6px}.lss-scr-equation-text{display:block;font:15px/1.4 ui-monospace,monospace}.lss-scr-terms{margin:10px 0 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:6px}.lss-scr-terms li{display:flex;gap:8px;align-items:baseline;font-size:13px}.lss-scr-term-sign{font-weight:700;color:var(--accent)}.lss-scr-term-symbols{color:#8a9089;font-size:11px}
-.lss-scr-notice{padding:10px 12px;border-left:4px solid var(--accent);background:var(--surface);margin:0 0 8px}.lss-tone-warning{border-color:#c58a1e}.lss-tone-error{border-color:#b32d2d}.lss-tone-success{border-color:#2f7d43}.lss-tone-info{border-color:#3768a6}.lss-scr-empty{color:#8a9089;font-style:italic}`;
+.lss-scr-notice{padding:10px 12px;border-left:4px solid var(--accent);background:var(--surface);margin:0 0 8px}.lss-tone-warning{border-color:#c58a1e}.lss-tone-error{border-color:#b32d2d}.lss-tone-success{border-color:#2f7d43}.lss-tone-info{border-color:#3768a6}.lss-scr-empty{color:#8a9089;font-style:italic}
+.lss-nav-screen{display:flex!important;flex-direction:column;gap:2px;align-items:flex-start;min-height:auto!important;padding:8px 10px!important;margin-bottom:2px}.lss-nav-screen-title{font-weight:600}.lss-nav-screen-sub{font:400 11px/1.3 Inter,system-ui,sans-serif;color:#8a9089;white-space:normal}.lss-nav button[aria-current=page] .lss-nav-screen-sub{color:#c8c6ba}
+.lss-card-link{cursor:pointer;text-align:left;font:inherit;color:inherit}.lss-card-link:hover{border-color:var(--accent)}.lss-card-link:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.lss-scr-graph{width:100%;height:auto;border:1px solid var(--line);background:var(--surface)}.lss-scr-graph-node:focus-visible{outline:none}.lss-scr-graph-node:focus-visible rect{stroke:var(--accent);stroke-width:2.5}
+.lss-scr-codes{display:flex;flex-direction:column;gap:14px}.lss-scr-code{border:1px solid var(--line);background:var(--surface)}.lss-scr-code-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line)}.lss-scr-code-label{font:600 11px/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em;color:#59635e}.lss-scr-copy{min-height:28px!important;padding:4px 12px!important;font-size:12px!important}.lss-scr-code-body{margin:0;padding:12px;overflow:auto;font:12px/1.5 ui-monospace,monospace;max-height:320px}.lss-scr-code-caption{margin:0;padding:0 12px 10px;color:#8a9089;font-size:11px}`;
 
 export class StudioApp extends EventTarget {
   readonly router: StudioRouter;
@@ -148,7 +152,8 @@ export class StudioApp extends EventTarget {
     const projectId = this.#workspace?.snapshot.projectId ?? "demo";
     nav.append(node(document, "div", "lss-nav-label", "Screens"));
     for (const descriptor of SCREEN_REGISTRY) {
-      const button = node(document, "button", undefined, descriptor.title); button.type = "button";
+      const button = node(document, "button", "lss-nav-screen"); button.type = "button"; button.title = descriptor.subtitle;
+      button.append(node(document, "span", "lss-nav-screen-title", descriptor.title), node(document, "span", "lss-nav-screen-sub", descriptor.subtitle));
       if (current.name === "screen" && current.screen === descriptor.id) button.setAttribute("aria-current", "page");
       button.addEventListener("click", () => this.navigate({ name: "screen", projectId, screen: descriptor.id })); nav.append(button);
     }
@@ -180,7 +185,16 @@ export class StudioApp extends EventTarget {
     const title = route.name === "home" ? "Model systems, not screenshots" : route.name === "settings" ? "Studio settings" : route.name === "project" ? this.#workspace?.snapshot.resources?.project.name ?? "Workspace" : route.name[0]!.toUpperCase() + route.name.slice(1);
     main.append(node(document, "h1", undefined, title));
     if (route.name === "home") {
-      main.append(node(document, "p", undefined, "Open a project to inspect datasets, launch discovery, compare candidate laws, and audit simulation evidence."));
+      main.append(node(document, "p", undefined, "Open a project to inspect datasets, launch discovery, compare candidate laws, and audit simulation evidence. Every screen below operates on the same shared World IR and selection."));
+      const projectId = this.#workspace?.snapshot.projectId ?? "demo";
+      const grid = node(document, "div", "lss-grid");
+      for (const descriptor of SCREEN_REGISTRY) {
+        const card = node(document, "button", "lss-card lss-card-link"); card.type = "button";
+        card.append(node(document, "strong", undefined, descriptor.title), node(document, "div", undefined, descriptor.subtitle));
+        card.addEventListener("click", () => this.navigate({ name: "screen", projectId, screen: descriptor.id }));
+        grid.append(card);
+      }
+      main.append(grid);
     } else if (route.name === "settings") {
       const grid = node(document, "div", "lss-grid");
       grid.append(this.#card(document, "API endpoint", this.#settings.apiBaseUrl), this.#card(document, "Theme", this.#settings.theme), this.#card(document, "Autosave", `${this.#settings.autosaveMs} ms`), this.#card(document, "Telemetry", this.#settings.telemetryEnabled ? "Enabled" : "Disabled")); main.append(grid);

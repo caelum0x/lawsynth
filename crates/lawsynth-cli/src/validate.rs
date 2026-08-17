@@ -9,12 +9,22 @@ use std::fmt::Write as _;
 
 use lawsynth_bundle::read_world;
 use lawsynth_core::Identifier;
+use lawsynth_data::Dataset;
 use lawsynth_report::format_number;
 use lawsynth_sim::{SimulationConfig, SimulationRequest, simulate};
+use lawsynth_world::World;
 
 use crate::read_numeric_dataset;
 
 const DEFAULT_HOLDOUT: f64 = 0.2;
+
+/// Reusable outcome of a holdout validation, shared with `pipeline`.
+pub(crate) struct ValidationSummary {
+    /// Human-readable trust verdict.
+    pub verdict: String,
+    /// Full multi-line report (as `lawsynth validate` prints).
+    pub report: String,
+}
 
 /// Help text for `lawsynth validate`.
 pub fn help() -> String {
@@ -51,18 +61,30 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
     let args = parse(arguments)?;
     let world = read_world(&args.bundle).map_err(|error| error.to_string())?;
     let dataset = read_numeric_dataset(&args.data, &args.time_column)?;
+    let summary = validate_dataset(&world, &dataset, args.holdout, &args.bundle, &args.data)?;
+    Ok(summary.report)
+}
 
+/// Runs a holdout validation of `world` against `dataset`, returning both the
+/// verdict and the full report. Shared by `lawsynth validate` and `pipeline`.
+pub(crate) fn validate_dataset(
+    world: &World,
+    dataset: &Dataset,
+    holdout: f64,
+    bundle_label: &str,
+    data_label: &str,
+) -> Result<ValidationSummary, String> {
     let times = dataset.time().values();
     let sample_count = times.len();
     if sample_count < 4 {
         return Err("need at least 4 observations to validate".to_owned());
     }
-    if !(0.05..=0.9).contains(&args.holdout) {
-        return Err("--holdout must be between 0.05 and 0.9".to_owned());
+    if !(0.05..=0.9).contains(&holdout) {
+        return Err("holdout must be between 0.05 and 0.9".to_owned());
     }
 
     // Split by time: train = [0, split), holdout = [split, n).
-    let split = ((sample_count as f64) * (1.0 - args.holdout)).floor() as usize;
+    let split = ((sample_count as f64) * (1.0 - holdout)).floor() as usize;
     let split = split.clamp(1, sample_count - 2);
     let holdout_len = sample_count - split;
 
@@ -73,7 +95,7 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
             return Err(format!(
                 "state '{}' has no matching column in {}",
                 state.as_str(),
-                args.data
+                data_label
             ));
         }
     }
@@ -88,7 +110,7 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
     let end = times[sample_count - 1];
     let step = holdout_step(times, split);
     let config = SimulationConfig::new(start, end, step).map_err(|error| error.to_string())?;
-    let trajectory = simulate(&world, config, &request).map_err(|error| error.to_string())?;
+    let trajectory = simulate(world, config, &request).map_err(|error| error.to_string())?;
 
     // Score each state by interpolating the simulated trajectory onto the
     // observed holdout timestamps.
@@ -102,7 +124,11 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
         scores.push(score_state(state.as_str(), &predicted, observed, origin));
     }
 
-    Ok(render_report(&args, start, split, holdout_len, args.holdout, &scores))
+    let mean_r2 = mean(&scores.iter().filter_map(|score| score.r_squared).collect::<Vec<_>>());
+    let mean_skill = mean(&scores.iter().filter_map(|score| score.skill).collect::<Vec<_>>());
+    let report =
+        render_report(bundle_label, data_label, start, split, holdout_len, holdout, &scores);
+    Ok(ValidationSummary { verdict: verdict(mean_r2, mean_skill), report })
 }
 
 fn parse(arguments: &[String]) -> Result<ValidateArgs, String> {
@@ -205,7 +231,8 @@ fn score_state(state: &str, predicted: &[f64], observed: &[f64], origin: f64) ->
 }
 
 fn render_report(
-    args: &ValidateArgs,
+    bundle_label: &str,
+    data_label: &str,
     start: f64,
     split: usize,
     holdout_len: usize,
@@ -213,7 +240,7 @@ fn render_report(
     scores: &[StateScore],
 ) -> String {
     let mut out = String::new();
-    let _ = writeln!(out, "Validation: {} on {}", args.bundle, args.data);
+    let _ = writeln!(out, "Validation: {bundle_label} on {data_label}");
     let _ = writeln!(
         out,
         "  split at t={} | train={} rows | holdout={} rows (fraction {:.2})",

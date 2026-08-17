@@ -10,9 +10,12 @@ import {
   type DiscoveryCanvasConfig,
   type DiscoverySolver,
 } from "./discovery-canvas.js";
+import { dataLensModel } from "./data-lens.js";
 import { equationExplorerModel } from "./equation-explorer.js";
+import { exportScreenModel } from "./export-screen.js";
 import { fixtureCandidates, fixtureWorld, FIXTURE_INITIAL_STATE } from "./fixtures.js";
 import { regimeTimelineModel } from "./regime-timeline.js";
+import { structureMapModel } from "./structure-map.js";
 import type { Notice, ScreenId, ScreenModel, ScreenSection } from "./types.js";
 import { uncertaintyLensModel } from "./uncertainty-lens.js";
 import { worldLabModel } from "./world-lab.js";
@@ -41,6 +44,8 @@ const SECTION_KIND: Readonly<Record<string, string>> = {
   "eq-list": "law",
   bands: "bandvar",
   timeline: "regime",
+  "structure-graph": "var",
+  "structure-laws": "law",
 };
 
 function num(raw: string, fallback: number): number {
@@ -130,6 +135,12 @@ export class ScreensController extends EventTarget {
 
   #buildModel(): ScreenModel {
     switch (this.#screen) {
+      case "data-lens":
+        return dataLensModel({
+          world: this.#world,
+          initialState: this.#trajectoryInitial(),
+          ...(this.#trajectory === undefined ? {} : { trajectory: this.#trajectory }),
+        });
       case "discovery-canvas":
         return discoveryCanvasModel({
           config: this.#discovery,
@@ -141,12 +152,23 @@ export class ScreensController extends EventTarget {
           ...(this.#runStatus === undefined ? {} : { runStatus: this.#runStatus }),
           progress: this.#runProgress,
         });
-      case "equation-explorer":
+      case "equation-explorer": {
+        // Focus follows a Structure Map node selection (shared store) or this
+        // screen's own dropdown, so selecting a variable there focuses it here.
+        const focus = this.#selected("var") ?? (this.#focusVariable === "" ? undefined : this.#focusVariable);
         return equationExplorerModel({
           world: this.#world,
           ...(this.#selected("law") === undefined ? {} : { selectedLawId: this.#selected("law")! }),
-          ...(this.#focusVariable === "" ? {} : { focusVariableId: this.#focusVariable }),
+          ...(focus === undefined || focus === "" ? {} : { focusVariableId: focus }),
         });
+      }
+      case "structure-map":
+        return structureMapModel({
+          world: this.#world,
+          ...(this.#selected("var") === undefined ? {} : { selectedVariableId: this.#selected("var")! }),
+        });
+      case "export-screen":
+        return exportScreenModel({ world: this.#world });
       case "regime-timeline":
         return regimeTimelineModel({
           world: this.#world,
@@ -186,6 +208,7 @@ export class ScreensController extends EventTarget {
       this.#focusVariable = raw;
       this.#emit();
     } else if (fieldId === "unc:variable") this.#selectEntity("bandvar", raw);
+    else if (fieldId === "structure:variable") this.#selectEntity("var", raw);
   }
 
   async onAction(actionId: string): Promise<void> {

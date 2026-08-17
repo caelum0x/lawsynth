@@ -46,6 +46,7 @@ dependencies = [
  "lawsynth-discovery",
  "lawsynth-expr",
  "lawsynth-profile",
+ "lawsynth-report",
  "lawsynth-sim",
  "lawsynth-stats",
  "lawsynth-symbolic",
@@ -125,6 +126,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-gateway"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-artifact-service",
+]
+
+[[package]]
 name = "lawsynth-opt"
 version = "0.1.0"
 
@@ -175,6 +183,16 @@ dependencies = [
 [[package]]
 name = "lawsynth-regime"
 version = "0.1.0"
+
+[[package]]
+name = "lawsynth-report"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-expr",
+ "lawsynth-sim",
+ "lawsynth-world",
+]
 
 [[package]]
 name = "lawsynth-runner"

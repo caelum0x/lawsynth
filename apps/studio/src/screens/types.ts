@@ -140,6 +140,48 @@ export interface BandOverlay {
   readonly color: string;
 }
 
+/** A positioned variable node in the coupling graph (Structure Map). */
+export interface GraphNodeView {
+  readonly id: string;
+  readonly label: string;
+  readonly sublabel?: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly color: string;
+  readonly selected: boolean;
+  readonly highlighted: boolean;
+}
+
+/** A directed coupling between two variable nodes, pre-routed to pixel space. */
+export interface GraphEdgeView {
+  readonly id: string;
+  readonly source: string;
+  readonly target: string;
+  readonly path: string;
+  readonly headX: number;
+  readonly headY: number;
+  readonly angle: number;
+  readonly highlighted: boolean;
+}
+
+export interface GraphView {
+  readonly nodes: readonly GraphNodeView[];
+  readonly edges: readonly GraphEdgeView[];
+  readonly width: number;
+  readonly height: number;
+}
+
+/** A copyable rendered artifact (Export Screen): equations, LaTeX, Python, JSON. */
+export interface CodeBlock {
+  readonly id: string;
+  readonly label: string;
+  readonly language: "latex" | "python" | "json" | "text";
+  readonly content: string;
+  readonly caption?: string;
+}
+
 export type ScreenSection =
   | { readonly kind: "notices"; readonly id: string; readonly notices: readonly Notice[] }
   | { readonly kind: "metrics"; readonly id: string; readonly title?: string; readonly metrics: readonly Metric[] }
@@ -162,7 +204,9 @@ export type ScreenSection =
       readonly bands?: readonly BandOverlay[];
     }
   | { readonly kind: "timeline"; readonly id: string; readonly title?: string; readonly timeline: TimelineView }
-  | { readonly kind: "equations"; readonly id: string; readonly title?: string; readonly equations: readonly EquationBlock[] };
+  | { readonly kind: "equations"; readonly id: string; readonly title?: string; readonly equations: readonly EquationBlock[] }
+  | { readonly kind: "graph"; readonly id: string; readonly title?: string; readonly graph: GraphView }
+  | { readonly kind: "code"; readonly id: string; readonly title?: string; readonly blocks: readonly CodeBlock[] };
 
 /** Interaction surface a renderer wires back into the screen controller. */
 export interface ScreenActions {

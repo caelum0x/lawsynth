@@ -8,6 +8,7 @@ from ._version import __version__
 from .config import DiscoveryConfig
 from .dataset import Dataset
 from .errors import LawSynthError, NativeError, ValidationError
+from .sources import SourceError, load_source
 
 
 def discover(
@@ -73,6 +74,7 @@ def __getattr__(name):
 
 __all__ = [
     "Dataset", "DiscoveryConfig", "LawSynthError", "NativeError", "ValidationError",
+    "SourceError", "load_source",
     "discover", "Scenario", "Trajectory", "World",
     "Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "__version__",
 ]

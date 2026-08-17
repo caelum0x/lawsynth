@@ -1,7 +1,9 @@
 import type { PlotGeometry } from "@lawsynth/world-viewer";
 import type {
   BandOverlay,
+  CodeBlock,
   ControlField,
+  GraphView,
   ScreenActions,
   ScreenModel,
   ScreenSection,
@@ -111,6 +113,71 @@ function renderTimeline(document: Document, view: TimelineView, sectionId: strin
   return root;
 }
 
+function renderGraph(document: Document, view: GraphView, sectionId: string, actions: ScreenActions): SVGElement {
+  const root = svg(document, "svg", { viewBox: `0 0 ${view.width} ${view.height}`, class: "lss-scr-graph", role: "img" });
+  for (const edge of view.edges) {
+    const stroke = edge.highlighted ? "#b54b2a" : "#9aa39d";
+    root.append(svg(document, "path", { d: edge.path, fill: "none", stroke, "stroke-width": edge.highlighted ? 2.2 : 1.4 }));
+    // Arrowhead as two short strokes rotated to the incoming edge angle.
+    const size = 7;
+    const back = edge.angle + Math.PI;
+    const spread = 0.42;
+    const ax = edge.headX + Math.cos(back - spread) * size;
+    const ay = edge.headY + Math.sin(back - spread) * size;
+    const bx = edge.headX + Math.cos(back + spread) * size;
+    const by = edge.headY + Math.sin(back + spread) * size;
+    root.append(svg(document, "path", { d: `M${ax.toFixed(2)},${ay.toFixed(2)} L${edge.headX.toFixed(2)},${edge.headY.toFixed(2)} L${bx.toFixed(2)},${by.toFixed(2)}`, fill: "none", stroke, "stroke-width": edge.highlighted ? 2.2 : 1.4 }));
+  }
+  for (const node of view.nodes) {
+    const group = svg(document, "g", { class: "lss-scr-graph-node", role: "button", tabindex: 0 });
+    group.style.cursor = "pointer";
+    const rect = svg(document, "rect", {
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height,
+      rx: 8,
+      fill: node.selected ? node.color : "#fffdf7",
+      stroke: node.selected || node.highlighted ? node.color : "#c8c6ba",
+      "stroke-width": node.selected ? 2.4 : node.highlighted ? 1.8 : 1,
+    });
+    group.append(rect);
+    const label = svg(document, "text", { x: node.x + node.width / 2, y: node.y + node.height / 2 - 2, "text-anchor": "middle", "font-size": 13, "font-weight": 600, fill: node.selected ? "#fffdf7" : "#18201d" });
+    label.textContent = node.label;
+    group.append(label);
+    if (node.sublabel !== undefined) {
+      const sub = svg(document, "text", { x: node.x + node.width / 2, y: node.y + node.height / 2 + 14, "text-anchor": "middle", "font-size": 10, fill: node.selected ? "#f3f0e8" : "#8a9089" });
+      sub.textContent = node.sublabel;
+      group.append(sub);
+    }
+    group.addEventListener("click", () => actions.onSelect(sectionId, node.id));
+    group.addEventListener("keydown", (event) => { if (event instanceof KeyboardEvent && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); actions.onSelect(sectionId, node.id); } });
+    root.append(group);
+  }
+  return root;
+}
+
+function renderCodeBlock(document: Document, block: CodeBlock): HTMLElement {
+  const article = el(document, "article", "lss-scr-code");
+  const head = el(document, "div", "lss-scr-code-head");
+  head.append(el(document, "span", "lss-scr-code-label", `${block.label} · ${block.language}`));
+  const copy = el(document, "button", "lss-scr-btn lss-scr-copy", "Copy");
+  copy.type = "button";
+  copy.addEventListener("click", () => {
+    const done = () => { copy.textContent = "Copied"; setTimeout(() => (copy.textContent = "Copy"), 1200); };
+    const clipboard = globalThis.navigator?.clipboard;
+    if (clipboard !== undefined) void clipboard.writeText(block.content).then(done).catch(() => (copy.textContent = "Copy failed"));
+    else copy.textContent = "Unavailable";
+  });
+  head.append(copy);
+  article.append(head);
+  const pre = el(document, "pre", "lss-scr-code-body");
+  pre.append(el(document, "code", undefined, block.content));
+  article.append(pre);
+  if (block.caption !== undefined) article.append(el(document, "p", "lss-scr-code-caption", block.caption));
+  return article;
+}
+
 function renderSection(document: Document, section: ScreenSection, actions: ScreenActions): HTMLElement {
   const container = el(document, "section", "lss-scr-section");
   const title = "title" in section ? section.title : undefined;
@@ -194,6 +261,15 @@ function renderSection(document: Document, section: ScreenSection, actions: Scre
         }
         list.append(article);
       }
+      container.append(list);
+      break;
+    }
+    case "graph":
+      container.append(renderGraph(document, section.graph, section.id, actions));
+      break;
+    case "code": {
+      const list = el(document, "div", "lss-scr-codes");
+      for (const block of section.blocks) list.append(renderCodeBlock(document, block));
       container.append(list);
       break;
     }
