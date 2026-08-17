@@ -1,7 +1,10 @@
 import type {
+  AddAnnotationOptions,
   CandidateSummary,
   ForecastRequest,
   LawSynthClient,
+  ProjectRole,
+  ReviewAction,
   RunStatus,
   RunSummary,
   WorldComparison,
@@ -20,6 +23,14 @@ import {
   type DiscoveryCanvasConfig,
   type DiscoverySolver,
 } from "./discovery-canvas.js";
+import {
+  ANNOTATION_TARGETS,
+  collaborationModel,
+  fixtureCollaboration,
+  PROJECT_ROLES,
+  type AnnotationTarget,
+  type CollaborationData,
+} from "./collaboration.js";
 import { dataLensModel } from "./data-lens.js";
 import { dataPrepModel, defaultDataPrepConfig, prepareDataset, type DataPrepConfig } from "./data-prep.js";
 import { equationExplorerModel } from "./equation-explorer.js";
@@ -138,6 +149,13 @@ export class ScreensController extends EventTarget {
   #simStatus: RunStatus | undefined;
   #simRunning = false;
   #lastError: string | undefined;
+  #collab: CollaborationData = { members: [], revisions: [], annotations: [], trusted: false };
+  #collabLoaded = false;
+  #collabAnnotationDraft = "";
+  #collabAnnotationTarget: AnnotationTarget = "world";
+  #collabAnnotationRef = "";
+  #collabMemberDraft = "";
+  #collabMemberRole: ProjectRole = "viewer";
 
   constructor(options: ScreensControllerOptions) {
     super();
@@ -204,6 +222,7 @@ export class ScreensController extends EventTarget {
   setScreen(screen: ScreenId): void {
     if (screen === this.#screen) return;
     this.#screen = screen;
+    if (screen === "collaboration" && !this.#collabLoaded) void this.#refreshCollaboration();
     this.#emit();
   }
 
@@ -280,6 +299,27 @@ export class ScreensController extends EventTarget {
         });
       case "export-screen":
         return exportScreenModel({ world: this.#world });
+      case "collaboration": {
+        const projectId = this.#store.state.workspace.projectId;
+        const worldId = this.#currentWorldId();
+        const selectedRevision = this.#collabSelectedRevision();
+        return collaborationModel({
+          ...(projectId === undefined ? {} : { projectId }),
+          ...(worldId === undefined ? {} : { worldId }),
+          actingRole: this.#collabRole(),
+          members: this.#collab.members,
+          revisions: this.#collab.revisions,
+          annotations: this.#collab.annotations,
+          trusted: this.#collab.trusted,
+          ...(selectedRevision === undefined ? {} : { selectedRevision }),
+          annotationDraft: this.#collabAnnotationDraft,
+          annotationTarget: this.#collabAnnotationTarget,
+          annotationRef: this.#collabAnnotationRef,
+          memberDraft: this.#collabMemberDraft,
+          memberRole: this.#collabMemberRole,
+          offline: this.#api === undefined,
+        });
+      }
       case "regime-timeline":
         return regimeTimelineModel({
           world: this.#world,
@@ -317,6 +357,9 @@ export class ScreensController extends EventTarget {
   }
 
   onSelect(sectionId: string, rowId: string): void {
+    // Collaboration selection coexists with the acting role in the shared store,
+    // so it preserves other namespaces rather than replacing the selection.
+    if (sectionId === "collab-revisions") { this.#putSelection("rev", rowId); return; }
     const kind = SECTION_KIND[sectionId];
     if (kind === undefined) return;
     this.#selectEntity(kind, rowId);
@@ -334,6 +377,12 @@ export class ScreensController extends EventTarget {
       this.#emit();
     } else if (fieldId === "unc:variable") this.#selectEntity("bandvar", raw);
     else if (fieldId === "structure:variable") this.#selectEntity("var", raw);
+    else if (fieldId === "collab:role") this.#putSelection("crole", (PROJECT_ROLES as readonly string[]).includes(raw) ? raw : "owner");
+    else if (fieldId === "collab:annotation-text") { this.#collabAnnotationDraft = raw; this.#emit(); }
+    else if (fieldId === "collab:annotation-target" && (ANNOTATION_TARGETS as readonly string[]).includes(raw)) { this.#collabAnnotationTarget = raw as AnnotationTarget; this.#emit(); }
+    else if (fieldId === "collab:annotation-ref") { this.#collabAnnotationRef = raw; this.#emit(); }
+    else if (fieldId === "collab:member-principal") { this.#collabMemberDraft = raw; this.#emit(); }
+    else if (fieldId === "collab:member-role" && (PROJECT_ROLES as readonly string[]).includes(raw)) { this.#collabMemberRole = raw as ProjectRole; this.#emit(); }
   }
 
   async onAction(actionId: string): Promise<void> {
@@ -370,6 +419,12 @@ export class ScreensController extends EventTarget {
       await this.forecastWorld({ horizon: this.#lab.horizon, step: this.#lab.step, initial: this.#trajectoryInitial() });
       return;
     }
+    if (actionId === "collab:refresh") { await this.#refreshCollaboration(); return; }
+    if (actionId === "collab:add-member") return this.#collabAddMember();
+    if (actionId === "collab:add-annotation") return this.#collabAddAnnotation();
+    if (actionId === "collab:request-review") return this.#collabReview("in_review");
+    if (actionId === "collab:approve") return this.#collabReview("approved");
+    if (actionId === "collab:reject") return this.#collabReview("rejected");
   }
 
   #trajectoryInitial(): Readonly<Record<string, number>> {
@@ -648,6 +703,121 @@ export class ScreensController extends EventTarget {
       this.#simRunning = false;
       this.#emit();
     }
+  }
+
+  // -- collaboration (P6) -------------------------------------------------- //
+
+  /**
+   * Load a shared project's membership and the active world's revision lineage +
+   * annotations through the api-client. Falls back to a seeded fixture offline so
+   * the screen is populated without a live service.
+   */
+  async #refreshCollaboration(): Promise<void> {
+    this.#collabLoaded = true;
+    const api = this.#api;
+    if (api === undefined) {
+      this.#collab = fixtureCollaboration();
+      this.#emit();
+      return;
+    }
+    const projectId = this.#store.state.workspace.projectId;
+    const worldId = this.#currentWorldId();
+    try {
+      const members = projectId === undefined ? [] : await api.collaboration.listMembers(projectId);
+      let data: CollaborationData = { members, revisions: [], annotations: [], trusted: false };
+      if (worldId !== undefined) {
+        const revisions = await api.collaboration.listRevisions(worldId);
+        const annotations = await api.collaboration.listAnnotations(worldId);
+        data = { members, revisions: revisions.items, annotations, trusted: revisions.trusted };
+      }
+      this.#collab = data;
+    } catch (error) {
+      this.#lastError = error instanceof Error ? error.message : "Failed to load collaboration.";
+    }
+    this.#emit();
+  }
+
+  async #collabReview(action: ReviewAction): Promise<void> {
+    const api = this.#api;
+    const worldId = this.#currentWorldId();
+    const number = this.#collabSelectedRevision();
+    if (api === undefined) { this.#lastError = "No collaboration backend configured for review."; this.#emit(); return; }
+    if (worldId === undefined || number === undefined) { this.#lastError = "Select a revision to review."; this.#emit(); return; }
+    try {
+      await api.collaboration.reviewRevision(worldId, number, action, this.#randomId());
+      await this.#refreshCollaboration();
+    } catch (error) {
+      this.#lastError = error instanceof Error ? error.message : "Review transition failed.";
+      this.#emit();
+    }
+  }
+
+  async #collabAddAnnotation(): Promise<void> {
+    const api = this.#api;
+    const worldId = this.#currentWorldId();
+    const text = this.#collabAnnotationDraft.trim();
+    if (api === undefined) { this.#lastError = "No collaboration backend configured for annotations."; this.#emit(); return; }
+    if (worldId === undefined || text === "") { this.#emit(); return; }
+    const target = this.#collabAnnotationTarget;
+    const ref = this.#collabAnnotationRef.trim();
+    const options: AddAnnotationOptions = target === "world"
+      ? {}
+      : target === "revision"
+        ? { target, ref: Number(ref) }
+        : { target, ref };
+    try {
+      await api.collaboration.addAnnotation(worldId, text, options, this.#randomId());
+      this.#collabAnnotationDraft = "";
+      this.#collabAnnotationRef = "";
+      await this.#refreshCollaboration();
+    } catch (error) {
+      this.#lastError = error instanceof Error ? error.message : "Annotation failed.";
+      this.#emit();
+    }
+  }
+
+  async #collabAddMember(): Promise<void> {
+    const api = this.#api;
+    const projectId = this.#store.state.workspace.projectId;
+    const principal = this.#collabMemberDraft.trim();
+    if (api === undefined) { this.#lastError = "No collaboration backend configured for membership."; this.#emit(); return; }
+    if (projectId === undefined || principal === "") { this.#emit(); return; }
+    try {
+      await api.collaboration.addMember(projectId, principal, this.#collabMemberRole, this.#randomId());
+      this.#collabMemberDraft = "";
+      await this.#refreshCollaboration();
+    } catch (error) {
+      this.#lastError = error instanceof Error ? error.message : "Adding a member failed.";
+      this.#emit();
+    }
+  }
+
+  /** The acting role, read from the shared store (defaults to owner). */
+  #collabRole(): ProjectRole {
+    const raw = this.#getSelection("crole");
+    return raw === "owner" || raw === "editor" || raw === "viewer" ? raw : "owner";
+  }
+
+  /** The selected revision number, read from the shared store. */
+  #collabSelectedRevision(): number | undefined {
+    const raw = this.#getSelection("rev");
+    if (raw === undefined) return undefined;
+    const number = Number(raw);
+    return Number.isInteger(number) && number > 0 ? number : undefined;
+  }
+
+  /** Write a namespaced selection into the shared store, preserving other namespaces. */
+  #putSelection(kind: string, value: string): void {
+    const nextId = `${kind}:${value}`;
+    const ids = this.#store.state.selection.ids.filter((id) => !id.startsWith(`${kind}:`));
+    this.#store.dispatch({ kind: "selection.set", ids: [...ids, nextId], primaryId: nextId });
+  }
+
+  /** Read a namespaced selection from the shared store's selection set. */
+  #getSelection(kind: string): string | undefined {
+    const prefix = `${kind}:`;
+    const found = this.#store.state.selection.ids.find((id) => id.startsWith(prefix));
+    return found === undefined ? undefined : found.slice(prefix.length);
   }
 
   #selectEntity(kind: string, id: string): void {

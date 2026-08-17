@@ -1,5 +1,6 @@
 import type { AuthProvider } from "./auth.js";
 import { ArtifactsApi } from "./artifacts.js";
+import { CollaborationApi } from "./collaboration.js";
 import { DatasetsApi } from "./datasets.js";
 import { DownloadsApi } from "./downloads.js";
 import { streamRunEvents, type EventStreamOptions } from "./events.js";
@@ -30,6 +31,7 @@ export class LawSynthClient {
   readonly artifacts: ArtifactsApi;
   readonly uploads: UploadsApi;
   readonly downloads: DownloadsApi;
+  readonly collaboration: CollaborationApi;
 
   constructor(options: LawSynthClientOptions | Transport) {
     this.transport = isTransport(options) ? options : new FetchTransport({
@@ -44,6 +46,7 @@ export class LawSynthClient {
     this.artifacts = new ArtifactsApi(this.transport);
     this.uploads = new UploadsApi(this.transport);
     this.downloads = new DownloadsApi(this.transport);
+    this.collaboration = new CollaborationApi(this.transport);
   }
 
   health(signal?: AbortSignal): Promise<{ status: string }> { return this.transport.request({ path: "/v1/health", signal }); }

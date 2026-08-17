@@ -535,6 +535,39 @@ class Client:
         """Fetch a discovered world record (``GET /v1/worlds/{id}``)."""
         return self._request_json("GET", f"/v1/worlds/{world_id}")
 
+    def create_world(
+        self,
+        *,
+        name: str,
+        states: Sequence[str],
+        equations: Mapping[str, str],
+        parameters: Mapping[str, float] | None = None,
+        controls: Sequence[str] | None = None,
+        project_id: str | None = None,
+        derivation: Mapping[str, object] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, object]:
+        """Store a declarative world (``POST /v1/worlds``); returns the created record.
+
+        Storing a world in a shared project records an immutable revision (P6
+        lineage): pass ``project_id`` to attach it to a shared project and an
+        optional ``derivation`` tag (``discovered``/``edited``/``composed``/
+        ``imported``) to record how it was produced. Adding a world to a shared
+        project requires editor or owner.
+        """
+        body: dict[str, object] = {
+            "name": name,
+            "states": list(states),
+            "controls": list(controls or []),
+            "parameters": {key: float(value) for key, value in (parameters or {}).items()},
+            "equations": dict(equations),
+        }
+        if project_id is not None:
+            body["project_id"] = project_id
+        if derivation is not None:
+            body["derivation"] = dict(derivation)
+        return self._request_json("POST", "/v1/worlds", body=body, idempotency_key=idempotency_key)
+
     def explain(self, world_id: str) -> dict[str, object]:
         """Plain-language explanation of a world (``GET /v1/worlds/{id}/explain``)."""
         return self._request_json("GET", f"/v1/worlds/{world_id}/explain")
@@ -586,6 +619,127 @@ class Client:
             raise ValidationError("report path must end in .html or .htm")
         target.write_bytes(payload)
         return target
+
+    # -- collaboration (P6) ------------------------------------------------- #
+    #
+    # These drive the shared, multi-user workspace surface specified in
+    # ``specs/collaboration/README.md`` and implemented by the service's
+    # ``collaboration_routes`` module: membership/roles, revision lineage,
+    # annotations, the draft->in_review->approved|rejected review state machine,
+    # and the deterministic workspace merge. Role enforcement is server-side
+    # against the caller's role for a *specific* project, so the token the client
+    # authenticates with decides what these calls are permitted to do.
+
+    def create_project(self, name: str, *, metadata: Mapping[str, object] | None = None) -> dict[str, object]:
+        """Create a shared project (``POST /v1/projects``); the creator becomes its owner.
+
+        Establishing a project is what activates collaboration: the creator is
+        bound as ``owner`` and can then manage membership. Returns the created
+        project record (its ``id`` is the handle for the collaboration calls).
+        """
+        body: dict[str, object] = {"name": name}
+        if metadata is not None:
+            body["metadata"] = dict(metadata)
+        return self._request_json("POST", "/v1/projects", body=body)
+
+    def add_member(self, project_id: str, principal: str, role: str) -> dict[str, object]:
+        """Bind ``principal`` to ``role`` on a project (``POST /v1/projects/{id}/members``).
+
+        ``role`` is one of ``owner``/``editor``/``viewer``. Only an owner may
+        manage membership; a non-owner caller raises :class:`ApiError` (403).
+        """
+        return self._request_json(
+            "POST",
+            f"/v1/projects/{project_id}/members",
+            body={"principal": principal, "role": role},
+        )
+
+    def list_members(self, project_id: str) -> list[dict[str, object]]:
+        """List a project's members and their roles (``GET /v1/projects/{id}/members``)."""
+        body = self._request_json("GET", f"/v1/projects/{project_id}/members")
+        items = body.get("items")
+        return list(items) if isinstance(items, list) else []
+
+    def remove_member(self, project_id: str, principal: str) -> None:
+        """Remove a member (``DELETE /v1/projects/{id}/members/{principal}``).
+
+        Owner-only. The service refuses to remove the last remaining owner
+        (a 409 :class:`ApiError`). Returns nothing on success (HTTP 204).
+        """
+        status, _, payload = self._call("DELETE", f"/v1/projects/{project_id}/members/{principal}")
+        if status >= 400:
+            raise self._as_error(status, self._decode_json(payload) if payload else {})
+
+    def list_revisions(self, world_id: str) -> dict[str, object]:
+        """A world's immutable revision chain (``GET /v1/worlds/{id}/revisions``).
+
+        Returns the service envelope ``{"items": [...], "trusted": bool}`` where
+        ``trusted`` is true once any revision has been ``approved``.
+        """
+        return self._request_json("GET", f"/v1/worlds/{world_id}/revisions")
+
+    def get_revision(self, world_id: str, n: int) -> dict[str, object]:
+        """A single revision by its monotonic number (``GET /v1/worlds/{id}/revisions/{n}``)."""
+        return self._request_json("GET", f"/v1/worlds/{world_id}/revisions/{int(n)}")
+
+    def add_annotation(
+        self,
+        world_id: str,
+        text: str,
+        *,
+        target: str,
+        target_ref: str | int | None = None,
+    ) -> dict[str, object]:
+        """Attach an annotation to a world, law, or revision (``POST /v1/worlds/{id}/annotations``).
+
+        ``target`` is ``world``/``law``/``revision``. A ``law`` target requires a
+        ``target_ref`` law name; a ``revision`` target requires a positive
+        integer ``target_ref``. Annotating requires editor or owner.
+        """
+        body: dict[str, object] = {"text": text, "target": target}
+        if target_ref is not None:
+            body["ref"] = target_ref
+        return self._request_json("POST", f"/v1/worlds/{world_id}/annotations", body=body)
+
+    def list_annotations(self, world_id: str) -> list[dict[str, object]]:
+        """List a world's annotations, oldest first (``GET /v1/worlds/{id}/annotations``)."""
+        body = self._request_json("GET", f"/v1/worlds/{world_id}/annotations")
+        items = body.get("items")
+        return list(items) if isinstance(items, list) else []
+
+    def review_revision(self, world_id: str, n: int, action: str) -> dict[str, object]:
+        """Advance a revision's review state (``POST /v1/worlds/{id}/revisions/{n}/review``).
+
+        ``action`` is the target state: ``in_review``, ``approved``, or
+        ``rejected``. Transitions follow ``draft -> in_review -> approved |
+        rejected`` (an illegal jump is a 409); only an owner may record
+        ``approved`` (a non-owner is a 403).
+        """
+        return self._request_json(
+            "POST",
+            f"/v1/worlds/{world_id}/revisions/{int(n)}/review",
+            body={"state": action},
+        )
+
+    def merge_project(
+        self,
+        project_id: str,
+        index_a: Sequence[Mapping[str, object]],
+        index_b: Sequence[Mapping[str, object]],
+    ) -> dict[str, object]:
+        """Deterministically merge two workspace indexes (``POST /v1/projects/{id}/merge``).
+
+        Each index is a list of ``library.tsv``-style rows (``name`` +
+        ``content_hash`` + ``revision``). Names present on both sides with the
+        same content hash merge (higher revision wins); a name whose content hash
+        differs is returned as a **conflict** rather than silently overwritten.
+        Requires editor or owner.
+        """
+        return self._request_json(
+            "POST",
+            f"/v1/projects/{project_id}/merge",
+            body={"base": [dict(row) for row in index_a], "incoming": [dict(row) for row in index_b]},
+        )
 
 
 # --------------------------------------------------------------------------- #

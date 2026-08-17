@@ -14,7 +14,8 @@ export type ScreenId =
   | "world-lab"
   | "scenario-board"
   | "monitor"
-  | "export-screen";
+  | "export-screen"
+  | "collaboration";
 
 export const SCREEN_IDS: readonly ScreenId[] = Object.freeze([
   "data-lens",
@@ -28,6 +29,7 @@ export const SCREEN_IDS: readonly ScreenId[] = Object.freeze([
   "scenario-board",
   "monitor",
   "export-screen",
+  "collaboration",
 ]);
 
 export function isScreenId(value: unknown): value is ScreenId {

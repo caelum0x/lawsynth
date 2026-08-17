@@ -1,6 +1,7 @@
 export * from "./artifacts.js";
 export * from "./auth.js";
 export * from "./client.js";
+export * from "./collaboration.js";
 export * from "./datasets.js";
 export * from "./downloads.js";
 export * from "./errors.js";

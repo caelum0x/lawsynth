@@ -18,6 +18,7 @@ export * from "./world-lab.js";
 export * from "./scenario-board.js";
 export * from "./monitor.js";
 export * from "./export-screen.js";
+export * from "./collaboration.js";
 export * from "./controller.js";
 export * from "./render.js";
 
@@ -40,6 +41,7 @@ export const SCREEN_REGISTRY: readonly ScreenDescriptor[] = Object.freeze([
   { id: "scenario-board", title: "Scenario Board", subtitle: "Compare what-if scenarios against a baseline" },
   { id: "monitor", title: "Monitor", subtitle: "Model-based anomaly detection on new data" },
   { id: "export-screen", title: "Export", subtitle: "Equations, LaTeX, Python, and the raw World IR" },
+  { id: "collaboration", title: "Collaboration & Review", subtitle: "Members, roles, revisions, annotations, and approval" },
 ]);
 
 export function screenDescriptor(id: ScreenId): ScreenDescriptor {
