@@ -1,0 +1,99 @@
+# Reference OpenTelemetry Collector configuration for a LawSynth deployment.
+#
+# The LawSynth services emit OTLP traces and metrics to this collector, which
+# fans them out to Tempo (traces) and Prometheus (metrics), and forwards logs
+# to Loki. A redaction step enforces the telemetry privacy rule from the
+# architecture (sections 22/23): dataset names, column values, equations, and
+# user prompts must never leave the trust boundary as telemetry.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Bound collector memory before it is OOM-killed under a telemetry spike.
+  memory_limiter:
+    check_interval: 5s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  batch:
+    send_batch_size: 8192
+    timeout: 10s
+
+  # Tag every signal with the deployment so multi-env Grafana can filter.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${LAWSYNTH_DEPLOYMENT:-reference}
+        action: upsert
+
+  # Privacy guard: delete any attribute that could carry scientific content or
+  # user input, and hash tenant identifiers so they are correlatable but opaque.
+  attributes/redact:
+    actions:
+      - key: dataset.name
+        action: delete
+      - key: dataset.columns
+        action: delete
+      - key: candidate.equation
+        action: delete
+      - key: user.prompt
+        action: delete
+      - key: db.statement
+        action: delete
+      - key: organization.id
+        action: hash
+
+  # Drop the raw authorization header if a client ever set it as a span attr.
+  attributes/auth:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+  # Uncomment for troubleshooting the pipeline itself.
+  # debug:
+  #   verbosity: normal
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes/redact, attributes/auth, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes/redact, attributes/auth, batch]
+      exporters: [otlphttp/loki]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      address: 0.0.0.0:8888

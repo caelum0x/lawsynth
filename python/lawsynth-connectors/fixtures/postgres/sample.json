@@ -1,0 +1,26 @@
+{
+  "fixture": "postgres",
+  "description": "PostgreSQL connector. Requires the 'postgres' extra (psycopg). Only read-only SELECT statements are accepted.",
+  "extra": "postgres",
+  "config": {
+    "name": "postgres",
+    "batch_size": 1000,
+    "options": {
+      "dsn": "postgresql://reader@db.internal:5432/lawsynth",
+      "application_name": "lawsynth-connectors"
+    }
+  },
+  "request": {
+    "resource": "public.observations",
+    "options": {
+      "query": "SELECT time, x FROM public.observations ORDER BY time LIMIT 1000",
+      "params": []
+    }
+  },
+  "credentials_expected": ["postgres password via credential chain"],
+  "sample_records": [
+    {"time": 0, "x": 1.0},
+    {"time": 1, "x": 2.0}
+  ],
+  "fingerprint_algorithm": "sha256"
+}

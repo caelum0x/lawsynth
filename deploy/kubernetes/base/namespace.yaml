@@ -1,0 +1,19 @@
+# Namespace for all LawSynth distributed-service workloads.
+#
+# The Pod Security Admission labels pin every Pod in this namespace to the
+# "restricted" profile: non-root, no privilege escalation, dropped
+# capabilities, and a runtime-default seccomp profile. Overlays inherit these
+# guarantees, so a workload that regresses its securityContext is rejected at
+# admission rather than at review time.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lawsynth
+  labels:
+    app.kubernetes.io/name: lawsynth
+    app.kubernetes.io/part-of: lawsynth
+    app.kubernetes.io/managed-by: kustomize
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

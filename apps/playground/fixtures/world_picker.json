@@ -1,0 +1,392 @@
+{
+  "choices": [
+    {
+      "id": "lotka_volterra",
+      "name": "Lotka\u2013Volterra predator\u2013prey",
+      "description": "Two-species population oscillation.",
+      "source": "example",
+      "world": {
+        "formatVersion": "0.1.0",
+        "id": "lotka_volterra",
+        "name": "Lotka\u2013Volterra predator\u2013prey",
+        "description": "Classic two-species predator\u2013prey dynamics recovered from a synthetic ecology time series.",
+        "time": {
+          "kind": "continuous",
+          "symbol": "t",
+          "unit": "day"
+        },
+        "variables": [
+          {
+            "id": "prey",
+            "name": "Prey density",
+            "role": "state",
+            "unit": "1/hectare",
+            "description": "Herbivore population density.",
+            "bounds": [
+              0,
+              null
+            ]
+          },
+          {
+            "id": "predator",
+            "name": "Predator density",
+            "role": "state",
+            "unit": "1/hectare",
+            "description": "Carnivore population density.",
+            "bounds": [
+              0,
+              null
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "id": "alpha",
+            "value": 1.1,
+            "unit": "1/day",
+            "bounds": [
+              0,
+              5
+            ],
+            "description": "Prey intrinsic growth rate."
+          },
+          {
+            "id": "beta",
+            "value": 0.4,
+            "unit": "hectare/day",
+            "bounds": [
+              0,
+              5
+            ],
+            "description": "Predation interaction rate."
+          },
+          {
+            "id": "delta",
+            "value": 0.1,
+            "unit": "hectare/day",
+            "bounds": [
+              0,
+              5
+            ],
+            "description": "Predator reproduction per prey consumed."
+          },
+          {
+            "id": "gamma",
+            "value": 0.4,
+            "unit": "1/day",
+            "bounds": [
+              0,
+              5
+            ],
+            "description": "Predator mortality rate."
+          }
+        ],
+        "laws": [
+          {
+            "id": "prey_dynamics",
+            "kind": "continuous",
+            "target": "prey",
+            "description": "dprey/dt = alpha*prey - beta*prey*predator",
+            "expression": {
+              "kind": "binary",
+              "operator": "sub",
+              "left": {
+                "kind": "binary",
+                "operator": "mul",
+                "left": {
+                  "kind": "symbol",
+                  "id": "alpha"
+                },
+                "right": {
+                  "kind": "symbol",
+                  "id": "prey"
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "operator": "mul",
+                "left": {
+                  "kind": "binary",
+                  "operator": "mul",
+                  "left": {
+                    "kind": "symbol",
+                    "id": "beta"
+                  },
+                  "right": {
+                    "kind": "symbol",
+                    "id": "prey"
+                  }
+                },
+                "right": {
+                  "kind": "symbol",
+                  "id": "predator"
+                }
+              }
+            }
+          },
+          {
+            "id": "predator_dynamics",
+            "kind": "continuous",
+            "target": "predator",
+            "description": "dpredator/dt = delta*prey*predator - gamma*predator",
+            "expression": {
+              "kind": "binary",
+              "operator": "sub",
+              "left": {
+                "kind": "binary",
+                "operator": "mul",
+                "left": {
+                  "kind": "binary",
+                  "operator": "mul",
+                  "left": {
+                    "kind": "symbol",
+                    "id": "delta"
+                  },
+                  "right": {
+                    "kind": "symbol",
+                    "id": "prey"
+                  }
+                },
+                "right": {
+                  "kind": "symbol",
+                  "id": "predator"
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "operator": "mul",
+                "left": {
+                  "kind": "symbol",
+                  "id": "gamma"
+                },
+                "right": {
+                  "kind": "symbol",
+                  "id": "predator"
+                }
+              }
+            }
+          }
+        ],
+        "dependencies": {
+          "nodes": [
+            "prey",
+            "predator"
+          ],
+          "edges": [
+            {
+              "id": "prey_feeds_predator",
+              "source": "prey",
+              "target": "predator",
+              "kind": "directed",
+              "status": "identified",
+              "strength": 0.91
+            },
+            {
+              "id": "predator_limits_prey",
+              "source": "predator",
+              "target": "prey",
+              "kind": "directed",
+              "status": "identified",
+              "strength": 0.87
+            }
+          ]
+        },
+        "regimes": {
+          "regimes": [
+            {
+              "id": "oscillatory",
+              "name": "Stable limit cycle",
+              "lawIds": [
+                "prey_dynamics",
+                "predator_dynamics"
+              ]
+            }
+          ],
+          "intervals": [
+            {
+              "regime": "oscillatory",
+              "start": 0,
+              "end": 12
+            }
+          ]
+        },
+        "uncertainty": {
+          "entries": [
+            {
+              "level": "parameter",
+              "parameter": "alpha",
+              "standardError": 0.03
+            },
+            {
+              "level": "parameter",
+              "parameter": "beta",
+              "standardError": 0.02
+            },
+            {
+              "level": "parameter",
+              "parameter": "gamma",
+              "standardError": 0.02
+            },
+            {
+              "level": "parameter",
+              "parameter": "delta",
+              "standardError": 0.01
+            }
+          ]
+        },
+        "provenance": {
+          "createdAt": "2026-02-14T09:30:00.000Z",
+          "seed": 42,
+          "worldHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "algorithms": [
+            {
+              "name": "sindy",
+              "version": "1.3.0",
+              "deterministic": true
+            },
+            {
+              "name": "pareto-refine",
+              "version": "0.4.1",
+              "deterministic": true
+            }
+          ]
+        },
+        "tags": [
+          "ecology",
+          "predator-prey",
+          "benchmark"
+        ]
+      }
+    },
+    {
+      "id": "damped_oscillator",
+      "name": "Damped harmonic oscillator",
+      "description": "Linear second-order decay.",
+      "source": "example",
+      "world": {
+        "formatVersion": "0.1.0",
+        "id": "damped_oscillator",
+        "name": "Damped harmonic oscillator",
+        "time": {
+          "kind": "continuous",
+          "symbol": "t",
+          "unit": "s"
+        },
+        "variables": [
+          {
+            "id": "x",
+            "name": "Position",
+            "role": "state",
+            "unit": "m"
+          },
+          {
+            "id": "v",
+            "name": "Velocity",
+            "role": "state",
+            "unit": "m/s"
+          }
+        ],
+        "parameters": [
+          {
+            "id": "omega",
+            "value": 2.0,
+            "unit": "1/s",
+            "bounds": [
+              0,
+              20
+            ],
+            "description": "Natural angular frequency."
+          },
+          {
+            "id": "zeta",
+            "value": 0.15,
+            "bounds": [
+              0,
+              2
+            ],
+            "description": "Damping ratio."
+          }
+        ],
+        "laws": [
+          {
+            "id": "position",
+            "kind": "continuous",
+            "target": "x",
+            "description": "dx/dt = v",
+            "expression": {
+              "kind": "symbol",
+              "id": "v"
+            }
+          },
+          {
+            "id": "velocity",
+            "kind": "continuous",
+            "target": "v",
+            "description": "dv/dt = -omega^2*x - 2*zeta*omega*v",
+            "expression": {
+              "kind": "binary",
+              "operator": "sub",
+              "left": {
+                "kind": "unary",
+                "operator": "neg",
+                "operand": {
+                  "kind": "binary",
+                  "operator": "mul",
+                  "left": {
+                    "kind": "binary",
+                    "operator": "pow",
+                    "left": {
+                      "kind": "symbol",
+                      "id": "omega"
+                    },
+                    "right": {
+                      "kind": "constant",
+                      "value": 2
+                    }
+                  },
+                  "right": {
+                    "kind": "symbol",
+                    "id": "x"
+                  }
+                }
+              },
+              "right": {
+                "kind": "binary",
+                "operator": "mul",
+                "left": {
+                  "kind": "binary",
+                  "operator": "mul",
+                  "left": {
+                    "kind": "constant",
+                    "value": 2
+                  },
+                  "right": {
+                    "kind": "binary",
+                    "operator": "mul",
+                    "left": {
+                      "kind": "symbol",
+                      "id": "zeta"
+                    },
+                    "right": {
+                      "kind": "symbol",
+                      "id": "omega"
+                    }
+                  }
+                },
+                "right": {
+                  "kind": "symbol",
+                  "id": "v"
+                }
+              }
+            }
+          }
+        ],
+        "tags": [
+          "physics",
+          "oscillator"
+        ]
+      }
+    }
+  ],
+  "selected": "lotka_volterra"
+}

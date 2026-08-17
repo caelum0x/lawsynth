@@ -1,0 +1,21 @@
+# LawSynth plugin manifest for the world-validator-wasi extension.
+#
+# Strict `key = value` grammar parsed by
+# `lawsynth_plugin_api::PluginManifest::parse` (specs/plugin-protocol/
+# manifest.md). Not general TOML. A host discovers the plugin by reading a
+# `plugin.manifest` file containing this content.
+
+id = "world-validator-wasi"
+version = "0.1.0"
+
+# `wasi` isolation: the entrypoint is a WebAssembly component the host loads in
+# a WASI runtime. The exported `lawsynth_world_validate(ptr, len) -> i32`
+# function is the validation entrypoint (see docs/usage.md).
+kind = "wasi"
+entrypoint = "world_validator.wasm"
+capabilities = "world.validate"
+
+max_cpu_millis = 5000
+max_memory_bytes = 67108864
+max_output_bytes = 1048576
+max_requests = 4096

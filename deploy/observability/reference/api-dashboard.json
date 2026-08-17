@@ -1,0 +1,181 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "tags": ["lawsynth", "api", "slo"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+        "definition": "label_values(lawsynth_api_requests_total, deployment)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Deployment",
+        "name": "deployment",
+        "options": [],
+        "query": "label_values(lawsynth_api_requests_total, deployment)",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "utc",
+  "title": "LawSynth — API & Gateway",
+  "uid": "lawsynth-api",
+  "version": 1,
+  "panels": [
+    {
+      "title": "Availability SLO (5xx error ratio)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.005 },
+              { "color": "red", "value": 0.02 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "lawsynth:api_request_error_ratio:rate5m",
+          "legendFormat": "5xx ratio"
+        }
+      ]
+    },
+    {
+      "title": "Request rate by status class",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 6, "w": 12, "x": 6, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "stacking": { "mode": "normal" } } } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum by (status_class) (rate(lawsynth_api_requests_total{deployment=\"$deployment\"}[5m]))",
+          "legendFormat": "{{status_class}}"
+        }
+      ]
+    },
+    {
+      "title": "Requests in flight",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum(lawsynth_api_requests_in_flight{deployment=\"$deployment\"})",
+          "legendFormat": "in flight"
+        }
+      ]
+    },
+    {
+      "title": "Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(lawsynth_api_request_duration_seconds_bucket{deployment=\"$deployment\"}[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "lawsynth:api_request_latency_seconds:p95_5m",
+          "legendFormat": "p95"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(lawsynth_api_request_duration_seconds_bucket{deployment=\"$deployment\"}[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "title": "Top routes by 5xx",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "topk(5, sum by (route) (rate(lawsynth_api_requests_total{deployment=\"$deployment\",status_class=\"5xx\"}[5m])))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "title": "Gateway rate-limited requests",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "reqps" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum(rate(lawsynth_gateway_rate_limited_total{deployment=\"$deployment\"}[5m]))",
+          "legendFormat": "rate limited"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum(rate(lawsynth_gateway_rejected_total{deployment=\"$deployment\"}[5m]))",
+          "legendFormat": "rejected (limits)"
+        }
+      ]
+    },
+    {
+      "title": "Job cancellation ack p95 (SLO < 2s)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 2 } ] }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "lawsynth:job_cancel_ack_seconds:p95_5m",
+          "legendFormat": "cancel ack p95"
+        }
+      ]
+    }
+  ]
+}

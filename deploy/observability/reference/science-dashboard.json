@@ -1,0 +1,146 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "tags": ["lawsynth", "science", "discovery"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+        "definition": "label_values(lawsynth_runs_total, deployment)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Deployment",
+        "name": "deployment",
+        "options": [],
+        "query": "label_values(lawsynth_runs_total, deployment)",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+        "definition": "label_values(lawsynth_runs_total{deployment=\"$deployment\"}, method)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Method",
+        "multi": true,
+        "name": "method",
+        "options": [],
+        "query": "label_values(lawsynth_runs_total{deployment=\"$deployment\"}, method)",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-24h", "to": "now" },
+  "timezone": "utc",
+  "title": "LawSynth — Discovery Science",
+  "uid": "lawsynth-science",
+  "version": 1,
+  "panels": [
+    {
+      "title": "Runs by pipeline stage",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum by (stage) (lawsynth_runs_active{deployment=\"$deployment\"})",
+          "legendFormat": "{{stage}}"
+        }
+      ]
+    },
+    {
+      "title": "Candidates discovered",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum by (method) (rate(lawsynth_candidates_total{deployment=\"$deployment\",method=~\"$method\"}[15m]))",
+          "legendFormat": "{{method}}"
+        }
+      ]
+    },
+    {
+      "title": "Expression evaluation latency p95",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 7 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(lawsynth_expression_eval_duration_seconds_bucket{deployment=\"$deployment\"}[10m])))",
+          "legendFormat": "expr eval p95"
+        }
+      ]
+    },
+    {
+      "title": "Simulation latency p95",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 7 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(lawsynth_simulation_duration_seconds_bucket{deployment=\"$deployment\"}[10m])))",
+          "legendFormat": "simulation p95"
+        }
+      ]
+    },
+    {
+      "title": "Scientific warnings by kind",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum by (kind) (rate(lawsynth_scientific_warnings_total{deployment=\"$deployment\"}[15m]))",
+          "legendFormat": "{{kind}}"
+        }
+      ]
+    },
+    {
+      "title": "Checkpoint size p95",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(lawsynth_checkpoint_size_bytes_bucket{deployment=\"$deployment\"}[30m])))",
+          "legendFormat": "checkpoint size p95"
+        }
+      ]
+    }
+  ]
+}

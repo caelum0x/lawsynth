@@ -13,13 +13,19 @@ from dataclasses import asdict
 
 from .auth import require_scope
 from .dependencies import Services, build_services
-from .errors import NotFoundError, ValidationError
+from .errors import ConflictError, NotFoundError, ValidationError
 from .health import check
 from .middleware import invoke
 from .native import discover_world, simulate_world
 from .pagination import page
 from .settings import Settings
 from .simulations import validate_simulation_spec
+from ._version import __version__
+
+# The explicit HTTP protocol version this dispatcher speaks.  It tracks the
+# ``/v1`` route prefix and is published by ``GET /v1/version`` so clients never
+# interpret responses under ambiguous semantics (specs/service-api/versioning.md).
+PROTOCOL_VERSION = "1"
 
 
 class Application:
@@ -36,6 +42,8 @@ class Application:
             raise ValidationError("request requires method and path")
         if method == "GET" and path in {"/health", "/v1/health"}:
             return {"status": 200, "body": asdict(check(self.services.database, self.services.storage))}
+        if method == "GET" and path in {"/version", "/v1/version"}:
+            return {"status": 200, "body": {"version": __version__, "protocol": PROTOCOL_VERSION}}
         headers = request.get("headers", {})
         if not isinstance(headers, dict):
             raise ValidationError("headers must be an object")
@@ -65,6 +73,10 @@ class Application:
                 return 201, item
             status, response, replayed = self.services.idempotency.execute(principal.organization_id, key, {"method": method, "path": path, "body": body}, put)
             return {"status": status, "headers": {"Idempotency-Replayed": str(replayed).lower()}, "body": response}
+        if parts[:1] == ["artifacts"] and method == "GET" and len(parts) == 2:
+            require_scope(principal, "read")
+            data = self.services.storage.get(parts[1])
+            return {"status": 200, "body": {"sha256": parts[1], "size": len(data), "data_base64": base64.b64encode(data).decode("ascii")}}
         if (
             method == "POST"
             and len(parts) == 3
@@ -101,6 +113,33 @@ class Application:
                 "headers": {"Idempotency-Replayed": str(replayed).lower()},
                 "body": response,
             }
+        if method == "POST" and len(parts) == 3 and parts[0] == "runs" and parts[2] == "cancel":
+            require_scope(principal, "write")
+            key = headers.get("Idempotency-Key")
+            if not isinstance(key, str):
+                raise ValidationError("Idempotency-Key is required for writes")
+
+            def cancel_run() -> tuple[int, dict[str, object]]:
+                run = self.services.runs.get(principal.organization_id, parts[1])
+                if run["status"] in {"succeeded", "failed", "cancelled"}:
+                    raise ConflictError("run is already in a terminal state")
+                item = self.services.runs.update(principal.organization_id, parts[1], {"status": "cancelled"})
+                self.services.events.append(principal.organization_id, "runs.cancelled", {"id": parts[1]})
+                return 200, item
+
+            status, response, replayed = self.services.idempotency.execute(
+                principal.organization_id, key, {"method": method, "path": path}, cancel_run
+            )
+            return {"status": status, "headers": {"Idempotency-Replayed": str(replayed).lower()}, "body": response}
+        if method == "GET" and len(parts) == 3 and parts[0] == "runs" and parts[2] == "events":
+            require_scope(principal, "read")
+            self.services.runs.get(principal.organization_id, parts[1])
+            events = [
+                event
+                for event in self.services.events.list(principal.organization_id)
+                if isinstance(event.get("payload"), dict) and event["payload"].get("id") == parts[1]
+            ]
+            return {"status": 200, "body": {"items": events}}
         if not parts or parts[0] not in {"projects", "datasets", "worlds", "runs"} or len(parts) > 2:
             raise NotFoundError("route not found")
         repository = getattr(self.services, parts[0])
@@ -109,8 +148,10 @@ class Application:
             query = request.get("query", {})
             if not isinstance(query, dict):
                 raise ValidationError("query must be an object")
-            result = page(repository.list(principal.organization_id), cursor=query.get("cursor"), limit=int(query.get("limit", 20)), maximum=self.services.settings.max_page_size)
-            return {"status": 200, "body": {"items": result.items, "next_cursor": result.next_cursor}}
+            items = repository.list(principal.organization_id)
+            limit = int(query.get("limit", 20))
+            result = page(items, cursor=query.get("cursor"), limit=limit, maximum=self.services.settings.max_page_size)
+            return {"status": 200, "body": {"items": result.items, "next_cursor": result.next_cursor, "total": len(items), "limit": limit}}
         if method == "GET" and len(parts) == 2:
             require_scope(principal, "read")
             return {"status": 200, "body": repository.get(principal.organization_id, parts[1])}

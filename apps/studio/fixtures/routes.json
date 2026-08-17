@@ -1,0 +1,63 @@
+{
+  "routes": [
+    {
+      "route": {
+        "name": "home"
+      },
+      "path": "/"
+    },
+    {
+      "route": {
+        "name": "settings"
+      },
+      "path": "/settings"
+    },
+    {
+      "route": {
+        "name": "project",
+        "projectId": "project_ecology"
+      },
+      "path": "/projects/project_ecology"
+    },
+    {
+      "route": {
+        "name": "dataset",
+        "projectId": "project_ecology",
+        "datasetId": "dataset_lynx_hare"
+      },
+      "path": "/projects/project_ecology/datasets/dataset_lynx_hare"
+    },
+    {
+      "route": {
+        "name": "discovery",
+        "projectId": "project_ecology",
+        "runId": "run_sparse_7"
+      },
+      "path": "/projects/project_ecology/discovery/run_sparse_7"
+    },
+    {
+      "route": {
+        "name": "discovery",
+        "projectId": "project_ecology"
+      },
+      "path": "/projects/project_ecology/discovery"
+    },
+    {
+      "route": {
+        "name": "world",
+        "projectId": "project_ecology",
+        "worldId": "world_lv",
+        "panel": "equations"
+      },
+      "path": "/projects/project_ecology/worlds/world_lv?panel=equations"
+    },
+    {
+      "route": {
+        "name": "simulation",
+        "projectId": "project_ecology",
+        "simulationId": "sim_lv_1"
+      },
+      "path": "/projects/project_ecology/simulations/sim_lv_1"
+    }
+  ]
+}

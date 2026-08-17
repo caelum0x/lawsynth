@@ -1,0 +1,34 @@
+# LawSynth — local single-node development stack.
+#
+# Brings up the full service graph on one machine:
+#
+#   studio ─▶ gateway :8081 ─▶ api :8080 ─┬─▶ postgres :5432   (metadata)
+#                                         ├─▶ minio :9000      (object store)
+#                                         └─▶ nats :4222       (event bus)
+#   scheduler ─▶ postgres, nats
+#   worker    ─▶ postgres, nats, artifact :8082
+#
+# This is the "Single-node server" deployment mode from the architecture: API +
+# worker + Postgres + MinIO, plus the scheduler, gateway, and artifact service.
+# It is for local development and evaluation only — it ships local-only default
+# credentials and no TLS. For a hardened deployment use ../production.
+#
+# Usage:
+#   cp .env.example .env         # then edit as needed
+#   docker compose up --build -d
+#   ./healthcheck.sh
+#   docker compose logs -f api worker
+#   docker compose down          # add --volumes to also delete data
+#
+# Each service is defined in its own file and merged here via `include:` so the
+# individual definitions stay small and independently reviewable.
+
+name: lawsynth-local
+
+include:
+  - volumes.yaml
+  - postgres.yaml
+  - minio.yaml
+  - nats.yaml
+  - api.yaml
+  - worker.yaml

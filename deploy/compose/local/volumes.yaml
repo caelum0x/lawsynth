@@ -1,0 +1,26 @@
+# Canonical declaration of the shared network and named volumes for the local
+# LawSynth stack.
+#
+# The per-service files (postgres.yaml, minio.yaml, ...) each declare the
+# volumes and the network they reference so they remain independently valid.
+# Compose merges those identical declarations with the ones below when the
+# stack is assembled through compose.yaml's `include:`. This file is the single
+# place that documents the persistent state of the stack.
+#
+# Persistent state:
+#   lawsynth_pgdata     Postgres metadata database
+#   lawsynth_minio      MinIO object store (artifacts, exports, checkpoints)
+#   lawsynth_nats       NATS JetStream durable streams
+#   lawsynth_artifacts  Artifact service content-addressed store
+#
+# Reset the whole stack (DESTROYS DATA):
+#   docker compose -f compose.yaml down --volumes
+
+networks:
+  lawsynth:
+
+volumes:
+  lawsynth_pgdata:
+  lawsynth_minio:
+  lawsynth_nats:
+  lawsynth_artifacts:

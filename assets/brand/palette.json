@@ -1,0 +1,63 @@
+{
+  "name": "LawSynth Brand Palette",
+  "version": "1.0.0",
+  "description": "Restrained editorial palette shared by the Studio, Playground, and docs site. Warm paper, dark ink, and a single terracotta accent keep scientific interfaces calm and legible.",
+  "tokens": {
+    "ink": {
+      "hex": "#18201d",
+      "role": "Primary text and high-contrast surfaces",
+      "onLight": true
+    },
+    "paper": {
+      "hex": "#f3f0e8",
+      "role": "Default application background"
+    },
+    "surface": {
+      "hex": "#fffdf7",
+      "role": "Cards, panels, and raised surfaces"
+    },
+    "line": {
+      "hex": "#c8c6ba",
+      "role": "Borders, dividers, and hairlines"
+    },
+    "muted": {
+      "hex": "#59635e",
+      "role": "Secondary and metadata text"
+    },
+    "accent": {
+      "hex": "#b54b2a",
+      "role": "Primary action, focus rings, active navigation"
+    },
+    "accentSoft": {
+      "hex": "#e5c3b4",
+      "role": "Accent wash for highlights and selection"
+    },
+    "success": {
+      "hex": "#2f6f4f",
+      "role": "Succeeded runs and positive notifications"
+    },
+    "warning": {
+      "hex": "#b8822a",
+      "role": "Cautions and upload limits"
+    },
+    "danger": {
+      "hex": "#a3341f",
+      "role": "Errors and failed runs"
+    },
+    "info": {
+      "hex": "#3a5a78",
+      "role": "Informational notifications and links"
+    }
+  },
+  "dark": {
+    "ink": "#eef0ea",
+    "paper": "#161a18",
+    "surface": "#1e2422",
+    "line": "#333b37",
+    "muted": "#9aa39d",
+    "accent": "#d9714f"
+  },
+  "gradients": {
+    "pipeline": ["#b54b2a", "#b8822a", "#2f6f4f", "#3a5a78"]
+  }
+}

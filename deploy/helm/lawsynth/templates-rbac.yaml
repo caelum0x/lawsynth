@@ -1,0 +1,48 @@
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "lawsynth.serviceAccountName" . }}
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+  {{- with .Values.serviceAccount.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: true
+{{- end }}
+{{- if .Values.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-scheduler
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+rules:
+  # The scheduler observes worker pods to reason about pool capacity and uses
+  # coordination leases for single-active-scheduler election.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-scheduler
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "lawsynth.fullname" . }}-scheduler
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "lawsynth.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

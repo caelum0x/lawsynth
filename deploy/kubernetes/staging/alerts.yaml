@@ -1,0 +1,68 @@
+# Prometheus alerting rules for the staging deployment. Thresholds map to the
+# reliability SLOs in architecture section 23; in staging they page a lower
+# severity channel so regressions are caught before production promotion.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: lawsynth-staging
+  labels:
+    app.kubernetes.io/part-of: lawsynth
+    app.kubernetes.io/component: observability
+    role: alert-rules
+spec:
+  groups:
+    - name: lawsynth.availability
+      rules:
+        - alert: LawSynthApiDown
+          expr: |
+            sum(up{job="lawsynth-api"}) == 0
+          for: 5m
+          labels:
+            severity: warning
+            environment: staging
+          annotations:
+            summary: "LawSynth API has no healthy replicas"
+            description: "No API replica has been scrapeable for 5 minutes; the availability SLO (99.9%) is at risk."
+        - alert: LawSynthGatewayHighErrorRate
+          expr: |
+            sum(rate(lawsynth_gateway_requests_total{status=~"5.."}[5m]))
+              / sum(rate(lawsynth_gateway_requests_total[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            environment: staging
+          annotations:
+            summary: "Gateway 5xx rate above 5%"
+            description: "More than 5% of gateway requests returned 5xx over 10 minutes."
+    - name: lawsynth.jobs
+      rules:
+        - alert: LawSynthSchedulerQueueBacklog
+          expr: |
+            max(lawsynth_scheduler_queued_jobs) > 5000
+          for: 15m
+          labels:
+            severity: warning
+            environment: staging
+          annotations:
+            summary: "Scheduler queue backlog is high"
+            description: "Queued jobs exceeded 5000 for 15 minutes; worker capacity may be insufficient."
+        - alert: LawSynthCancelAckSlow
+          expr: |
+            histogram_quantile(0.95, sum(rate(lawsynth_job_cancel_ack_seconds_bucket[10m])) by (le)) > 2
+          for: 10m
+          labels:
+            severity: warning
+            environment: staging
+          annotations:
+            summary: "Job cancellation acknowledgement p95 above 2s"
+            description: "Cancellation-ack p95 breached the 2s SLO for 10 minutes."
+        - alert: LawSynthArtifactChecksumFailures
+          expr: |
+            increase(lawsynth_artifact_checksum_failures_total[15m]) > 0
+          for: 0m
+          labels:
+            severity: critical
+            environment: staging
+          annotations:
+            summary: "Artifact checksum verification failure detected"
+            description: "A stored artifact failed checksum verification on read; integrity SLO requires 100% detection and zero silent corruption."

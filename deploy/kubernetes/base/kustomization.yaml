@@ -1,0 +1,41 @@
+# Base kustomization for the LawSynth distributed service layer.
+#
+# This base is environment-neutral: it declares the namespace, shared config,
+# RBAC, and one Deployment + Service per service (api, gateway, scheduler,
+# worker, artifact). It intentionally contains NO Secret, Ingress, HPA, or
+# NetworkPolicy -- those are environment concerns supplied by the staging/ and
+# production/ overlays. The base is not directly deployable to production as-is;
+# it requires an overlay to provide the "lawsynth-secrets" Secret and ingress.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: lawsynth
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: lawsynth
+      app.kubernetes.io/managed-by: kustomize
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - rbac.yaml
+  - api.yaml
+  - gateway.yaml
+  - scheduler.yaml
+  - worker.yaml
+  - artifact.yaml
+
+# Overlays override the tag per environment via `images:`.
+images:
+  - name: ghcr.io/lawsynth/api
+    newTag: latest
+  - name: ghcr.io/lawsynth/gateway
+    newTag: latest
+  - name: ghcr.io/lawsynth/scheduler
+    newTag: latest
+  - name: ghcr.io/lawsynth/worker
+    newTag: latest
+  - name: ghcr.io/lawsynth/artifact
+    newTag: latest

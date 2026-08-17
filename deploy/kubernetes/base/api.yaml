@@ -1,0 +1,136 @@
+# LawSynth HTTP API (services/api): validates and persists RunSpecs, records
+# artifact references, and streams run events to Studio. Stateless request
+# handling; durable state lives in Postgres and the object store.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: control-plane
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+        app.kubernetes.io/component: control-plane
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/v1/metrics"
+    spec:
+      serviceAccountName: lawsynth-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      # Migrations run to completion before any application replica starts, so a
+      # failed migration halts the rollout (architecture section 23).
+      initContainers:
+        - name: migrate
+          image: ghcr.io/lawsynth/api:latest
+          command: ["python", "-m", "lawsynth_api.migrate", "upgrade"]
+          envFrom:
+            - configMapRef:
+                name: lawsynth-config
+            - secretRef:
+                name: lawsynth-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      containers:
+        - name: api
+          image: ghcr.io/lawsynth/api:latest
+          command:
+            - gunicorn
+            - --bind=0.0.0.0:8080
+            - --workers=2
+            - --timeout=120
+            - --access-logfile=-
+            - --error-logfile=-
+            - lawsynth_api.main:application
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: lawsynth-config
+            - secretRef:
+                name: lawsynth-secrets
+          readinessProbe:
+            httpGet:
+              path: /v1/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /v1/health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: objects
+              mountPath: /var/lib/lawsynth/objects
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        # Ephemeral in base. Distributed deployments must replace this with a
+        # ReadWriteMany PVC or route object writes to the artifact service so
+        # accepted-run persistence survives Pod rescheduling (SLO 99.99%).
+        - name: objects
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: control-plane
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

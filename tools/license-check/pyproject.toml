@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-license-check"
+version = "0.1.0"
+description = "Verify dependency licenses against the LawSynth allowlist and emit attributions"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth contributors" }]
+dependencies = []
+
+[project.scripts]
+lawsynth-license-check = "main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["main", "scan", "policy", "report", "notice"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

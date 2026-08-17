@@ -1,0 +1,192 @@
+{
+  "__inputs": [],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "tags": ["lawsynth", "worker", "scheduler", "runs"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+        "definition": "label_values(lawsynth_runs_total, deployment)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Deployment",
+        "name": "deployment",
+        "options": [],
+        "query": "label_values(lawsynth_runs_total, deployment)",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "utc",
+  "title": "LawSynth — Workers & Scheduling",
+  "uid": "lawsynth-worker",
+  "version": 1,
+  "panels": [
+    {
+      "title": "Runs by state",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum by (state) (lawsynth_runs_active{deployment=\"$deployment\"})",
+          "legendFormat": "{{state}}"
+        }
+      ]
+    },
+    {
+      "title": "Run throughput by failure class",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "ops" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum by (failure_class) (rate(lawsynth_runs_total{deployment=\"$deployment\"}[5m]))",
+          "legendFormat": "{{failure_class}}"
+        }
+      ]
+    },
+    {
+      "title": "Queue delay p95 (SLO warning > 5m)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 7 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 300 } ] }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(lawsynth_run_queue_delay_seconds_bucket{deployment=\"$deployment\"}[10m])))",
+          "legendFormat": "queue delay p95"
+        }
+      ]
+    },
+    {
+      "title": "Max job lease age",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 7 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "max(lawsynth_job_lease_age_seconds{deployment=\"$deployment\"})",
+          "legendFormat": "max lease age"
+        }
+      ]
+    },
+    {
+      "title": "Worker peak RSS",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "max by (instance) (lawsynth_worker_peak_rss_bytes{deployment=\"$deployment\"})",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "title": "CPU seconds per run",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 14 },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum(rate(lawsynth_worker_job_cpu_seconds_total{deployment=\"$deployment\"}[5m]))",
+          "legendFormat": "cpu seconds/s"
+        }
+      ]
+    },
+    {
+      "title": "Checkpoint recovery success ratio",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 0.9 }, { "color": "green", "value": 0.99 } ] }
+        }
+      },
+      "options": { "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum(rate(lawsynth_recovery_success_total{deployment=\"$deployment\"}[30m])) / clamp_min(sum(rate(lawsynth_recovery_attempts_total{deployment=\"$deployment\"}[30m])), 1)",
+          "legendFormat": "recovery success"
+        }
+      ]
+    },
+    {
+      "title": "Artifact bytes uploaded",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 21 },
+      "fieldConfig": { "defaults": { "unit": "Bps" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum(rate(lawsynth_artifact_bytes_total{deployment=\"$deployment\"}[5m]))",
+          "legendFormat": "upload rate"
+        }
+      ]
+    },
+    {
+      "title": "Artifact checksum failures (must stay 0)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 21 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "lawsynth-prometheus" },
+          "expr": "sum(increase(lawsynth_artifact_checksum_failures_total{deployment=\"$deployment\"}[5m]))",
+          "legendFormat": "checksum failures"
+        }
+      ]
+    }
+  ]
+}

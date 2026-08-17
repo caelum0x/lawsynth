@@ -1,0 +1,24 @@
+{
+  "fixture": "base",
+  "description": "Canonical DataBatch/ConnectorConfig contract shared by every connector.",
+  "config": {
+    "name": "base",
+    "batch_size": 2,
+    "max_rows": 100,
+    "max_bytes": 1048576,
+    "timeout_seconds": 30.0
+  },
+  "request": {
+    "resource": "observations",
+    "columns": ["time", "x"],
+    "numeric": true,
+    "time_column": "time"
+  },
+  "sample_records": [
+    {"time": 0, "x": 1.0},
+    {"time": 1, "x": 2.0},
+    {"time": 2, "x": 3.0}
+  ],
+  "expected_batches": 2,
+  "fingerprint_algorithm": "sha256"
+}

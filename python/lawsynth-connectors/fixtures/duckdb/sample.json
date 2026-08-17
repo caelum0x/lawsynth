@@ -1,0 +1,22 @@
+{
+  "fixture": "duckdb",
+  "description": "DuckDB connector. Requires the 'duckdb' extra. Opens the database read-only and accepts only read-only SELECT statements.",
+  "extra": "duckdb",
+  "config": {
+    "name": "duckdb",
+    "batch_size": 1000,
+    "options": {"database": "./datasets/timeseries.duckdb"}
+  },
+  "request": {
+    "resource": "observations",
+    "options": {
+      "query": "SELECT time, x FROM observations ORDER BY time",
+      "params": []
+    }
+  },
+  "sample_records": [
+    {"time": 0, "x": 1.0},
+    {"time": 1, "x": 2.0}
+  ],
+  "fingerprint_algorithm": "sha256"
+}

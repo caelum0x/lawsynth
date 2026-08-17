@@ -1,0 +1,120 @@
+# LawSynth worker (services/worker): leases jobs, runs discovery pipelines,
+# streams progress events, checkpoints long searches, and uploads
+# content-addressed artifacts. Workers are horizontally scalable and stateless
+# between jobs; losing one returns its job to the schedulable state after lease
+# expiry (architecture section 23). Discovery runs are CPU- and memory-heavy,
+# so requests/limits are deliberately generous relative to the control plane.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/component: compute
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+        app.kubernetes.io/component: compute
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9094"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: lawsynth-worker
+      # Cooperative cancellation plus a hard timeout means workers need time to
+      # relinquish leases and flush checkpoints cleanly on shutdown.
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: ghcr.io/lawsynth/worker:latest
+          args:
+            - --health-addr=0.0.0.0:8084
+            - --metrics-addr=0.0.0.0:9094
+            - --scratch-dir=/var/lib/lawsynth/work
+          ports:
+            - name: health
+              containerPort: 8084
+            - name: metrics
+              containerPort: 9094
+          envFrom:
+            - configMapRef:
+                name: lawsynth-config
+            - secretRef:
+                name: lawsynth-secrets
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: scratch
+              mountPath: /var/lib/lawsynth/work
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        # Node-local scratch for reconstructions, checkpoints, and staged
+        # artifacts before upload. Bounded by ephemeral-storage on the node.
+        - name: scratch
+          emptyDir:
+            sizeLimit: 8Gi
+---
+# Headless service so Prometheus can scrape each worker Pod directly; workers
+# receive jobs by leasing from the scheduler/event bus, not through this VIP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/component: compute
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: worker
+  ports:
+    - name: metrics
+      port: 9094
+      targetPort: metrics

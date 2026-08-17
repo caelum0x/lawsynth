@@ -1,0 +1,63 @@
+# Grafana datasource provisioning for a LawSynth deployment.
+#
+# Drop this into Grafana's provisioning directory
+# (/etc/grafana/provisioning/datasources/) to wire up the three signals used by
+# the reference dashboards: metrics (Prometheus), logs (Loki), and traces
+# (Tempo). Trace-to-logs and trace-to-metrics correlation is enabled via the
+# run_id / trace_id fields carried on the event envelope.
+
+apiVersion: 1
+
+# Remove datasources that were provisioned previously and are no longer listed.
+prune: true
+
+datasources:
+  - name: Prometheus
+    uid: lawsynth-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+      manageAlerts: true
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: lawsynth-tempo
+
+  - name: Loki
+    uid: lawsynth-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # Link a log line's trace_id to the Tempo trace view.
+        - name: trace_id
+          matcherRegex: '"trace_id":"(\w+)"'
+          url: '${__value.raw}'
+          datasourceUid: lawsynth-tempo
+
+  - name: Tempo
+    uid: lawsynth-tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: lawsynth-loki
+        filterByTraceID: true
+        tags:
+          - key: service.name
+            value: service
+      tracesToMetrics:
+        datasourceUid: lawsynth-prometheus
+        tags:
+          - key: service.name
+            value: service
+      serviceMap:
+        datasourceUid: lawsynth-prometheus
+      nodeGraph:
+        enabled: true

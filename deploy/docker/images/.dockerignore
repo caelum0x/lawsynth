@@ -1,0 +1,69 @@
+# .dockerignore for LawSynth image builds.
+#
+# The build context for every image in this directory is the repository root
+# (see build.hcl `CONTEXT`). Keep the context small and deterministic: exclude
+# build output, local state, secrets, and editor cruft so layers stay cacheable
+# and no host secret is ever copied into an image.
+
+# --- version control & CI ---------------------------------------------------
+.git
+.github
+.gitignore
+.gitattributes
+
+# --- Rust build output ------------------------------------------------------
+target
+**/target
+**/*.rs.bk
+
+# --- Python caches & virtualenvs --------------------------------------------
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.venv
+**/venv
+**/*.egg-info
+**/build
+**/dist
+
+# --- Node / pnpm ------------------------------------------------------------
+**/node_modules
+**/.turbo
+**/.next
+**/coverage
+
+# --- local deploy state (never bake into an image) --------------------------
+deploy/**/.env
+deploy/**/*.local.yaml
+deploy/airgap/bundle/*.tar
+deploy/airgap/bundle/*.tar.gz
+deploy/airgap/bundle/wheels
+deploy/airgap/bundle/datasets
+deploy/observability/**/data
+
+# --- secrets & credentials --------------------------------------------------
+*.pem
+*.key
+*.crt
+*.p12
+.env
+.env.*
+!*.env.example
+secrets
+**/secrets
+
+# --- editor / OS ------------------------------------------------------------
+.idea
+.vscode
+*.swp
+.DS_Store
+
+# --- docs & examples not needed at build time -------------------------------
+docs
+examples
+benchmarks
+**/*.md
+!README.md

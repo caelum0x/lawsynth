@@ -1,0 +1,64 @@
+[Unit]
+Description=LawSynth HTTP API (RunSpec persistence, run events, artifact refs)
+Documentation=https://github.com/lawsynth/lawsynth
+After=network-online.target postgresql.service lawsynth-artifact.service
+Wants=network-online.target lawsynth-artifact.service
+Requires=postgresql.service
+PartOf=lawsynth.target
+
+[Service]
+Type=exec
+User=lawsynth
+Group=lawsynth
+WorkingDirectory=/var/lib/lawsynth
+EnvironmentFile=/etc/lawsynth/environment
+# Schema migrations run to completion before the server starts; a failed
+# migration aborts startup rather than serving against a half-migrated schema
+# (architecture section 23).
+ExecStartPre=/opt/lawsynth/venv/bin/python -m lawsynth_api.migrate upgrade
+# Bind to loopback: the gateway is the only public entry point on this host.
+ExecStart=/opt/lawsynth/venv/bin/gunicorn \
+    --bind=127.0.0.1:8080 \
+    --workers=2 \
+    --timeout=120 \
+    --access-logfile=- \
+    --error-logfile=- \
+    lawsynth_api.main:application
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# --- Filesystem and privilege hardening -------------------------------------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# MemoryDenyWriteExecute omitted: the API loads the native discovery engine via
+# PyO3, which may allocate executable pages.
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+StateDirectory=lawsynth
+ReadWritePaths=/var/lib/lawsynth/objects
+
+# --- Resource limits --------------------------------------------------------
+LimitNOFILE=65536
+TasksMax=512
+
+[Install]
+WantedBy=lawsynth.target

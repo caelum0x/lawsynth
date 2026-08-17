@@ -1,0 +1,24 @@
+# Container images included in the LawSynth air-gapped bundle.
+#
+# One fully-qualified image reference per line. Blank lines and lines starting
+# with '#' are ignored. export.sh pulls each of these on a connected host and
+# saves them into images/<sanitized-name>.tar; import.sh loads them on the
+# air-gapped host. Keep the tags in lockstep with deploy/compose/production.
+#
+# Pin by digest for a reproducible bundle, e.g.
+#   ghcr.io/lawsynth/api@sha256:...
+
+# --- LawSynth service images (tag set by BUNDLE_VERSION at export time) ------
+ghcr.io/lawsynth/api:0.1.0
+ghcr.io/lawsynth/gateway:0.1.0
+ghcr.io/lawsynth/scheduler:0.1.0
+ghcr.io/lawsynth/worker:0.1.0
+ghcr.io/lawsynth/artifact:0.1.0
+ghcr.io/lawsynth/studio:0.1.0
+
+# --- Backing infrastructure (must match the compose profiles) ----------------
+postgres:16-alpine
+quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z
+quay.io/minio/mc:RELEASE.2024-10-08T09-37-26Z
+nats:2.10-alpine
+caddy:2-alpine

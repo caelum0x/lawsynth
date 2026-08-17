@@ -1,0 +1,60 @@
+# MinIO S3-compatible object store for the local LawSynth stack.
+#
+# Provides the S3 API that the API and workers use for uploads, exports,
+# previews, and checkpoints. Content hashes control physical deduplication;
+# logical paths (objects/, uploads/, exports/, previews/, checkpoints/) are
+# metadata only.
+#
+# The `minio-init` one-shot creates the bucket and exits; it is not a
+# long-running service. Included by compose.yaml.
+
+services:
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-lawsynth}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-lawsynth_local_password}
+    ports:
+      - "${MINIO_API_HOST_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
+    volumes:
+      - lawsynth_minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - lawsynth
+
+  # One-shot: create the artifact bucket, then exit 0. Idempotent.
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2024-10-08T09-37-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-lawsynth}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-lawsynth_local_password}
+      LAWSYNTH_S3_BUCKET: ${LAWSYNTH_S3_BUCKET:-lawsynth-artifacts}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$LAWSYNTH_S3_BUCKET"
+        mc version enable "local/$$LAWSYNTH_S3_BUCKET" || true
+        echo "bucket $$LAWSYNTH_S3_BUCKET ready"
+    restart: "no"
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:
+
+volumes:
+  lawsynth_minio:

@@ -1,0 +1,31 @@
+{
+  "fixture": "registry",
+  "description": "Built-in connector registry. Names are normalized (lowercased, underscores to hyphens); optional drivers load lazily only when a connector is created.",
+  "builtins": {
+    "arrow": "lawsynth_connectors.arrow:ArrowConnector",
+    "delta": "lawsynth_connectors.delta:DeltaConnector",
+    "duckdb": "lawsynth_connectors.duckdb:DuckDBConnector",
+    "filesystem": "lawsynth_connectors.filesystem:FilesystemConnector",
+    "http": "lawsynth_connectors.http:HttpConnector",
+    "iceberg": "lawsynth_connectors.iceberg:IcebergConnector",
+    "kafka": "lawsynth_connectors.kafka:KafkaConnector",
+    "pandas": "lawsynth_connectors.pandas:PandasConnector",
+    "polars": "lawsynth_connectors.polars:PolarsConnector",
+    "postgres": "lawsynth_connectors.postgres:PostgresConnector",
+    "s3": "lawsynth_connectors.s3:S3Connector",
+    "sqlite": "lawsynth_connectors.sql:SQLiteConnector",
+    "xarray": "lawsynth_connectors.xarray:XarrayConnector"
+  },
+  "create_example": {
+    "config": {
+      "name": "filesystem",
+      "batch_size": 5000,
+      "max_rows": 100000,
+      "options": {"root": "./datasets"}
+    }
+  },
+  "errors": {
+    "unknown_name": "connector_configuration",
+    "duplicate_registration": "connector_configuration"
+  }
+}

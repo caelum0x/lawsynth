@@ -1,0 +1,20 @@
+# LawSynth plugin manifest for the external-simulator extension.
+#
+# Strict `key = value` grammar parsed by
+# `lawsynth_plugin_api::PluginManifest::parse` (specs/plugin-protocol/
+# manifest.md). Not general TOML. A host discovers the plugin by reading a
+# `plugin.manifest` file containing this content.
+
+id = "external-simulator"
+version = "0.1.0"
+
+# `process` isolation: the host spawns the entrypoint as a child process and
+# exchanges length-delimited protocol frames over its stdin/stdout.
+kind = "process"
+entrypoint = "lawsynth-external-simulator"
+capabilities = "simulator"
+
+max_cpu_millis = 30000
+max_memory_bytes = 268435456
+max_output_bytes = 16777216
+max_requests = 1000

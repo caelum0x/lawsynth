@@ -61,6 +61,7 @@ class ApiSettings:
     server: ServerSettings
     environment: str = "development"
     max_request_bytes: int = 64 * 1024 * 1024
+    event_stream_retention: int = 1024
 
     def __post_init__(self) -> None:
         if self.environment not in {"development", "test", "staging", "production"}:
@@ -69,6 +70,8 @@ class ApiSettings:
             raise ValidationError("max_request_bytes must be positive")
         if self.max_request_bytes < self.server.max_upload_bytes:
             raise ValidationError("max_request_bytes cannot be lower than max_upload_bytes")
+        if self.event_stream_retention < 1:
+            raise ValidationError("event_stream_retention must be positive")
 
     @classmethod
     def from_environment(cls, values: Mapping[str, str] | None = None) -> "ApiSettings":
@@ -78,6 +81,7 @@ class ApiSettings:
         object_root = Path(values.get("LAWSYNTH_OBJECT_ROOT", ".lawsynth-objects"))
         upload_limit = _positive_integer(values, "LAWSYNTH_MAX_UPLOAD_BYTES", 64 * 1024 * 1024)
         request_limit = _positive_integer(values, "LAWSYNTH_API_MAX_REQUEST_BYTES", upload_limit)
+        retention = _positive_integer(values, "LAWSYNTH_API_EVENT_RETENTION", 1024)
         if environment == "production":
             if database_url == ":memory:":
                 raise ValidationError("LAWSYNTH_DATABASE_URL must use durable storage in production")
@@ -91,4 +95,4 @@ class ApiSettings:
             max_upload_bytes=upload_limit,
             telemetry_enabled=values.get("LAWSYNTH_TELEMETRY", "false").lower() == "true",
         )
-        return cls(server=server, environment=environment, max_request_bytes=request_limit)
+        return cls(server=server, environment=environment, max_request_bytes=request_limit, event_stream_retention=retention)

@@ -1,0 +1,23 @@
+# Production profile for lawsynth-artifact.
+#
+# Larger durable ceiling and cache budget for a dedicated host. Size these values
+# to the real volume backing `root`: `max_total_bytes` is the ceiling reported by
+# /health and enforced by the store, not a reservation. Fields map to
+# ArtifactConfig (services/artifact/src/config.rs); config.rs::validate requires
+# store.max_object_bytes <= limits.max_multipart_bytes.
+
+profile: production
+
+# Persistent host path on the artifact data volume; owned by the service user.
+root: /var/lib/lawsynth/artifacts
+
+store:
+  max_object_bytes: 1073741824       # 1 GiB
+  cache_capacity_bytes: 536870912    # 512 MiB
+
+limits:
+  max_total_bytes: 549755813888      # 512 GiB
+  max_multipart_parts: 10000
+  max_multipart_bytes: 4294967296    # 4 GiB
+
+cache_capacity_bytes: 536870912      # 512 MiB

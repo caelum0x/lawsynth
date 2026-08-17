@@ -1,0 +1,26 @@
+# Canonical resource ceilings for lawsynth-artifact.
+#
+# These keys mirror the immutable Rust types the service actually enforces:
+#   - `store`  -> lawsynth_store::StoreConfig      (crates/lawsynth-store/src/config.rs)
+#   - `limits` -> ArtifactLimits                   (services/artifact/src/limits.rs)
+#   - `cache_capacity_bytes` / `root` -> ArtifactConfig (services/artifact/src/config.rs)
+#
+# The current `lawsynth-artifact` CLI constructs `ArtifactConfig::new(root)` with
+# the built-in defaults reproduced below; this file is the documented, reviewable
+# source for those numbers and the profile the per-environment files inherit.
+# Values are byte counts. Validation invariants (config.rs::validate):
+#   store.max_object_bytes >= 512
+#   store.max_object_bytes <= limits.max_multipart_bytes
+#   every limit strictly positive.
+
+store:
+  max_object_bytes: 134217728        # 128 MiB - largest single object body
+  cache_capacity_bytes: 33554432     # 32 MiB - in-process read cache budget
+
+limits:
+  max_total_bytes: 4294967296        # 4 GiB - durable data ceiling reported by /health
+  max_multipart_parts: 10000         # maximum parts in one multipart session
+  max_multipart_bytes: 134217728     # 128 MiB - assembled multipart upload size
+
+# ArtifactConfig mirrors the store cache budget at the top level.
+cache_capacity_bytes: 33554432

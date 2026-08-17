@@ -3,17 +3,38 @@
 from __future__ import annotations
 
 import json
+import time
 from http import HTTPStatus
 from typing import Callable, Iterable, Mapping, MutableMapping
 from urllib.parse import parse_qsl
 from uuid import uuid4
 
 from lawsynth_server.app import Application
+from lawsynth_server.auth import require_scope
+from lawsynth_server.errors import AuthenticationError, AuthorizationError
 
+from .events import EventBus, EventKind, render_frame
 from .lifespan import ApiLifespan
 from .settings import ApiSettings
 
+# Maps a domain run ``status`` to the streaming event kind for that transition.
+# The domain models no separate "progress" concept, so ``EventKind.PROGRESS``
+# is part of the value contract but is not emitted by run status transitions.
+_RUN_STATUS_KINDS = {
+    "queued": EventKind.RUN_QUEUED,
+    "running": EventKind.RUN_STARTED,
+    "succeeded": EventKind.RUN_SUCCEEDED,
+    "failed": EventKind.RUN_FAILED,
+    "cancelled": EventKind.RUN_CANCELLED,
+}
+
 StartResponse = Callable[[str, list[tuple[str, str]]], object]
+
+# The explicit protocol version this transport publishes on every response and
+# negotiates against the optional ``X-Api-Version`` request header.  It tracks
+# the ``/v1`` route prefix (specs/service-api/versioning.md).
+_PROTOCOL_VERSION = "1"
+_ACCEPTED_API_VERSIONS = frozenset({_PROTOCOL_VERSION, f"v{_PROTOCOL_VERSION}"})
 
 
 class RequestProblem(Exception):
@@ -33,6 +54,7 @@ class WsgiApplication:
     def __init__(self, settings: ApiSettings, *, domain: Application | None = None) -> None:
         self.settings = settings
         self._lifespan = ApiLifespan(settings.server, domain)
+        self._events = EventBus(retention=settings.event_stream_retention)
 
     def close(self) -> None:
         self._lifespan.close()
@@ -41,16 +63,128 @@ class WsgiApplication:
         request_id = str(uuid4())
         try:
             request = self._request(environ)
+            if request["method"] == "GET" and request["path"] == "/v1/events" and self._wants_sse(request["headers"]):
+                return self._stream_events(request, request_id, start_response)
             if request["path"].startswith("/v1/worker/") or request["path"] == "/v1/worker":
                 response = self._error(501, "worker_transport_unavailable", "worker HTTP transport is not deployed by this API process", request_id)
             else:
                 response = self._lifespan.application.dispatch(request)
                 response.setdefault("headers", {}).setdefault("X-Request-ID", request_id)
+                self._emit_lifecycle(request, response)
         except RequestProblem as error:
             response = self._error(error.status, error.code, error.message, request_id)
         except RuntimeError:
             response = self._error(503, "service_unavailable", "the API process is shutting down", request_id)
         return self._respond(response, start_response)
+
+    # -- Server-Sent Events -------------------------------------------------
+    #
+    # Delivery semantics (WSGI is synchronous, so there is no server push):
+    # each ``GET /v1/events`` call authenticates, resolves the caller's scope
+    # (tenant/organization from the bearer token), then drains and returns, as
+    # framed SSE, every currently-retained event for that scope whose sequence
+    # is greater than the ``Last-Event-ID`` request header (0 when absent).
+    # The stream is then closed -- the connection is NOT held open for future
+    # events.  Clients resume with cursor-based polling: reconnect and send the
+    # id of the last event they received via ``Last-Event-ID``.  Retention is
+    # bounded and in-process (see ``events.EventBus``); events evicted from the
+    # ring buffer are not replayable.
+
+    @staticmethod
+    def _wants_sse(headers: Mapping[str, str]) -> bool:
+        accept = headers.get("Accept", "")
+        return isinstance(accept, str) and "text/event-stream" in accept
+
+    def _authenticate(self, headers: Mapping[str, str]):
+        return self._lifespan.application.services.auth.authenticate(headers.get("Authorization"))
+
+    @staticmethod
+    def _last_event_id(headers: Mapping[str, str]) -> int:
+        raw = None
+        for name, value in headers.items():
+            if name.lower() == "last-event-id":
+                raw = value
+                break
+        if raw is None or raw == "":
+            return 0
+        if not raw.isascii() or not raw.isdecimal():
+            raise RequestProblem(400, "invalid_last_event_id", "Last-Event-ID must be a non-negative integer")
+        return int(raw)
+
+    def _stream_events(self, request: Mapping[str, object], request_id: str, start_response: StartResponse) -> Iterable[bytes]:
+        headers = request["headers"]
+        try:
+            principal = self._authenticate(headers)
+            require_scope(principal, "read")
+        except AuthenticationError as error:
+            raise RequestProblem(401, error.code, error.message) from error
+        except AuthorizationError as error:
+            raise RequestProblem(403, error.code, error.message) from error
+        after = self._last_event_id(headers)
+        events = self._events.events_after(principal.organization_id, after)
+        sse_headers = {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "X-Content-Type-Options": "nosniff",
+            "X-Request-ID": request_id,
+        }
+        start_response("200 OK", list(sse_headers.items()))
+
+        def body() -> Iterable[bytes]:
+            # A leading comment keeps the stream valid (and non-empty) even when
+            # no events match, so polling clients always receive a 200 body.
+            yield f": stream open ({len(events)} event(s))\n\n".encode("utf-8")
+            for event in events:
+                yield render_frame(event)
+
+        return body()
+
+    def _emit_lifecycle(self, request: Mapping[str, object], response: Mapping[str, object]) -> None:
+        """Translate a successful run/artifact mutation into a streamed ApiEvent.
+
+        Emission happens at the API boundary from the domain's own outcome, so
+        no run/artifact state is duplicated.  Idempotent replays are skipped to
+        avoid double-emitting an event for a single logical change.
+        """
+
+        status = response.get("status")
+        if not isinstance(status, int) or status >= 300:
+            return
+        response_headers = response.get("headers", {})
+        if isinstance(response_headers, Mapping) and response_headers.get("Idempotency-Replayed") == "true":
+            return
+        body = response.get("body")
+        if not isinstance(body, Mapping):
+            return
+        parts = [part for part in str(request["path"]).split("/") if part]
+        if parts[:1] == ["v1"]:
+            parts = parts[1:]
+        method = request["method"]
+        try:
+            principal = self._authenticate(request["headers"])
+        except (AuthenticationError, AuthorizationError):
+            return
+        scope = principal.organization_id
+        now = int(time.time() * 1000)
+        if parts[:1] == ["runs"] and method in {"POST", "PATCH"}:
+            self._emit_run(scope, now, body)
+        elif parts == ["artifacts"] and method == "POST":
+            run_id = body.get("run_id") if isinstance(body.get("run_id"), str) else None
+            payload = json.dumps({"id": body.get("id"), "sha256": body.get("sha256")}, separators=(",", ":"))
+            self._events.append(scope, now, EventKind.ARTIFACT_CREATED, payload, run_id=run_id)
+
+    def _emit_run(self, scope: str, now: int, body: Mapping[str, object]) -> None:
+        run_id = body.get("id")
+        status = body.get("status")
+        if not isinstance(run_id, str) or not isinstance(status, str):
+            return
+        kind = _RUN_STATUS_KINDS.get(status)
+        if kind is None:
+            return
+        payload = json.dumps({"id": run_id, "status": status}, separators=(",", ":"))
+        self._events.append(scope, now, kind, payload, run_id=run_id)
 
     def _request(self, environ: Mapping[str, object]) -> dict[str, object]:
         method = environ.get("REQUEST_METHOD")
@@ -71,6 +205,9 @@ class WsgiApplication:
         if len({key for key, _ in pairs}) != len(pairs):
             raise RequestProblem(400, "invalid_query", "duplicate query parameters are not supported")
         headers = self._headers(environ)
+        requested_version = headers.get("X-Api-Version")
+        if requested_version is not None and requested_version not in _ACCEPTED_API_VERSIONS:
+            raise RequestProblem(406, "unsupported_api_version", "this endpoint only serves API protocol version 1")
         body = self._body(environ, headers)
         return {"method": method, "path": path, "query": dict(pairs), "headers": headers, "body": body}
 
@@ -136,7 +273,7 @@ class WsgiApplication:
         except (TypeError, ValueError):
             status, payload = 500, json.dumps(WsgiApplication._error(500, "internal_error", "internal server error", str(uuid4()))["body"], separators=(",", ":")).encode("utf-8")
         response_headers = response.get("headers", {})
-        safe_headers = {"Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"}
+        safe_headers = {"Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "X-Api-Version": _PROTOCOL_VERSION}
         if isinstance(response_headers, Mapping):
             for name, value in response_headers.items():
                 if isinstance(name, str) and isinstance(value, str) and "\r" not in name + value and "\n" not in name + value:

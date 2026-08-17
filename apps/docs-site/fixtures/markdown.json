@@ -1,0 +1,26 @@
+{
+  "source": "---\ntitle: What is LawSynth?\ndescription: LawSynth turns multivariate time series into typed equations, causal hypotheses, regimes, uncertainty, and simulations.\norder: 1\ntags: overview, introduction\n---\n\n# What is LawSynth?\n\nLawSynth is a scientific model studio. It ingests multivariate time series and\nproduces a **World IR** \u2014 one typed, executable representation that combines\nequations, causal hypotheses, regimes, uncertainty, and interventions.\n\n## Why a World IR?\n\nThe individual ingredients already have strong open-source implementations. The\nmissing product layer is a single representation every stage can exchange.\n\n- Rust owns correctness-sensitive execution.\n- Algorithms exchange World IR, not private object graphs.\n- Every run produces an inspectable, reproducible `.lsworld` bundle.\n\n> Model systems, not screenshots.\n",
+  "expect": {
+    "metadata": {
+      "title": "What is LawSynth?",
+      "order": 1,
+      "tags": [
+        "overview",
+        "introduction"
+      ]
+    },
+    "headingIds": [
+      "what-is-lawsynth",
+      "why-a-world-ir"
+    ],
+    "firstHeading": "What is LawSynth?",
+    "blockKinds": [
+      "heading",
+      "paragraph",
+      "heading",
+      "paragraph",
+      "list",
+      "quote"
+    ]
+  }
+}

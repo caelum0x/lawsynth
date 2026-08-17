@@ -1,0 +1,20 @@
+{
+  "fixture": "delta",
+  "description": "Delta Lake connector. Requires the 'delta' extra (deltalake). Reads a table at an optional pinned version snapshot.",
+  "extra": "delta",
+  "config": {
+    "name": "delta",
+    "batch_size": 5000,
+    "options": {}
+  },
+  "request": {
+    "resource": "./datasets/observations.delta",
+    "snapshot": "3",
+    "options": {"partition_filters": [["region", "=", "eu"]]}
+  },
+  "sample_records": [
+    {"time": 0, "x": 1.0, "region": "eu"},
+    {"time": 1, "x": 2.0, "region": "eu"}
+  ],
+  "fingerprint_algorithm": "sha256"
+}

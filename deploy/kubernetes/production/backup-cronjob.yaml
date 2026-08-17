@@ -1,0 +1,88 @@
+# Metadata database backup CronJob.
+#
+# Targets the 15-minute RPO reference for the metadata store (architecture
+# section 23). Each run takes a consistent logical dump of the LawSynth metadata
+# database and uploads a timestamped, compressed artifact to the object store.
+# The metadata DB is small (run/job/artifact references, not dataset content),
+# so a frequent full logical dump is inexpensive. Restore RTO (<2h) is exercised
+# from these dumps via the documented restore runbook.
+#
+# Credentials come from `lawsynth-secrets`; nothing sensitive is inlined here.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: metadata-backup
+  labels:
+    app.kubernetes.io/part-of: lawsynth
+    app.kubernetes.io/component: backup
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 24
+  failedJobsHistoryLimit: 24
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/part-of: lawsynth
+            app.kubernetes.io/component: backup
+        spec:
+          restartPolicy: Never
+          serviceAccountName: lawsynth-artifact
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              # Image bundling pg_dump (client) and the object-store CLI.
+              image: ghcr.io/lawsynth/backup:1.0.0
+              command: ["/bin/sh", "-euo", "pipefail", "-c"]
+              args:
+                - |
+                  stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+                  key="metadata/lawsynth-${stamp}.sql.gz"
+                  echo "dumping metadata database to ${key}"
+                  pg_dump --no-owner --no-privileges "${LAWSYNTH_DATABASE_URL}" \
+                    | gzip -9 \
+                    | mc pipe "backup/${LAWSYNTH_BACKUP_BUCKET}/${key}"
+                  echo "backup uploaded: ${key}"
+              env:
+                - name: LAWSYNTH_DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: lawsynth-secrets
+                      key: LAWSYNTH_DATABASE_URL
+                - name: MC_HOST_backup
+                  valueFrom:
+                    secretKeyRef:
+                      name: lawsynth-secrets
+                      key: LAWSYNTH_BACKUP_MC_HOST
+                - name: LAWSYNTH_BACKUP_BUCKET
+                  value: "lawsynth-backups"
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir: {}

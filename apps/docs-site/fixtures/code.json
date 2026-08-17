@@ -1,0 +1,29 @@
+{
+  "blocks": [
+    {
+      "language": "bash",
+      "caption": "Install and run discovery",
+      "source": "$ cargo install lawsynth-cli\n$ lawsynth discover lynx-hare.csv --out predator-prey.lsworld"
+    },
+    {
+      "language": "json",
+      "caption": "A minimal World IR document",
+      "source": "{\n  \"formatVersion\": \"0.1.0\",\n  \"id\": \"lotka_volterra\",\n  \"variables\": [{ \"id\": \"prey\", \"role\": \"state\" }]\n}"
+    },
+    {
+      "language": "typescript",
+      "caption": "Compile a documentation site",
+      "source": "import { compileSite } from \"@lawsynth/docs-site\";\n\nconst site = compileSite(pages, { origin: \"https://lawsynth.dev\" });\nexport const sitemap = site.sitemap;"
+    },
+    {
+      "language": "rust",
+      "caption": "Simulate a compiled world",
+      "source": "let world = World::from_bundle(&bundle)?;\nlet trajectory = world.simulate(&request)?;"
+    },
+    {
+      "language": "python",
+      "caption": "Estimate derivatives",
+      "source": "from lawsynth import derivatives\n\ndef prepare(frame):\n    return derivatives.savitzky_golay(frame, window=7)"
+    }
+  ]
+}

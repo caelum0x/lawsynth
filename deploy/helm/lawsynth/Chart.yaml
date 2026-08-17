@@ -1,0 +1,39 @@
+apiVersion: v2
+name: lawsynth
+description: >-
+  LawSynth distributed discovery engine. Deploys the API gateway, scheduler,
+  worker pool, and content-addressed artifact service backed by Postgres, an
+  S3-compatible object store, and a NATS job bus.
+type: application
+
+# Chart version. Bump on any change to templates or default values.
+version: 0.1.0
+
+# Version of the LawSynth service images this chart is validated against.
+# Overridable per-service via `.Values.<service>.image.tag`.
+appVersion: "0.1.0"
+
+home: https://github.com/lawsynth/lawsynth
+sources:
+  - https://github.com/lawsynth/lawsynth
+keywords:
+  - lawsynth
+  - time-series
+  - system-identification
+  - scientific-computing
+  - discovery
+
+maintainers:
+  - name: LawSynth Platform Engineering
+    url: https://github.com/lawsynth/lawsynth
+
+annotations:
+  category: MachineLearning
+  licenses: Apache-2.0
+
+kubeVersion: ">=1.27.0-0"
+
+# Postgres, object store, and NATS are expected to be provisioned out of band
+# (managed services, or the Terraform modules under deploy/terraform). They are
+# intentionally NOT declared as subchart dependencies so the chart stays
+# deterministic and offline-installable. See values.yaml `externalServices`.

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-plugin-neural-prior"
+version = "0.1.0"
+description = "Dependency-free dense neural prior for LawSynth with strict shape bounds and optional accelerated backends"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth contributors" }]
+keywords = ["lawsynth", "plugin", "prior", "neural-network"]
+dependencies = []
+
+# Core inference is pure Python. Heavy numeric backends are optional and only
+# used by tooling that exports weights into the plain-list model schema.
+[project.optional-dependencies]
+numpy = ["numpy>=1.24"]
+torch = ["torch>=2"]
+dev = ["pytest>=8"]
+
+# The host discovers plugins through this entry-point group. The value points at
+# the callable class declared as `entrypoint` in plugin.toml.
+[project.entry-points."lawsynth.plugins"]
+neural-prior = "neural_prior.plugin:NeuralPrior"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

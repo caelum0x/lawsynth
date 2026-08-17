@@ -1,0 +1,135 @@
+{{- if .Values.artifact.enabled }}
+{{- if .Values.artifact.cache.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-artifact-cache
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: artifact
+spec:
+  accessModes:
+    - {{ .Values.artifact.cache.accessMode }}
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.artifact.cache.size }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-artifact
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: artifact
+spec:
+  replicas: {{ .Values.artifact.replicaCount }}
+  # A single RWO cache PVC cannot be shared; recreate to release it on rollout.
+  strategy:
+    type: {{ if .Values.artifact.cache.enabled }}Recreate{{ else }}RollingUpdate{{ end }}
+  selector:
+    matchLabels:
+      {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "artifact") | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.artifact.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "artifact") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "lawsynth.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: artifact
+          image: {{ include "lawsynth.image" (dict "root" . "svc" .Values.artifact) }}
+          imagePullPolicy: {{ include "lawsynth.imagePullPolicy" (dict "root" . "svc" .Values.artifact) }}
+          args: ["serve", "--role", "artifact"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.artifact.service.port }}
+              protocol: TCP
+          envFrom:
+            {{- include "lawsynth.commonEnvFrom" . | nindent 12 }}
+          env:
+            - name: LAWSYNTH_ARTIFACT_CACHE_ENABLED
+              value: {{ .Values.artifact.cache.enabled | quote }}
+            - name: LAWSYNTH_ARTIFACT_CACHE_DIR
+              value: /var/lib/lawsynth/cache
+            {{- with .Values.artifact.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.artifact.probes.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.artifact.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.artifact.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.artifact.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.artifact.probes.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.artifact.probes.readyPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.artifact.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.artifact.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.artifact.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.artifact.probes.failureThreshold }}
+          resources:
+            {{- toYaml .Values.artifact.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.artifact.cache.enabled }}
+            - name: cache
+              mountPath: /var/lib/lawsynth/cache
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.artifact.cache.enabled }}
+        - name: cache
+          persistentVolumeClaim:
+            claimName: {{ include "lawsynth.fullname" . }}-artifact-cache
+        {{- end }}
+      {{- with .Values.artifact.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.artifact.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.artifact.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-artifact
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: artifact
+spec:
+  type: {{ .Values.artifact.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.artifact.service.port }}
+      targetPort: {{ .Values.artifact.service.targetPort }}
+      protocol: TCP
+  selector:
+    {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "artifact") | nindent 4 }}
+{{- end }}

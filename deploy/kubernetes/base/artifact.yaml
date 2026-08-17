@@ -1,0 +1,116 @@
+# LawSynth artifact service (services/artifact): content-addressed storage for
+# .lsworld bundles and intermediate objects. Upload finalizes only after
+# checksum verification, and reads detect checksum integrity 100% of the time
+# (architecture section 23). The service fronts an object store (S3/MinIO) and
+# issues short-lived signed download URLs (architecture section 22).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: artifact
+  labels:
+    app.kubernetes.io/name: artifact
+    app.kubernetes.io/component: storage
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: artifact
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: artifact
+        app.kubernetes.io/component: storage
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9092"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: lawsynth-artifact
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: artifact
+          image: ghcr.io/lawsynth/artifact:latest
+          args:
+            - --http-addr=0.0.0.0:8082
+            - --metrics-addr=0.0.0.0:9092
+            - --cache-dir=/var/cache/lawsynth
+          ports:
+            - name: http
+              containerPort: 8082
+            - name: metrics
+              containerPort: 9092
+          envFrom:
+            - configMapRef:
+                name: lawsynth-config
+            - secretRef:
+                name: lawsynth-secrets
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /var/cache/lawsynth
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        # Local read-through cache for hot bundles; the durable copy always
+        # lives in the backing object store, so this can be ephemeral.
+        - name: cache
+          emptyDir:
+            sizeLimit: 4Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: artifact
+  labels:
+    app.kubernetes.io/name: artifact
+    app.kubernetes.io/component: storage
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: artifact
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http
+    - name: metrics
+      port: 9092
+      targetPort: metrics

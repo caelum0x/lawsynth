@@ -1,0 +1,25 @@
+# Python packages included in the LawSynth air-gapped bundle.
+#
+# One pip requirement per line (name==version pins recommended). Blank lines and
+# lines starting with '#' are ignored. export.sh downloads these — and their
+# transitive dependencies — as wheels into wheels/ using `pip download`, so an
+# air-gapped host can `pip install --no-index --find-links wheels/ ...`.
+#
+# The service container images already vendor their own dependencies; this
+# wheelhouse is for operators who run the Python SDK, the API, or the migration
+# tool directly on the air-gapped host (outside containers).
+
+# --- LawSynth Python distributions (built from this repo at export time) -----
+# These are added to the wheelhouse by export.sh via `pip wheel` on the local
+# source tree; they are listed here for completeness, not fetched from an index.
+lawsynth-server==0.1.0
+lawsynth-api==0.1.0
+lawsynth-gateway==0.1.0
+
+# --- Runtime dependencies pulled from the index ------------------------------
+gunicorn==23.0.0
+
+# --- Operator tooling (optional; comment out to shrink the bundle) -----------
+pip==24.2
+setuptools==75.1.0
+wheel==0.44.0

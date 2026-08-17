@@ -1,0 +1,31 @@
+# Staging replica counts. Kept minimal to control cost while still exercising
+# multi-replica behaviour (rolling updates, load balancing) for the API,
+# gateway, and artifact services. The scheduler stays a singleton by design.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: artifact
+spec:
+  replicas: 1

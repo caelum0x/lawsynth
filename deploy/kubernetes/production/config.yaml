@@ -1,0 +1,14 @@
+# Production config overrides, strategic-merged onto the base `lawsynth-config`.
+# Only keys that differ from base are listed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lawsynth-config
+data:
+  LAWSYNTH_API_ENV: "production"
+  RUST_LOG: "info,lawsynth=info"
+  # Telemetry disabled by default; no dataset content ever leaves the cluster.
+  LAWSYNTH_TELEMETRY: "false"
+  # Production Studio origin(s) allowed through CORS.
+  LAWSYNTH_GATEWAY_ALLOWED_ORIGINS: "https://studio.lawsynth.example"
+  LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW: "120"

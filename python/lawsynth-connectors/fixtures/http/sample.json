@@ -1,0 +1,24 @@
+{
+  "fixture": "http",
+  "description": "Bounded HTTP(S) fetch with SSRF guards; resource must be an absolute HTTP(S) URL on an allowed host.",
+  "config": {
+    "name": "http",
+    "batch_size": 1000,
+    "max_bytes": 8388608,
+    "options": {
+      "allowed_hosts": ["data.example.org"],
+      "allow_private_network": false,
+      "headers": {"accept": "application/json"},
+      "records_key": "results"
+    }
+  },
+  "request": {
+    "resource": "https://data.example.org/observations.json"
+  },
+  "sample_snapshot": {"etag": "local-fixture"},
+  "sample_records": [
+    {"time": 0, "x": 1.0},
+    {"time": 1, "x": 2.0}
+  ],
+  "fingerprint_algorithm": "sha256"
+}

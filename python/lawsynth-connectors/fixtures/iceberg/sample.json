@@ -1,0 +1,23 @@
+{
+  "fixture": "iceberg",
+  "description": "Apache Iceberg connector. Requires the 'iceberg' extra (pyiceberg). Loads a catalog table with an optional snapshot id and row filter.",
+  "extra": "iceberg",
+  "config": {
+    "name": "iceberg",
+    "batch_size": 5000,
+    "options": {
+      "catalog_name": "default",
+      "catalog": {"uri": "http://iceberg-rest.internal:8181"}
+    }
+  },
+  "request": {
+    "resource": "warehouse.observations",
+    "snapshot": null,
+    "options": {"snapshot_id": null, "row_filter": "region = 'eu'"}
+  },
+  "sample_records": [
+    {"time": 0, "x": 1.0, "region": "eu"},
+    {"time": 1, "x": 2.0, "region": "eu"}
+  ],
+  "fingerprint_algorithm": "sha256"
+}

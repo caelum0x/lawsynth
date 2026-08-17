@@ -1,0 +1,42 @@
+# Production overlay for LawSynth.
+#
+# Deploys the base into the `lawsynth` namespace with autoscaling, hardened
+# resource envelopes, PodDisruptionBudgets, deny-by-default NetworkPolicies, a
+# production TLS Ingress, and a metadata backup CronJob sized to the 15-minute
+# RPO reference (architecture section 23). Images are pinned to an immutable
+# release tag; promotion is an explicit, reviewed tag bump -- never "latest".
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: lawsynth
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/environment: production
+
+resources:
+  - ../base
+  - ingress.yaml
+  - network-policy.yaml
+  - disruption-budget.yaml
+  - backup-cronjob.yaml
+  # HorizontalPodAutoscalers own replica counts in production.
+  - replicas.yaml
+  # secrets.example.yaml is a TEMPLATE and is intentionally NOT listed here.
+
+patches:
+  - path: config.yaml
+  - path: resources.yaml
+
+images:
+  - name: ghcr.io/lawsynth/api
+    newTag: "1.0.0"
+  - name: ghcr.io/lawsynth/gateway
+    newTag: "1.0.0"
+  - name: ghcr.io/lawsynth/scheduler
+    newTag: "1.0.0"
+  - name: ghcr.io/lawsynth/worker
+    newTag: "1.0.0"
+  - name: ghcr.io/lawsynth/artifact
+    newTag: "1.0.0"

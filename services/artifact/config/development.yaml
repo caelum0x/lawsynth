@@ -1,0 +1,23 @@
+# Development profile for lawsynth-artifact.
+#
+# Fields map 1:1 to ArtifactConfig (services/artifact/src/config.rs). The CLI does
+# not yet read a YAML file; run `lawsynth-artifact serve <root> <addr>` and this
+# document records the intended local-development shape of that configuration.
+# The defaults below match ArtifactConfig::new, so a developer sees the same
+# behavior the binary applies out of the box.
+
+profile: development
+
+# Relative root under the working tree; created on first write.
+root: ./.lawsynth/artifacts
+
+store:
+  max_object_bytes: 134217728        # 128 MiB
+  cache_capacity_bytes: 33554432     # 32 MiB
+
+limits:
+  max_total_bytes: 4294967296        # 4 GiB
+  max_multipart_parts: 10000
+  max_multipart_bytes: 134217728     # 128 MiB
+
+cache_capacity_bytes: 33554432       # 32 MiB (mirrors store cache)

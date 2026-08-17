@@ -1,0 +1,57 @@
+[Unit]
+Description=LawSynth scheduler (job leasing, retry classification)
+Documentation=https://github.com/lawsynth/lawsynth
+# Needs the metadata database and event bus; both are external units on this host.
+After=network-online.target postgresql.service nats.service
+Wants=network-online.target
+Requires=postgresql.service
+PartOf=lawsynth.target
+
+[Service]
+Type=exec
+User=lawsynth
+Group=lawsynth
+WorkingDirectory=/var/lib/lawsynth
+EnvironmentFile=/etc/lawsynth/environment
+ExecStart=/opt/lawsynth/bin/lawsynth-scheduler \
+    --http-addr=127.0.0.1:8083 \
+    --metrics-addr=127.0.0.1:9093
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# --- Filesystem and privilege hardening -------------------------------------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+# The scheduler is reconstructable from the database; it keeps no local state
+# beyond transient checkpoints under StateDirectory.
+StateDirectory=lawsynth
+ReadWritePaths=/var/lib/lawsynth
+
+# --- Resource limits --------------------------------------------------------
+LimitNOFILE=65536
+TasksMax=256
+
+[Install]
+WantedBy=lawsynth.target

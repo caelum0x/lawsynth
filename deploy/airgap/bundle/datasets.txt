@@ -1,0 +1,22 @@
+# Reference datasets included in the LawSynth air-gapped bundle.
+#
+# Format (tab- or space-separated), one entry per line:
+#   <relative-dest-path>    <source-url-or-repo-path>
+#
+# Blank lines and lines starting with '#' are ignored. export.sh copies each
+# source into datasets/<relative-dest-path>; import.sh places them under the
+# configured dataset root on the air-gapped host. Only ship datasets you are
+# licensed to redistribute.
+#
+# Sources beginning with 'repo:' are copied from this repository's tree
+# (offline-safe). Sources beginning with http(s):// are downloaded during
+# export on the connected host.
+
+# --- Reference cases shipped in-repo (see benchmarks/ and examples/) ---------
+reference/lorenz.parquet            repo:benchmarks/datasets/lorenz.parquet
+reference/double-pendulum.parquet   repo:benchmarks/datasets/double-pendulum.parquet
+reference/sir-epidemic.parquet      repo:benchmarks/datasets/sir-epidemic.parquet
+
+# --- Example worlds used by the onboarding walkthrough -----------------------
+worlds/glycolysis.lsworld           repo:examples/worlds/glycolysis.lsworld
+worlds/predator-prey.lsworld        repo:examples/worlds/predator-prey.lsworld

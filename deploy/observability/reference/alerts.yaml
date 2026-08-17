@@ -1,0 +1,190 @@
+# Reference Prometheus alerting rules for a LawSynth deployment.
+#
+# Every alert maps to an SLO or failure mode from the production architecture
+# (section 23 "Reliability and operations"). Thresholds are starting points for
+# a single-node reference deployment — tune them to your traffic and burn-rate
+# policy. Recording rules precompute the ratios the alerts and dashboards share.
+
+groups:
+  # --- Recording rules ------------------------------------------------------
+  - name: lawsynth.recording
+    interval: 30s
+    rules:
+      - record: lawsynth:api_request_error_ratio:rate5m
+        expr: |
+          sum(rate(lawsynth_api_requests_total{status_class="5xx"}[5m]))
+            /
+          clamp_min(sum(rate(lawsynth_api_requests_total[5m])), 1)
+
+      - record: lawsynth:api_request_latency_seconds:p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(lawsynth_api_request_duration_seconds_bucket[5m]))
+          )
+
+      - record: lawsynth:job_cancel_ack_seconds:p95_5m
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(lawsynth_job_cancel_ack_duration_seconds_bucket[5m]))
+          )
+
+  # --- Availability SLO: API 99.9% monthly ----------------------------------
+  - name: lawsynth.availability
+    rules:
+      - alert: LawSynthApiProbeDown
+        expr: probe_success == 0
+        for: 2m
+        labels: { severity: critical, slo: api_availability }
+        annotations:
+          summary: "API health probe failing ({{ $labels.instance }})"
+          description: "The blackbox probe against /v1/health has failed for 2m. The public API is unavailable."
+          runbook: "deploy/observability/reference/runbook.md#api-unavailable"
+
+      - alert: LawSynthApiHighErrorRatioFast
+        # Fast burn: 2% 5xx over 5m threatens the 99.9% budget quickly.
+        expr: lawsynth:api_request_error_ratio:rate5m > 0.02
+        for: 5m
+        labels: { severity: critical, slo: api_availability }
+        annotations:
+          summary: "API 5xx error ratio above 2% (fast burn)"
+          description: "5xx ratio is {{ $value | humanizePercentage }} over 5m."
+          runbook: "deploy/observability/reference/runbook.md#api-error-ratio"
+
+      - alert: LawSynthApiHighErrorRatioSlow
+        expr: |
+          (sum(rate(lawsynth_api_requests_total{status_class="5xx"}[1h]))
+             / clamp_min(sum(rate(lawsynth_api_requests_total[1h])), 1)) > 0.005
+        for: 30m
+        labels: { severity: warning, slo: api_availability }
+        annotations:
+          summary: "API 5xx error ratio above 0.5% (slow burn)"
+          description: "Sustained error ratio {{ $value | humanizePercentage }} over 1h is eroding the monthly budget."
+          runbook: "deploy/observability/reference/runbook.md#api-error-ratio"
+
+      - alert: LawSynthApiLatencyHigh
+        expr: lawsynth:api_request_latency_seconds:p95_5m > 1
+        for: 10m
+        labels: { severity: warning, slo: api_latency }
+        annotations:
+          summary: "API p95 latency above 1s"
+          description: "p95 request latency is {{ $value }}s over 5m."
+          runbook: "deploy/observability/reference/runbook.md#api-latency"
+
+  # --- Run durability: accepted run persistence 99.99% ----------------------
+  - name: lawsynth.runs
+    rules:
+      - alert: LawSynthAcceptedRunPersistenceLoss
+        # Any accepted run that fails to persist is an SLO-critical event.
+        expr: increase(lawsynth_accepted_run_persist_failures_total[10m]) > 0
+        for: 0m
+        labels: { severity: critical, slo: run_persistence }
+        annotations:
+          summary: "Accepted run failed to persist"
+          description: "{{ $value }} accepted run(s) failed to persist in the last 10m. The API returned accepted but state was lost."
+          runbook: "deploy/observability/reference/runbook.md#run-persistence"
+
+      - alert: LawSynthQueueDelayHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(lawsynth_run_queue_delay_seconds_bucket[10m]))) > 300
+        for: 15m
+        labels: { severity: warning, slo: throughput }
+        annotations:
+          summary: "Job queue delay p95 above 5m"
+          description: "Runs are waiting {{ $value }}s before a worker leases them; add worker capacity or investigate the scheduler."
+          runbook: "deploy/observability/reference/runbook.md#queue-delay"
+
+      - alert: LawSynthStaleJobLease
+        expr: max(lawsynth_job_lease_age_seconds) > (3 * 60)
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Stale job lease detected"
+          description: "A job lease has aged past 3× the nominal lease window; a worker may have died without releasing it."
+          runbook: "deploy/observability/reference/runbook.md#stale-lease"
+
+  # --- Cancellation SLO: p95 ack under 2s -----------------------------------
+  - name: lawsynth.cancellation
+    rules:
+      - alert: LawSynthCancelAckSlow
+        expr: lawsynth:job_cancel_ack_seconds:p95_5m > 2
+        for: 10m
+        labels: { severity: warning, slo: cancellation }
+        annotations:
+          summary: "Job cancellation ack p95 above 2s"
+          description: "p95 cancellation acknowledgement is {{ $value }}s (SLO: < 2s)."
+          runbook: "deploy/observability/reference/runbook.md#cancellation"
+
+  # --- Artifact integrity: 100% checksum detection on read ------------------
+  - name: lawsynth.artifacts
+    rules:
+      - alert: LawSynthArtifactChecksumFailure
+        expr: increase(lawsynth_artifact_checksum_failures_total[5m]) > 0
+        for: 0m
+        labels: { severity: critical, slo: artifact_integrity }
+        annotations:
+          summary: "Artifact checksum mismatch on read"
+          description: "{{ $value }} checksum failure(s) in 5m. An artifact is corrupt or tampered; quarantine and restore from backup."
+          runbook: "deploy/observability/reference/runbook.md#artifact-checksum"
+
+      - alert: LawSynthEventOrderingViolation
+        expr: increase(lawsynth_event_ordering_violations_total[5m]) > 0
+        for: 0m
+        labels: { severity: critical, slo: event_ordering }
+        annotations:
+          summary: "Run event ordering violation"
+          description: "Events for a run attempt arrived out of monotonic sequence; consumers may render inconsistent state."
+          runbook: "deploy/observability/reference/runbook.md#event-ordering"
+
+  # --- Backup RPO: metadata backup within 15 min ----------------------------
+  - name: lawsynth.backup
+    rules:
+      - alert: LawSynthBackupRpoBreached
+        # backup.sh publishes lawsynth_backup_last_success_timestamp_seconds
+        # (e.g. via the Pushgateway) after each successful set.
+        expr: (time() - lawsynth_backup_last_success_timestamp_seconds) > (20 * 60)
+        for: 5m
+        labels: { severity: critical, slo: backup_rpo }
+        annotations:
+          summary: "Metadata backup RPO breached"
+          description: "No successful backup for {{ $value | humanizeDuration }} (RPO target 15m)."
+          runbook: "deploy/observability/reference/runbook.md#backup-rpo"
+
+  # --- Saturation ------------------------------------------------------------
+  - name: lawsynth.saturation
+    rules:
+      - alert: LawSynthPostgresConnectionsSaturated
+        expr: |
+          sum(pg_stat_activity_count) / clamp_min(max(pg_settings_max_connections), 1) > 0.9
+        for: 5m
+        labels: { severity: warning, slo: db_saturation }
+        annotations:
+          summary: "Postgres connection pool above 90%"
+          description: "Connection usage is {{ $value | humanizePercentage }} of max_connections."
+          runbook: "deploy/observability/reference/runbook.md#db-saturation"
+
+      - alert: LawSynthObjectStoreCapacityLow
+        expr: |
+          (minio_cluster_capacity_usable_free_bytes
+             / clamp_min(minio_cluster_capacity_usable_total_bytes, 1)) < 0.1
+        for: 10m
+        labels: { severity: warning, slo: object_saturation }
+        annotations:
+          summary: "Object store free capacity below 10%"
+          description: "Free usable capacity is {{ $value | humanizePercentage }}; artifact uploads will soon fail."
+          runbook: "deploy/observability/reference/runbook.md#object-capacity"
+
+  # --- Scientific quality signals -------------------------------------------
+  - name: lawsynth.science
+    rules:
+      - alert: LawSynthUnstableCandidateRateHigh
+        expr: |
+          sum(rate(lawsynth_scientific_warnings_total{kind="unstable_candidate"}[15m]))
+            > 0.5
+        for: 30m
+        labels: { severity: info, slo: scientific_quality }
+        annotations:
+          summary: "Elevated unstable-candidate warnings"
+          description: "Discovery is emitting unstable-candidate warnings at {{ $value }}/s; datasets or method settings may need review."
+          runbook: "deploy/observability/reference/runbook.md#scientific-warnings"

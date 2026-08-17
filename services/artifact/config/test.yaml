@@ -1,0 +1,22 @@
+# Test profile for lawsynth-artifact.
+#
+# Deliberately small ceilings so integration tests exercise capacity, multipart,
+# and rejection paths quickly against an ephemeral root. Fields map to
+# ArtifactConfig (services/artifact/src/config.rs) and satisfy config.rs::validate
+# (max_object_bytes >= 512 and <= max_multipart_bytes).
+
+profile: test
+
+# Ephemeral, per-run root; tests typically override this with a temp directory.
+root: ./target/artifact-test-root
+
+store:
+  max_object_bytes: 1048576          # 1 MiB
+  cache_capacity_bytes: 1048576      # 1 MiB
+
+limits:
+  max_total_bytes: 67108864          # 64 MiB
+  max_multipart_parts: 128
+  max_multipart_bytes: 4194304       # 4 MiB
+
+cache_capacity_bytes: 1048576        # 1 MiB

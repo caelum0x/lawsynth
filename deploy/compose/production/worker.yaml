@@ -1,0 +1,110 @@
+# Execution plane — production single-node profile.
+#
+# artifact  — content-addressed lifecycle service (:8082, internal only).
+# scheduler — single instance (job assignment must not double-finalize).
+# worker    — horizontally scalable execution pool.
+#
+# Pulled from the registry at a pinned tag. Secrets required from .env.
+# Included by compose.yaml.
+
+x-lawsynth-db: &lawsynth-db
+  LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+  LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
+
+services:
+  artifact:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/artifact:${LAWSYNTH_VERSION:?set LAWSYNTH_VERSION in .env}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LAWSYNTH_ARTIFACT_ROOT: /var/lib/lawsynth/artifacts
+      LAWSYNTH_ARTIFACT_ADDR: 0.0.0.0:8082
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-info}
+    expose:
+      - "8082"
+    volumes:
+      - lawsynth_artifacts:/var/lib/lawsynth/artifacts
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      resources:
+        limits:
+          cpus: "${LAWSYNTH_ARTIFACT_CPU_LIMIT:-1}"
+          memory: ${LAWSYNTH_ARTIFACT_MEMORY_LIMIT:-1g}
+    networks:
+      - lawsynth
+
+  scheduler:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/scheduler:${LAWSYNTH_VERSION:?set LAWSYNTH_VERSION in .env}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      <<: *lawsynth-db
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-info}
+      LAWSYNTH_SCHEDULER_LEASE_SECONDS: ${LAWSYNTH_SCHEDULER_LEASE_SECONDS:-60}
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      # Exactly one scheduler: it is reconstructable from Postgres, but a second
+      # instance risks duplicate assignment. Scale workers, not the scheduler.
+      replicas: 1
+      resources:
+        limits:
+          cpus: "${LAWSYNTH_SCHEDULER_CPU_LIMIT:-1}"
+          memory: ${LAWSYNTH_SCHEDULER_MEMORY_LIMIT:-512m}
+    networks:
+      - lawsynth
+
+  worker:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/worker:${LAWSYNTH_VERSION:?set LAWSYNTH_VERSION in .env}
+    restart: unless-stopped
+    stop_grace_period: 2m
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      artifact:
+        condition: service_healthy
+    environment:
+      <<: *lawsynth-db
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-info}
+      LAWSYNTH_ARTIFACT_ENDPOINT: http://artifact:8082
+      LAWSYNTH_WORKER_SCRATCH: /var/lib/lawsynth/scratch
+      LAWSYNTH_WORKER_MAX_CONCURRENCY: ${LAWSYNTH_WORKER_MAX_CONCURRENCY:-4}
+      LAWSYNTH_WORKER_JOB_TIMEOUT_SECONDS: ${LAWSYNTH_WORKER_JOB_TIMEOUT_SECONDS:-7200}
+    tmpfs:
+      - /var/lib/lawsynth/scratch
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      replicas: ${LAWSYNTH_WORKER_REPLICAS:-3}
+      resources:
+        limits:
+          cpus: "${LAWSYNTH_WORKER_CPU_LIMIT:-2}"
+          memory: ${LAWSYNTH_WORKER_MEMORY_LIMIT:-4g}
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:
+
+volumes:
+  lawsynth_artifacts:

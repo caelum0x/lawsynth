@@ -1,0 +1,23 @@
+{
+  "fixture": "filesystem",
+  "description": "Root-confined local file ingestion; resource paths must stay under the configured root.",
+  "config": {
+    "name": "filesystem",
+    "batch_size": 5000,
+    "max_rows": 100000,
+    "options": {"root": "./datasets"}
+  },
+  "request": {
+    "resource": "observations.jsonl",
+    "options": {"format": "jsonl"},
+    "numeric": true,
+    "time_column": "time"
+  },
+  "sample_records": [
+    {"time": 0, "x": 1.0},
+    {"time": 1, "x": 2.0},
+    {"time": 2, "x": 3.0}
+  ],
+  "rejects": ["../outside.jsonl", "/etc/passwd"],
+  "fingerprint_algorithm": "sha256"
+}

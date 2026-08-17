@@ -1,0 +1,19 @@
+# LawSynth plugin manifest for the custom-operator-rust extension.
+#
+# This file uses the strict `key = value` grammar parsed by
+# `lawsynth_plugin_api::PluginManifest::parse` (see specs/plugin-protocol/
+# manifest.md). Despite the `.toml` name it is NOT general TOML: only the keys
+# below are accepted, and unknown or duplicate keys are rejected. A host
+# discovers a plugin by reading a `plugin.manifest` file with this content.
+
+id = "custom-operator-rust"
+version = "0.1.0"
+kind = "wasi"
+entrypoint = "custom_operator.wasm"
+capabilities = "algorithm, dataset.read"
+
+# Declared limits are validated by the API and compared against the host policy.
+max_cpu_millis = 15000
+max_memory_bytes = 134217728
+max_output_bytes = 8388608
+max_requests = 512

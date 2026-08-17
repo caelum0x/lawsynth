@@ -1,0 +1,66 @@
+{
+  "phase": "ready",
+  "projectId": "project_ecology",
+  "resources": {
+    "project": {
+      "id": "project_ecology",
+      "organization_id": "org_lynx",
+      "name": "Boreal ecology",
+      "created_at": "2026-02-10T08:00:00Z",
+      "deleted_at": null,
+      "metadata": {
+        "biome": "boreal"
+      }
+    },
+    "worlds": [
+      {
+        "id": "world_lv_3",
+        "organization_id": "org_lynx",
+        "name": "Lotka\u2013Volterra r3",
+        "world_id": "world_lv",
+        "equations": [
+          "dprey/dt = alpha*prey - beta*prey*predator",
+          "dpredator/dt = delta*prey*predator - gamma*predator"
+        ],
+        "created_at": "2026-02-14T09:30:00Z",
+        "deleted_at": null
+      },
+      {
+        "id": "world_lv_2",
+        "organization_id": "org_lynx",
+        "name": "Lotka\u2013Volterra r2",
+        "world_id": "world_lv",
+        "equations": [
+          "dprey/dt = alpha*prey - beta*prey*predator"
+        ],
+        "created_at": "2026-02-13T17:05:00Z",
+        "deleted_at": null
+      }
+    ],
+    "runs": [
+      {
+        "id": "run_sparse_7",
+        "organization_id": "org_lynx",
+        "name": "Sparse discovery sweep",
+        "status": "succeeded",
+        "created_at": "2026-02-14T09:12:00Z",
+        "deleted_at": null,
+        "metadata": {
+          "strategy": "sindy"
+        }
+      },
+      {
+        "id": "run_symbolic_4",
+        "organization_id": "org_lynx",
+        "name": "Symbolic search",
+        "status": "running",
+        "created_at": "2026-02-14T09:20:00Z",
+        "deleted_at": null,
+        "metadata": {
+          "strategy": "pysr"
+        }
+      }
+    ],
+    "loadedAt": 1771060200000
+  }
+}

@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-release-notes"
+version = "0.1.0"
+description = "Assemble LawSynth release notes from Conventional Commits and a changelog"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth contributors" }]
+dependencies = []
+
+[project.scripts]
+lawsynth-release-notes = "main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["main", "commits", "changes", "render", "publish"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

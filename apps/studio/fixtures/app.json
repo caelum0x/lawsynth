@@ -1,0 +1,16 @@
+{
+  "phase": "ready",
+  "route": {
+    "name": "project",
+    "projectId": "project_ecology"
+  },
+  "settings": {
+    "apiBaseUrl": "/api",
+    "theme": "system",
+    "density": "comfortable",
+    "reducedMotion": false,
+    "telemetryEnabled": false,
+    "autosaveMs": 1500,
+    "maxUploadBytes": 536870912
+  }
+}

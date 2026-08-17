@@ -1,0 +1,57 @@
+[Unit]
+Description=LawSynth artifact store (content-addressed .lsworld object service)
+Documentation=https://github.com/lawsynth/lawsynth
+# Storage plane comes up before the control plane and workers that depend on it.
+After=network-online.target
+Wants=network-online.target
+PartOf=lawsynth.target
+
+[Service]
+Type=exec
+User=lawsynth
+Group=lawsynth
+WorkingDirectory=/var/lib/lawsynth
+EnvironmentFile=/etc/lawsynth/environment
+ExecStart=/opt/lawsynth/bin/lawsynth-artifact \
+    --http-addr=127.0.0.1:8082 \
+    --metrics-addr=127.0.0.1:9092 \
+    --root=/var/lib/lawsynth/objects \
+    --cache-dir=/var/lib/lawsynth/cache
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# --- Filesystem and privilege hardening -------------------------------------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+# The artifact service owns the durable object tree and read-through cache.
+StateDirectory=lawsynth
+ReadWritePaths=/var/lib/lawsynth/objects /var/lib/lawsynth/cache
+
+# --- Resource limits --------------------------------------------------------
+LimitNOFILE=65536
+TasksMax=512
+
+[Install]
+WantedBy=lawsynth.target

@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use lawsynth_runner::{CancellationToken, ResourceLimiter};
+use lawsynth_runner::{CancellationToken, ResourceLimiter, ResourceRequest};
 use lawsynth_store::ObjectStore;
 
 use crate::{
@@ -27,6 +27,24 @@ impl<S: ObjectStore> Worker<S> {
     }
     pub fn checkpoint(&self, job_id: &str) -> Result<Option<JobCheckpoint>, WorkerError> {
         checkpoint::load(&self.store, job_id)
+    }
+
+    /// Snapshots the current admission budget for the read-only status surface.
+    /// Locking the limiter briefly yields a consistent capacity/reserved/available
+    /// triple without affecting in-flight admission.
+    pub fn admission(&self) -> AdmissionSnapshot {
+        let limiter = self.limiter.lock().expect("worker resource limiter mutex poisoned");
+        AdmissionSnapshot {
+            capacity: limiter.capacity(),
+            reserved: limiter.reserved(),
+            available: limiter.available(),
+        }
+    }
+
+    /// Returns the ids of every job for which a durable checkpoint exists,
+    /// read from the object store rather than any in-memory index.
+    pub fn known_checkpoints(&self) -> Result<Vec<String>, WorkerError> {
+        checkpoint::list(&self.store)
     }
     pub fn execute(
         &self,
@@ -163,6 +181,14 @@ impl<S: ObjectStore> Worker<S> {
             self.config.maximum_checkpoint_bytes,
         )
     }
+}
+
+/// A consistent view of the worker's admission budget for status reporting.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AdmissionSnapshot {
+    pub capacity: ResourceRequest,
+    pub reserved: ResourceRequest,
+    pub available: ResourceRequest,
 }
 
 fn output_summary(output: &JobOutput) -> String {

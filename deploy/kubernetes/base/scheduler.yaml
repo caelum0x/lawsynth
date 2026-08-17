@@ -1,0 +1,102 @@
+# LawSynth scheduler (services/scheduler): assigns queued jobs to compatible
+# worker pools, issues leases, and classifies retries. The scheduler holds no
+# irreplaceable state -- it is fully reconstructable from the metadata database
+# (architecture section 23) -- so a single active replica is correct and a
+# Recreate strategy avoids two schedulers leasing the same job during rollout.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  labels:
+    app.kubernetes.io/name: scheduler
+    app.kubernetes.io/component: control-plane
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: scheduler
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: scheduler
+        app.kubernetes.io/component: control-plane
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9093"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: lawsynth-scheduler
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: scheduler
+          image: ghcr.io/lawsynth/scheduler:latest
+          args: ["--http-addr=0.0.0.0:8083", "--metrics-addr=0.0.0.0:9093"]
+          ports:
+            - name: http
+              containerPort: 8083
+            - name: metrics
+              containerPort: 9093
+          envFrom:
+            - configMapRef:
+                name: lawsynth-config
+            - secretRef:
+                name: lawsynth-secrets
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scheduler
+  labels:
+    app.kubernetes.io/name: scheduler
+    app.kubernetes.io/component: control-plane
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: scheduler
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http
+    - name: metrics
+      port: 9093
+      targetPort: metrics

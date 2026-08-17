@@ -1,0 +1,273 @@
+{{/*
+=============================================================================
+Shared named templates (helpers) for the lawsynth chart.
+Kept here rather than a separate _helpers.tpl so the chart's template set
+matches the repository manifest (flat templates-*.yaml files).
+=============================================================================
+*/}}
+
+{{- define "lawsynth.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "lawsynth.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "lawsynth.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/* Common labels applied to every object. */}}
+{{- define "lawsynth.labels" -}}
+helm.sh/chart: {{ include "lawsynth.chart" . }}
+{{ include "lawsynth.selectorLabels" . }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/part-of: lawsynth
+{{- end -}}
+
+{{- define "lawsynth.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "lawsynth.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{/* Per-component selector labels. Usage: include "lawsynth.componentSelectorLabels" (dict "root" . "component" "api") */}}
+{{- define "lawsynth.componentSelectorLabels" -}}
+{{ include "lawsynth.selectorLabels" .root }}
+app.kubernetes.io/component: {{ .component }}
+{{- end -}}
+
+{{- define "lawsynth.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{- default (include "lawsynth.fullname" .) .Values.serviceAccount.name -}}
+{{- else -}}
+{{- default "default" .Values.serviceAccount.name -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Resolve a fully qualified image reference for a service.
+     Usage: include "lawsynth.image" (dict "root" . "svc" .Values.api) */}}
+{{- define "lawsynth.image" -}}
+{{- $registry := default .root.Values.global.imageRegistry .svc.image.registry -}}
+{{- $namespace := .root.Values.global.imageNamespace -}}
+{{- $tag := .svc.image.tag | default .root.Values.global.imageTag | default .root.Chart.AppVersion -}}
+{{- printf "%s/%s/%s:%s" $registry $namespace .svc.image.repository $tag -}}
+{{- end -}}
+
+{{- define "lawsynth.imagePullPolicy" -}}
+{{- default .root.Values.global.imagePullPolicy .svc.image.pullPolicy -}}
+{{- end -}}
+
+{{- define "lawsynth.postgresSecretName" -}}
+{{- if .Values.externalServices.postgres.existingSecret -}}
+{{- .Values.externalServices.postgres.existingSecret -}}
+{{- else -}}
+{{- printf "%s-secrets" (include "lawsynth.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "lawsynth.objectStoreSecretName" -}}
+{{- if .Values.externalServices.objectStore.existingSecret -}}
+{{- .Values.externalServices.objectStore.existingSecret -}}
+{{- else -}}
+{{- printf "%s-secrets" (include "lawsynth.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Shared env sourced from the ConfigMap and Secret by every service. */}}
+{{- define "lawsynth.commonEnvFrom" -}}
+- configMapRef:
+    name: {{ include "lawsynth.fullname" . }}-config
+- secretRef:
+    name: {{ include "lawsynth.postgresSecretName" . }}
+{{- if ne (include "lawsynth.postgresSecretName" .) (include "lawsynth.objectStoreSecretName" .) }}
+- secretRef:
+    name: {{ include "lawsynth.objectStoreSecretName" . }}
+{{- end }}
+{{- end -}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-config
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+data:
+  LAWSYNTH_LOG_LEVEL: {{ .Values.observability.logLevel | quote }}
+  LAWSYNTH_LOG_FORMAT: {{ .Values.observability.logFormat | quote }}
+  LAWSYNTH_OTEL_ENABLED: {{ .Values.observability.otelEnabled | quote }}
+  LAWSYNTH_OTEL_ENDPOINT: {{ .Values.observability.otelEndpoint | quote }}
+  LAWSYNTH_PG_HOST: {{ .Values.externalServices.postgres.host | quote }}
+  LAWSYNTH_PG_PORT: {{ .Values.externalServices.postgres.port | quote }}
+  LAWSYNTH_PG_DATABASE: {{ .Values.externalServices.postgres.database | quote }}
+  LAWSYNTH_PG_SSLMODE: {{ .Values.externalServices.postgres.sslMode | quote }}
+  LAWSYNTH_OBJECT_STORE_ENDPOINT: {{ .Values.externalServices.objectStore.endpoint | quote }}
+  LAWSYNTH_OBJECT_STORE_REGION: {{ .Values.externalServices.objectStore.region | quote }}
+  LAWSYNTH_OBJECT_STORE_BUCKET: {{ .Values.externalServices.objectStore.bucket | quote }}
+  LAWSYNTH_OBJECT_STORE_PATH_STYLE: {{ .Values.externalServices.objectStore.forcePathStyle | quote }}
+  LAWSYNTH_NATS_URL: {{ .Values.externalServices.nats.url | quote }}
+  LAWSYNTH_NATS_STREAM: {{ .Values.externalServices.nats.stream | quote }}
+  LAWSYNTH_ARTIFACT_ENDPOINT: {{ printf "http://%s-artifact:%v" (include "lawsynth.fullname" .) .Values.artifact.service.port | quote }}
+{{- if or (not .Values.externalServices.postgres.existingSecret) (not .Values.externalServices.objectStore.existingSecret) }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-secrets
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+{{- if not .Values.externalServices.postgres.existingSecret }}
+  LAWSYNTH_PG_USER: {{ required "postgres.username is required unless an existingSecret is set" .Values.externalServices.postgres.username | quote }}
+  LAWSYNTH_PG_PASSWORD: {{ required "postgres.password is required unless an existingSecret is set" .Values.externalServices.postgres.password | quote }}
+{{- end }}
+{{- if not .Values.externalServices.objectStore.existingSecret }}
+  LAWSYNTH_OBJECT_STORE_ACCESS_KEY: {{ required "objectStore.accessKey is required unless an existingSecret is set" .Values.externalServices.objectStore.accessKey | quote }}
+  LAWSYNTH_OBJECT_STORE_SECRET_KEY: {{ required "objectStore.secretKey is required unless an existingSecret is set" .Values.externalServices.objectStore.secretKey | quote }}
+{{- end }}
+{{- end }}
+{{- if .Values.api.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-api
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ printf "%s%s" (toYaml .Values.externalServices) (toYaml .Values.observability) | sha256sum | trunc 16 }}
+        {{- with .Values.api.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "api") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "lawsynth.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "lawsynth.image" (dict "root" . "svc" .Values.api) }}
+          imagePullPolicy: {{ include "lawsynth.imagePullPolicy" (dict "root" . "svc" .Values.api) }}
+          args: ["serve", "--role", "api"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.service.port }}
+              protocol: TCP
+          envFrom:
+            {{- include "lawsynth.commonEnvFrom" . | nindent 12 }}
+          {{- with .Values.api.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.api.probes.path }}
+              port: http
+            failureThreshold: 30
+            periodSeconds: {{ .Values.api.probes.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.api.probes.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.api.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.api.probes.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.api.probes.readyPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.api.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.api.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.api.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.api.probes.failureThreshold }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-api
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.api.service.port }}
+      targetPort: {{ .Values.api.service.targetPort }}
+      protocol: TCP
+  selector:
+    {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "api") | nindent 4 }}
+{{- if .Values.api.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-api
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "lawsynth.fullname" . }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}

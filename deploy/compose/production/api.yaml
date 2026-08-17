@@ -1,0 +1,93 @@
+# API + admission gateway — production single-node profile.
+#
+# Pulled from the registry at a pinned tag (no build). Neither service is
+# published to the host: the reverse proxy (proxy.yaml) is the only ingress and
+# forwards to the gateway. Secrets are required from .env. Included by
+# compose.yaml.
+
+x-lawsynth-backends: &lawsynth-backends
+  # Shared connection settings for the API and the API bundled inside the
+  # gateway image, so the wrapped backend resolves identically.
+  LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+  LAWSYNTH_S3_ENDPOINT: ${LAWSYNTH_S3_ENDPOINT:-http://object-store:9000}
+  LAWSYNTH_S3_REGION: ${LAWSYNTH_S3_REGION:-us-east-1}
+  LAWSYNTH_S3_BUCKET: ${LAWSYNTH_S3_BUCKET:-lawsynth-artifacts}
+  LAWSYNTH_S3_ACCESS_KEY_ID: ${LAWSYNTH_S3_ACCESS_KEY_ID:-${MINIO_ROOT_USER:?}}
+  LAWSYNTH_S3_SECRET_ACCESS_KEY: ${LAWSYNTH_S3_SECRET_ACCESS_KEY:-${MINIO_ROOT_PASSWORD:?}}
+  LAWSYNTH_S3_FORCE_PATH_STYLE: "true"
+  LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
+  LAWSYNTH_ARTIFACT_ENDPOINT: http://artifact:8082
+  LAWSYNTH_API_TOKENS: ${LAWSYNTH_API_TOKENS:?set LAWSYNTH_API_TOKENS in .env}
+
+services:
+  api:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/api:${LAWSYNTH_VERSION:?set LAWSYNTH_VERSION in .env}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      <<: *lawsynth-backends
+      LAWSYNTH_API_ENV: production
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-info}
+      GUNICORN_WORKERS: ${LAWSYNTH_API_WORKERS:-4}
+      GUNICORN_TIMEOUT: ${LAWSYNTH_API_TIMEOUT:-120}
+    expose:
+      - "8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      replicas: ${LAWSYNTH_API_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: "${LAWSYNTH_API_CPU_LIMIT:-1}"
+          memory: ${LAWSYNTH_API_MEMORY_LIMIT:-1g}
+    networks:
+      - lawsynth
+
+  gateway:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/gateway:${LAWSYNTH_VERSION:?set LAWSYNTH_VERSION in .env}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      <<: *lawsynth-backends
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-info}
+      GUNICORN_WORKERS: ${LAWSYNTH_GATEWAY_WORKERS:-4}
+      LAWSYNTH_GATEWAY_BACKEND: lawsynth_api.main:application
+      LAWSYNTH_GATEWAY_MAX_BODY_BYTES: ${LAWSYNTH_GATEWAY_MAX_BODY_BYTES:-67108864}
+      LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW: ${LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW:-120}
+      LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS: ${LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS:-60}
+      LAWSYNTH_GATEWAY_ALLOWED_ORIGINS: ${LAWSYNTH_GATEWAY_ALLOWED_ORIGINS:?set LAWSYNTH_GATEWAY_ALLOWED_ORIGINS in .env}
+    expose:
+      - "8081"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      replicas: ${LAWSYNTH_GATEWAY_REPLICAS:-2}
+      resources:
+        limits:
+          cpus: "${LAWSYNTH_GATEWAY_CPU_LIMIT:-1}"
+          memory: ${LAWSYNTH_GATEWAY_MEMORY_LIMIT:-1g}
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:

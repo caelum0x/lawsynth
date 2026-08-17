@@ -1,0 +1,20 @@
+# LawSynth plugin manifest for the scenario-exporter extension.
+#
+# Strict `key = value` grammar parsed by
+# `lawsynth_plugin_api::PluginManifest::parse` (specs/plugin-protocol/
+# manifest.md). Not general TOML. A host discovers the plugin by reading a
+# `plugin.manifest` file containing this content.
+
+id = "scenario-exporter"
+version = "0.1.0"
+
+# `wasi` isolation: a WebAssembly component that reads a scenario and writes an
+# export artifact.
+kind = "wasi"
+entrypoint = "scenario_exporter.wasm"
+capabilities = "artifact.write, dataset.read"
+
+max_cpu_millis = 10000
+max_memory_bytes = 134217728
+max_output_bytes = 16777216
+max_requests = 1000

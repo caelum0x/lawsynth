@@ -1,0 +1,35 @@
+# Staging ingress. Public traffic terminates TLS at the ingress controller and
+# is routed to the gateway (never directly to the API). The gateway performs
+# request admission (rate limiting, body/header caps, CORS) before forwarding.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: lawsynth
+  labels:
+    app.kubernetes.io/part-of: lawsynth
+    app.kubernetes.io/component: edge
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # The gateway also enforces limits; this is defence in depth at the edge.
+    nginx.ingress.kubernetes.io/proxy-body-size: "64m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    # Server-Sent Events for run progress must not be buffered.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.staging.lawsynth.example
+      secretName: lawsynth-staging-tls
+  rules:
+    - host: api.staging.lawsynth.example
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway
+                port:
+                  number: 8081

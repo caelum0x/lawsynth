@@ -1,0 +1,15 @@
+# LawSynth plugin manifest.
+#
+# This uses the strict `key = value` grammar defined in
+# specs/plugin-protocol/manifest.md. Despite the `.toml` extension it is NOT
+# TOML: one key per line, `#` comments, and only the keys below are accepted.
+# Unknown or duplicate keys are rejected at parse time.
+id = custom-stage-python
+version = 0.1.0
+kind = process
+entrypoint = custom_stage_python.plugin:CustomStage
+capabilities = algorithm
+max_cpu_millis = 30000
+max_memory_bytes = 268435456
+max_output_bytes = 16777216
+max_requests = 1000

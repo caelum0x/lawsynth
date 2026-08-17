@@ -1,0 +1,29 @@
+# Observability profile for lawsynth-artifact.
+#
+# The service links no logging framework. It emits exactly one human-readable
+# startup line on stderr from `serve` (main.rs) and maintains lock-free in-process
+# counters (services/artifact/src/telemetry.rs). No events, payloads, request
+# bodies, or identifiers leave the process. This file documents what an embedding
+# operator's log/metrics pipeline should scrape and how to route the stderr line;
+# it is a reference contract, not a config the binary parses today.
+
+# Startup line format written by `serve`:
+#   lawsynth-artifact: serving HTTP on <addr> root=<path>
+stderr:
+  destination: journald        # capture the process stderr stream
+  format: text                 # single line, not structured JSON
+
+# In-process TelemetrySnapshot counters (monotonic, u64). Expose these via a
+# host-side scraper if you embed the library; the CLI does not publish them.
+metrics:
+  uploads: counter             # successful ingests / completed multipart uploads
+  downloads: counter           # successful object reads
+  checksum_failures: counter   # SHA-256 mismatches detected on read
+  gc_deletions: counter        # objects removed by retention sweeps
+
+# Redaction is structural: the service never logs object bytes, artifact contents,
+# retention values, or the HMAC bundle secret. Keep it that way in any adapter.
+redaction:
+  never_log:
+    - object_bytes
+    - bundle_secret

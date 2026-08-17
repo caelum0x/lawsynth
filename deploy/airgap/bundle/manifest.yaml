@@ -1,0 +1,69 @@
+# LawSynth air-gapped bundle manifest.
+#
+# Describes what a produced bundle contains and how to verify it. export.sh
+# reads the `contents` lists and stamps the runtime fields (created_utc,
+# bundle_version, checksum digests) into a copy of this file placed at the root
+# of the exported bundle. The committed copy documents the schema and the
+# expected layout.
+
+apiVersion: airgap.lawsynth.dev/v1
+kind: Bundle
+
+metadata:
+  name: lawsynth-airgap
+  # Overwritten by export.sh from BUNDLE_VERSION (defaults to the image tag).
+  bundleVersion: "0.1.0"
+  # Overwritten by export.sh with the UTC build time (RFC 3339).
+  createdUtc: "1970-01-01T00:00:00Z"
+  producedBy: deploy/airgap/bundle/export.sh
+  targetPlatform: linux/amd64
+
+# The four content lists live beside this manifest and drive export/import.
+contents:
+  images:
+    listFile: images.txt
+    savedTo: images/            # one <name>.tar per image (docker save)
+  packages:
+    listFile: packages.txt
+    savedTo: wheels/            # pip wheelhouse (pip download / pip wheel)
+  datasets:
+    listFile: datasets.txt
+    savedTo: datasets/
+  compose:
+    # The production compose profile is copied verbatim so `install.sh` can
+    # bring the stack up against the loaded images with no registry access.
+    source: deploy/compose/production/
+    savedTo: compose/
+
+# Integrity: every file under the bundle root (except checksums.sha256 itself)
+# is hashed into checksums.sha256. verify.sh checks them before install.
+integrity:
+  algorithm: sha256
+  checksumFile: checksums.sha256
+
+# Operational workflow, in order.
+workflow:
+  - step: export
+    on: connected-host
+    script: export.sh
+    produces: [images/, wheels/, datasets/, compose/, checksums.sha256, manifest.yaml]
+  - step: transfer
+    note: Move the bundle to the air-gapped host over a reviewed channel.
+  - step: verify
+    on: air-gapped-host
+    script: verify.sh
+  - step: import
+    on: air-gapped-host
+    script: import.sh
+    effect: docker load images, stage wheelhouse and datasets
+  - step: install
+    on: air-gapped-host
+    script: install.sh
+    effect: render .env and start the production compose stack
+
+# What this bundle intentionally does NOT provide (see docs/self-hosting/airgap).
+nonGoals:
+  - No online update feed or delta patching.
+  - No image/package signing workflow (verify integrity out of band).
+  - No remote telemetry sink.
+  - Secrets are provisioned by the operator, never shipped in the bundle.

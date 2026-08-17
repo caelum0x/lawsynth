@@ -1,0 +1,88 @@
+# Service accounts and least-privilege RBAC for the LawSynth service layer.
+#
+# LawSynth services coordinate through Postgres and NATS, not the Kubernetes
+# API, so none of them need cluster access. Every account therefore disables
+# token automounting; a compromised Pod cannot enumerate or mutate cluster
+# state. The single Role granted is read-only access to the workload's own
+# ConfigMap, which supports optional hot-reload without opening write paths.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lawsynth-api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: control-plane
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lawsynth-gateway
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/component: edge
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lawsynth-scheduler
+  labels:
+    app.kubernetes.io/name: scheduler
+    app.kubernetes.io/component: control-plane
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lawsynth-worker
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/component: compute
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lawsynth-artifact
+  labels:
+    app.kubernetes.io/name: artifact
+    app.kubernetes.io/component: storage
+automountServiceAccountToken: false
+---
+# Read-only access to the shared ConfigMap. No secret access is granted through
+# RBAC; secrets are delivered to Pods only via the container runtime.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lawsynth-config-reader
+  labels:
+    app.kubernetes.io/part-of: lawsynth
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["lawsynth-config"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lawsynth-config-reader
+  labels:
+    app.kubernetes.io/part-of: lawsynth
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: lawsynth-config-reader
+subjects:
+  - kind: ServiceAccount
+    name: lawsynth-api
+  - kind: ServiceAccount
+    name: lawsynth-gateway
+  - kind: ServiceAccount
+    name: lawsynth-scheduler
+  - kind: ServiceAccount
+    name: lawsynth-worker
+  - kind: ServiceAccount
+    name: lawsynth-artifact

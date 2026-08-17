@@ -1,0 +1,72 @@
+# Reference log-shipping configuration (Promtail) for a LawSynth deployment.
+#
+# Tails container logs and ships them to Loki with service labels and trace
+# correlation. LawSynth services log structured JSON to stdout; this pipeline
+# parses that JSON, promotes a few fields to labels, and DROPS any field that
+# could carry dataset content or user input, mirroring the OTel redaction so
+# the privacy rule holds on the logging path too (architecture sections 22/23).
+#
+# Deploy alongside the containers with the Docker socket mounted read-only.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: info
+
+positions:
+  filename: /run/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    tenant_id: ${LAWSYNTH_DEPLOYMENT:-reference}
+    backoff_config:
+      min_period: 500ms
+      max_period: 5m
+      max_retries: 10
+
+scrape_configs:
+  - job_name: lawsynth-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project=lawsynth"]
+
+    relabel_configs:
+      # compose service name -> `service` label
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: service
+      - source_labels: ["__meta_docker_container_name"]
+        target_label: container
+      - target_label: deployment
+        replacement: ${LAWSYNTH_DEPLOYMENT:-reference}
+
+    pipeline_stages:
+      # Parse the structured JSON log line.
+      - json:
+          expressions:
+            level: level
+            ts: timestamp
+            msg: message
+            trace_id: trace_id
+            run_id: run_id
+            organization_id: organization_id
+      # Use the log's own timestamp, not ingest time.
+      - timestamp:
+          source: ts
+          format: RFC3339Nano
+      # Promote low-cardinality fields to labels; keep trace_id/run_id in the
+      # line for Grafana derived-field linking, not as labels (high cardinality).
+      - labels:
+          level:
+      # Privacy guard: never index or store sensitive scientific/user content
+      # even if a service accidentally logs it.
+      - drop:
+          expression: '.*("dataset_columns"|"candidate_equation"|"user_prompt"|"authorization").*'
+          drop_counter_reason: "sensitive_content_redacted"
+      # Downsample noisy debug lines in production.
+      - match:
+          selector: '{deployment="production"} |= "\"level\":\"debug\""'
+          action: drop
+          drop_counter_reason: "debug_in_production"

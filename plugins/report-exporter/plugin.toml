@@ -1,0 +1,20 @@
+# LawSynth plugin manifest for the report-exporter extension.
+#
+# Strict `key = value` grammar parsed by
+# `lawsynth_plugin_api::PluginManifest::parse` (specs/plugin-protocol/
+# manifest.md). Not general TOML. A host discovers the plugin by reading a
+# `plugin.manifest` file containing this content.
+
+id = "report-exporter"
+version = "0.1.0"
+
+# `process` isolation: the host spawns the Python worker as a child process and
+# exchanges protocol frames over its stdin/stdout.
+kind = "process"
+entrypoint = "lawsynth-report-exporter"
+capabilities = "artifact.write"
+
+max_cpu_millis = 10000
+max_memory_bytes = 134217728
+max_output_bytes = 16777216
+max_requests = 1000

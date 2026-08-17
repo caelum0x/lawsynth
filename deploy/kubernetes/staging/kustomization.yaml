@@ -1,0 +1,44 @@
+# Staging overlay for LawSynth.
+#
+# Deploys the base into the `lawsynth-staging` namespace with modest replica
+# counts, tighter resource envelopes, a staging Ingress, deny-by-default
+# NetworkPolicies, Prometheus alerts, and a post-deploy smoke Job. Images are
+# pinned to the `staging` channel so promotion to production is an explicit tag
+# change, never an implicit "latest" drift.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: lawsynth-staging
+namePrefix: ""
+
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/environment: staging
+
+resources:
+  - ../base
+  - ingress.yaml
+  - network-policy.yaml
+  - alerts.yaml
+  - smoke-job.yaml
+  # secrets.example.yaml is a TEMPLATE and is intentionally NOT listed here.
+  # Real secrets are delivered by the cluster's secret manager (e.g. External
+  # Secrets, Sealed Secrets, or Vault Agent) as `lawsynth-secrets`.
+
+patches:
+  - path: config.yaml
+  - path: replicas.yaml
+  - path: resources.yaml
+
+images:
+  - name: ghcr.io/lawsynth/api
+    newTag: staging
+  - name: ghcr.io/lawsynth/gateway
+    newTag: staging
+  - name: ghcr.io/lawsynth/scheduler
+    newTag: staging
+  - name: ghcr.io/lawsynth/worker
+    newTag: staging
+  - name: ghcr.io/lawsynth/artifact
+    newTag: staging

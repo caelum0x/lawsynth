@@ -1,0 +1,61 @@
+# PodDisruptionBudgets keep the control and storage paths available during
+# voluntary disruptions (node drains, cluster upgrades). Each budget requires at
+# least one replica to remain, which is compatible with the autoscaler minimums.
+#
+# The scheduler has no PDB: it is a singleton, and a PDB with minAvailable: 1
+# would block node drains indefinitely. Its Recreate strategy plus fast restart
+# and DB-reconstructable state make brief unavailability acceptable.
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/component: control-plane
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/component: edge
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: artifact
+  labels:
+    app.kubernetes.io/name: artifact
+    app.kubernetes.io/component: storage
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: artifact
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: worker
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/component: compute
+spec:
+  # Evictable in bulk during drains; lost workers return their jobs to the
+  # schedulable state after lease expiry, so keep only a small floor.
+  maxUnavailable: 50%
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker

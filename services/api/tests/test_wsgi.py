@@ -22,12 +22,12 @@ def make_app(tmp_path):
     return create_wsgi_app(ApiSettings(server=server, environment="test", max_request_bytes=1024))
 
 
-def request(app, method: str, path: str, *, body: object | None = None, headers: dict[str, str] | None = None) -> tuple[int, dict[str, str], dict[str, Any] | None]:
+def request(app, method: str, path: str, *, body: object | None = None, headers: dict[str, str] | None = None, query: str = "") -> tuple[int, dict[str, str], dict[str, Any] | None]:
     raw = b"" if body is None else json.dumps(body).encode("utf-8")
     environ: dict[str, object] = {
         "REQUEST_METHOD": method,
         "PATH_INFO": path,
-        "QUERY_STRING": "",
+        "QUERY_STRING": query,
         "CONTENT_LENGTH": str(len(raw)),
         "wsgi.input": io.BytesIO(raw),
     }
@@ -147,3 +147,158 @@ def test_production_settings_reject_volatile_storage():
         assert getattr(error, "code", None) == "validation_error"
     else:
         raise AssertionError("production must not accept in-memory metadata")
+
+
+def make_readonly_app(tmp_path):
+    server = ServerSettings(
+        database_url=f"sqlite:///{tmp_path / 'metadata.sqlite3'}",
+        object_root=tmp_path / "objects",
+        tokens={TOKEN: ("acme", frozenset({"read"}))},
+        max_upload_bytes=1024,
+    )
+    return create_wsgi_app(ApiSettings(server=server, environment="test", max_request_bytes=1024))
+
+
+def test_version_endpoint_publishes_explicit_protocol(tmp_path):
+    app = make_app(tmp_path)
+    try:
+        # No authentication required: version is public capability discovery.
+        status, response_headers, body = request(app, "GET", "/v1/version")
+        assert status == 200
+        assert body["protocol"] == "1"
+        assert isinstance(body["version"], str) and body["version"]
+        # The protocol version is published on every response, including health.
+        assert response_headers["X-Api-Version"] == "1"
+        _, health_headers, _ = request(app, "GET", "/v1/health")
+        assert health_headers["X-Api-Version"] == "1"
+    finally:
+        app.close()
+
+
+def test_version_negotiation_rejects_unsupported_client(tmp_path):
+    app = make_app(tmp_path)
+    try:
+        for accepted in ("1", "v1"):
+            status, _, _ = request(app, "GET", "/v1/version", headers={"X-Api-Version": accepted})
+            assert status == 200
+        status, _, body = request(app, "GET", "/v1/version", headers={"X-Api-Version": "2"})
+        assert status == 406
+        assert body["error"]["code"] == "unsupported_api_version"
+    finally:
+        app.close()
+
+
+def test_artifact_get_roundtrip_and_failure_modes(tmp_path):
+    app = make_app(tmp_path)
+    artifact = {"data_base64": "dmVyaWZpZWQ=", "media_type": "text/plain"}
+    try:
+        status, _, created = request(app, "POST", "/v1/artifacts", body=artifact, headers=headers(key="artifact-get"))
+        assert status == 201
+        sha = created["sha256"]
+
+        # Happy path: content-addressed download returns the stored bytes.
+        status, _, fetched = request(app, "GET", f"/v1/artifacts/{sha}", headers=headers())
+        assert status == 200
+        assert fetched["data_base64"] == artifact["data_base64"]
+        assert fetched["size"] == 8 and fetched["sha256"] == sha
+
+        # Auth failure.
+        status, _, body = request(app, "GET", f"/v1/artifacts/{sha}")
+        assert status == 401
+
+        # Validation error: malformed identifier.
+        status, _, body = request(app, "GET", "/v1/artifacts/not-a-sha", headers=headers())
+        assert status == 422
+        assert body["error"]["code"] == "validation_error"
+
+        # Not found: well-formed but absent object.
+        status, _, body = request(app, "GET", f"/v1/artifacts/{'0' * 64}", headers=headers())
+        assert status == 404
+        assert body["error"]["code"] == "not_found"
+    finally:
+        app.close()
+
+
+def test_run_cancel_lifecycle_and_authorization(tmp_path):
+    app = make_app(tmp_path)
+    try:
+        status, _, run = request(app, "POST", "/v1/runs", body={"name": "cancel-me"}, headers=headers(key="run-1"))
+        assert status == 201 and run["status"] == "queued"
+        run_id = run["id"]
+
+        # Auth failure.
+        status, _, _ = request(app, "POST", f"/v1/runs/{run_id}/cancel", headers={"Idempotency-Key": "c0"})
+        assert status == 401
+
+        # Happy path.
+        status, _, cancelled = request(app, "POST", f"/v1/runs/{run_id}/cancel", headers=headers(key="cancel-1"))
+        assert status == 200 and cancelled["status"] == "cancelled"
+
+        # Cancelling a terminal run conflicts (fresh key so it is not a replay).
+        status, _, body = request(app, "POST", f"/v1/runs/{run_id}/cancel", headers=headers(key="cancel-2"))
+        assert status == 409 and body["error"]["code"] == "conflict"
+
+        # Not found.
+        status, _, body = request(app, "POST", "/v1/runs/does-not-exist/cancel", headers=headers(key="cancel-3"))
+        assert status == 404 and body["error"]["code"] == "not_found"
+    finally:
+        app.close()
+
+
+def test_run_cancel_requires_write_scope(tmp_path):
+    app = make_readonly_app(tmp_path)
+    try:
+        status, _, body = request(app, "POST", "/v1/runs/anything/cancel", headers=headers(key="ro-cancel"))
+        assert status == 403
+        assert body["error"]["code"] == "forbidden"
+    finally:
+        app.close()
+
+
+def test_run_events_are_scoped_and_authorized(tmp_path):
+    app = make_app(tmp_path)
+    try:
+        _, _, run = request(app, "POST", "/v1/runs", body={"name": "trace"}, headers=headers(key="run-e"))
+        run_id = run["id"]
+        request(app, "POST", f"/v1/runs/{run_id}/cancel", headers=headers(key="cancel-e"))
+
+        status, _, listed = request(app, "GET", f"/v1/runs/{run_id}/events", headers=headers())
+        assert status == 200
+        topics = {event["topic"] for event in listed["items"]}
+        assert {"runs.created", "runs.cancelled"} <= topics
+        assert all(event["payload"]["id"] == run_id for event in listed["items"])
+
+        # Unknown run is a 404, not an empty list, so ownership is verified.
+        status, _, body = request(app, "GET", "/v1/runs/missing/events", headers=headers())
+        assert status == 404
+
+        # Candidates remain intentionally unexposed (not backed by the server).
+        status, _, body = request(app, "GET", f"/v1/runs/{run_id}/candidates", headers=headers())
+        assert status == 404
+    finally:
+        app.close()
+
+
+def test_list_pagination_envelope_and_auth(tmp_path):
+    app = make_app(tmp_path)
+    try:
+        for index in range(3):
+            status, _, _ = request(app, "POST", "/v1/projects", body={"name": f"p{index}"}, headers=headers(key=f"p{index}"))
+            assert status == 201
+
+        status, _, first = request(app, "GET", "/v1/projects", headers=headers(), query="limit=2")
+        assert status == 200
+        assert len(first["items"]) == 2
+        assert first["total"] == 3 and first["limit"] == 2
+        assert first["next_cursor"] is not None
+
+        status, _, second = request(app, "GET", "/v1/projects", headers=headers(), query=f"cursor={first['next_cursor']}&limit=2")
+        assert status == 200
+        assert len(second["items"]) == 1
+        assert second["total"] == 3 and second["next_cursor"] is None
+
+        # Auth failure on a list read.
+        status, _, _ = request(app, "GET", "/v1/projects")
+        assert status == 401
+    finally:
+        app.close()

@@ -1,0 +1,38 @@
+# LawSynth — production single-node Compose stack.
+#
+# Hardened profile of the "Single-node server" deployment mode: API replicas +
+# scheduler + worker pool + Postgres + object store + NATS, fronted by a
+# TLS-terminating reverse proxy. Differences from ../local:
+#
+#   - images are PULLED at a pinned tag (no local build);
+#   - all secrets are REQUIRED from .env (no baked-in defaults);
+#   - only the proxy is published to the host (80/443);
+#   - resource limits, log rotation, read-only rootfs, and no-new-privileges
+#     are set on every service;
+#   - backups are handled by backup.sh (RPO target 15 min).
+#
+# Prerequisites:
+#   cp .env.example .env   # then fill in every REQUIRED value
+#   docker login ${LAWSYNTH_REGISTRY}   # if the images are private
+#
+# Bring up:
+#   docker compose --env-file .env pull
+#   docker compose --env-file .env up -d
+#   docker compose ps
+#
+# Validate without a daemon:
+#   docker compose --env-file .env config -q
+#
+# Services are defined in per-concern files and merged here via `include:`.
+# For a managed object store, drop object-store.yaml from the list below and
+# set LAWSYNTH_S3_* in .env to point at the external endpoint.
+
+name: lawsynth
+
+include:
+  - postgres.yaml
+  - object-store.yaml
+  - nats.yaml
+  - api.yaml
+  - worker.yaml
+  - proxy.yaml

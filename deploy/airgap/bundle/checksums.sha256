@@ -1,0 +1,17 @@
+# LawSynth air-gapped bundle — integrity checksums (sha256).
+#
+# This committed file is a PLACEHOLDER. export.sh regenerates it with real
+# hashes for every file in the produced bundle, in the standard `sha256sum`
+# check format:
+#
+#     <64-hex-digest>  <relative/path/to/file>
+#
+# verify.sh strips these comment/blank lines and runs the equivalent of
+# `sha256sum -c` on the remainder, so an un-exported placeholder verifies as
+# "empty" rather than failing. Never edit hashes by hand.
+#
+# Example of what export.sh writes (illustrative only — not a real digest):
+#
+#   0000000000000000000000000000000000000000000000000000000000000000  manifest.yaml
+#   0000000000000000000000000000000000000000000000000000000000000000  images/ghcr.io_lawsynth_api_0.1.0.tar
+#   0000000000000000000000000000000000000000000000000000000000000000  compose/compose.yaml

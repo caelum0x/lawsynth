@@ -1,0 +1,293 @@
+# Default values for the lawsynth chart.
+# Every knob below is documented inline. Override with `-f my-values.yaml`
+# or `--set`. Values are validated against values.schema.json on install.
+
+# -- Global settings shared by every LawSynth service.
+global:
+  # -- Container image registry applied to all services unless overridden
+  #    per-service under `<service>.image.registry`.
+  imageRegistry: ghcr.io
+  # -- Image repository namespace (the org/project part of the image path).
+  imageNamespace: lawsynth
+  # -- Default image tag. Falls back to `.Chart.AppVersion` when empty.
+  imageTag: ""
+  # -- Image pull policy for all services.
+  imagePullPolicy: IfNotPresent
+  # -- Names of pre-existing imagePullSecrets for private registries.
+  imagePullSecrets: []
+  # -- Cluster storage class used by all PersistentVolumeClaims. Empty selects
+  #    the cluster default.
+  storageClass: ""
+
+# -- Override the generated chart name (defaults to the chart's `name`).
+nameOverride: ""
+# -- Fully override the release-qualified resource name prefix.
+fullnameOverride: ""
+
+# -- Logging and telemetry defaults injected into every service as env vars.
+observability:
+  # -- Log level: trace | debug | info | warn | error.
+  logLevel: info
+  # -- Structured log format: json | text.
+  logFormat: json
+  # -- Emit OpenTelemetry traces/metrics when an endpoint is configured.
+  otelEnabled: false
+  # -- OTLP gRPC collector endpoint (e.g. otel-collector:4317).
+  otelEndpoint: ""
+
+# -- Connection details for services LawSynth depends on but does not deploy.
+#    Provision these with the deploy/terraform modules or managed offerings.
+externalServices:
+  # Postgres metadata database (run specs, artifact references, run events).
+  postgres:
+    host: lawsynth-postgres
+    port: 5432
+    database: lawsynth
+    sslMode: require
+    # -- Name of an existing Secret holding POSTGRES_USER / POSTGRES_PASSWORD.
+    #    When empty, values below are written to a chart-managed Secret.
+    existingSecret: ""
+    username: lawsynth
+    password: ""
+  # S3-compatible object store for content-addressed .lsworld artifacts.
+  objectStore:
+    endpoint: http://lawsynth-minio:9000
+    region: us-east-1
+    bucket: lawsynth-artifacts
+    # -- Force path-style addressing (required for MinIO and most on-prem S3).
+    forcePathStyle: true
+    existingSecret: ""
+    accessKey: ""
+    secretKey: ""
+  # NATS job bus used for job envelopes and progress events.
+  nats:
+    url: nats://lawsynth-nats:4222
+    # -- JetStream stream name for durable, replayable run events.
+    stream: LAWSYNTH_JOBS
+
+# -- Database schema migration job. Runs as a pre-install/pre-upgrade hook so a
+#    failed migration halts the rollout before new app replicas start.
+migration:
+  enabled: true
+  # -- Extra seconds to keep the completed Job before Helm reaps it.
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# ---------------------------------------------------------------------------
+# API gateway: validates and persists RunSpecs, publishes job envelopes,
+# streams SSE/WebSocket progress to Studio, serves the HTTP API.
+# ---------------------------------------------------------------------------
+api:
+  enabled: true
+  replicaCount: 2
+  image:
+    registry: ""        # -- Overrides global.imageRegistry when set.
+    repository: api     # -- Image name appended to the namespace.
+    tag: ""             # -- Overrides global.imageTag when set.
+    pullPolicy: ""
+  service:
+    type: ClusterIP
+    port: 8080
+    # -- Named container port the Service targets.
+    targetPort: http
+  # -- HTTP path used by liveness/readiness/startup probes.
+  probes:
+    path: /healthz
+    readyPath: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  # -- Extra environment variables (list of name/value or name/valueFrom).
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# ---------------------------------------------------------------------------
+# Scheduler: assigns compatible worker pools, tracks leases, is fully
+# reconstructable from database state. Single active replica by design.
+# ---------------------------------------------------------------------------
+scheduler:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ""
+    repository: scheduler
+    tag: ""
+    pullPolicy: ""
+  probes:
+    path: /healthz
+    readyPath: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# ---------------------------------------------------------------------------
+# Worker pool: leases jobs, runs discovery pipelines, uploads
+# content-addressed artifacts. Sized for CPU-heavy scientific work.
+# ---------------------------------------------------------------------------
+worker:
+  enabled: true
+  replicaCount: 3
+  image:
+    registry: ""
+    repository: worker
+    tag: ""
+    pullPolicy: ""
+  probes:
+    path: /healthz
+    readyPath: /readyz
+    initialDelaySeconds: 10
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # -- Per-worker job quotas enforced at the process boundary.
+  quotas:
+    maxConcurrentJobs: 2
+    jobCpuLimit: "4"
+    jobMemoryLimit: 8Gi
+    jobTimeoutSeconds: 3600
+  resources:
+    requests:
+      cpu: "1"
+      memory: 2Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  autoscaling:
+    enabled: false
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 75
+  # -- Ephemeral scratch volume for checkpoints and intermediate Arrow buffers.
+  scratchVolume:
+    enabled: true
+    sizeLimit: 20Gi
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# ---------------------------------------------------------------------------
+# Artifact service: serves and verifies content-addressed .lsworld bundles;
+# finalizes uploads only after checksum verification.
+# ---------------------------------------------------------------------------
+artifact:
+  enabled: true
+  replicaCount: 2
+  image:
+    registry: ""
+    repository: artifact
+    tag: ""
+    pullPolicy: ""
+  service:
+    type: ClusterIP
+    port: 8090
+    targetPort: http
+  probes:
+    path: /healthz
+    readyPath: /readyz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # -- Optional local cache PVC for hot artifacts. When disabled the service is
+  #    stateless and reads through to the object store.
+  cache:
+    enabled: true
+    size: 50Gi
+    accessMode: ReadWriteOnce
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  extraEnv: []
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# -- ServiceAccount and RBAC. The scheduler needs read access to pods/leases.
+serviceAccount:
+  create: true
+  # -- Explicit name; generated from the fullname when empty.
+  name: ""
+  annotations: {}
+rbac:
+  create: true
+
+# -- Ingress for the API gateway (and optionally the artifact service).
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: lawsynth.local
+  # -- Path prefix routed to the API service.
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: false
+    secretName: lawsynth-tls
+
+# -- Restrict pod-to-pod traffic to the LawSynth namespace by default.
+networkPolicy:
+  enabled: false
+
+# -- PodDisruptionBudget for the API and artifact services.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# -- Baseline hardened securityContext applied to every pod/container.
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

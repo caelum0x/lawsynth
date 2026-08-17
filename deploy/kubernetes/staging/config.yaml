@@ -1,0 +1,16 @@
+# Staging config overrides, strategic-merged onto the base `lawsynth-config`.
+# Only keys that differ from base are listed; everything else is inherited.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lawsynth-config
+data:
+  LAWSYNTH_API_ENV: "staging"
+  RUST_LOG: "debug,lawsynth=debug"
+  # Verbose telemetry is acceptable in staging; it still excludes dataset
+  # content and column values per the security policy.
+  LAWSYNTH_TELEMETRY: "true"
+  # Allow the staging Studio origin through CORS.
+  LAWSYNTH_GATEWAY_ALLOWED_ORIGINS: "https://studio.staging.lawsynth.example"
+  # Lower rate limit to surface throttling behaviour during testing.
+  LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW: "60"

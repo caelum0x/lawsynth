@@ -106,6 +106,25 @@ pub(crate) fn load<S: ObjectStore>(
     }
 }
 
+/// Enumerates the ids of every job with a durable checkpoint by listing the
+/// object store under the checkpoint prefix. This is the read path the status
+/// transport uses to advertise known jobs; the store, not an in-memory index,
+/// remains the authority.
+pub(crate) fn list<S: ObjectStore>(store: &S) -> Result<Vec<String>, WorkerError> {
+    let keys = store.list(Some(PREFIX))?;
+    let mut ids = Vec::new();
+    for key in keys {
+        if let Some(rest) = key.as_str().strip_prefix(PREFIX) {
+            if let Some(job_id) = rest.strip_suffix(".checkpoint") {
+                if !job_id.is_empty() {
+                    ids.push(job_id.to_owned());
+                }
+            }
+        }
+    }
+    Ok(ids)
+}
+
 pub(crate) fn save<S: ObjectStore>(
     store: &S,
     record: &JobCheckpoint,

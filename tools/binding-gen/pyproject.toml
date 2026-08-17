@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-binding-gen"
+version = "0.1.0"
+description = "Generate aligned language bindings from the LawSynth Rust api-types crate."
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth contributors" }]
+dependencies = []
+
+[project.scripts]
+binding-gen = "main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["main", "rust", "python", "typescript", "protobuf"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-bundle-inspector"
+version = "0.1.0"
+description = "Inspect and verify LawSynth .lsworld bundles (manifest, checksums, world payload)."
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth contributors" }]
+dependencies = []
+
+[project.scripts]
+bundle-inspector = "main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["main", "archive", "checksum", "manifest", "report"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

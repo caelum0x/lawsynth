@@ -1,0 +1,217 @@
+{{- if .Values.scheduler.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-scheduler
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scheduler
+spec:
+  # The scheduler is reconstructable from database state; a single active
+  # replica avoids duplicate job assignment. Use a leader lease to scale > 1.
+  replicas: {{ .Values.scheduler.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "scheduler") | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.scheduler.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "scheduler") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "lawsynth.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: scheduler
+          image: {{ include "lawsynth.image" (dict "root" . "svc" .Values.scheduler) }}
+          imagePullPolicy: {{ include "lawsynth.imagePullPolicy" (dict "root" . "svc" .Values.scheduler) }}
+          args: ["serve", "--role", "scheduler"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            {{- include "lawsynth.commonEnvFrom" . | nindent 12 }}
+          {{- with .Values.scheduler.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.scheduler.probes.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.scheduler.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.scheduler.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.scheduler.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.scheduler.probes.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.scheduler.probes.readyPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.scheduler.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.scheduler.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.scheduler.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.scheduler.probes.failureThreshold }}
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.scheduler.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scheduler.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.scheduler.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- if .Values.worker.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-worker
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  {{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.worker.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "lawsynth.componentSelectorLabels" (dict "root" . "component" "worker") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "lawsynth.serviceAccountName" . }}
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # Workers leased mid-job should drain gracefully; leases expire and the
+      # job returns to schedulable state if they cannot.
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "lawsynth.image" (dict "root" . "svc" .Values.worker) }}
+          imagePullPolicy: {{ include "lawsynth.imagePullPolicy" (dict "root" . "svc" .Values.worker) }}
+          args: ["serve", "--role", "worker"]
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            {{- include "lawsynth.commonEnvFrom" . | nindent 12 }}
+          env:
+            - name: LAWSYNTH_WORKER_MAX_CONCURRENT_JOBS
+              value: {{ .Values.worker.quotas.maxConcurrentJobs | quote }}
+            - name: LAWSYNTH_WORKER_JOB_CPU_LIMIT
+              value: {{ .Values.worker.quotas.jobCpuLimit | quote }}
+            - name: LAWSYNTH_WORKER_JOB_MEMORY_LIMIT
+              value: {{ .Values.worker.quotas.jobMemoryLimit | quote }}
+            - name: LAWSYNTH_WORKER_JOB_TIMEOUT_SECONDS
+              value: {{ .Values.worker.quotas.jobTimeoutSeconds | quote }}
+            {{- with .Values.worker.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.worker.probes.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.worker.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.worker.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.worker.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.worker.probes.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.worker.probes.readyPath }}
+              port: http
+            initialDelaySeconds: {{ .Values.worker.probes.initialDelaySeconds }}
+            periodSeconds: {{ .Values.worker.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.worker.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.worker.probes.failureThreshold }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.worker.scratchVolume.enabled }}
+            - name: scratch
+              mountPath: /var/lib/lawsynth/scratch
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.worker.scratchVolume.enabled }}
+        - name: scratch
+          emptyDir:
+            sizeLimit: {{ .Values.worker.scratchVolume.sizeLimit }}
+        {{- end }}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- if .Values.worker.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "lawsynth.fullname" . }}-worker
+  labels:
+    {{- include "lawsynth.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "lawsynth.fullname" . }}-worker
+  minReplicas: {{ .Values.worker.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.worker.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.worker.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}

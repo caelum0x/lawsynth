@@ -1,0 +1,55 @@
+{
+  "documents": [
+    {
+      "id": "page-0",
+      "path": "/",
+      "title": "What is LawSynth?",
+      "text": "LawSynth turns multivariate time series into typed equations, causal hypotheses, regimes, uncertainty, and simulations expressed as a World IR.",
+      "headings": [
+        "What is LawSynth?",
+        "Why a World IR?"
+      ],
+      "tags": [
+        "overview"
+      ],
+      "version": "0.1.0"
+    },
+    {
+      "id": "page-1",
+      "path": "/quickstart",
+      "title": "Quickstart",
+      "text": "Install the LawSynth CLI and discover your first world from a CSV in under five minutes.",
+      "headings": [
+        "Quickstart"
+      ],
+      "tags": [
+        "guide"
+      ],
+      "version": "0.1.0"
+    },
+    {
+      "id": "page-2",
+      "path": "/concepts/world-ir",
+      "title": "World IR",
+      "text": "The World IR is a typed executable representation combining equations, dependency graphs, regimes, and uncertainty for a dynamical system.",
+      "headings": [
+        "World IR",
+        "Variables and laws"
+      ],
+      "tags": [
+        "concepts"
+      ],
+      "version": "0.1.0"
+    }
+  ],
+  "queries": [
+    {
+      "query": "world ir",
+      "expectTopPath": "/concepts/world-ir"
+    },
+    {
+      "query": "discover csv",
+      "expectTopPath": "/quickstart"
+    }
+  ]
+}

@@ -143,6 +143,21 @@ impl ArtifactService {
         Ok(artifact)
     }
 
+    /// Returns the durable metadata for a live artifact without loading or
+    /// verifying its bytes. Expired artifacts are reported as expired, matching
+    /// [`Self::get`], so a transport can answer metadata queries cheaply.
+    pub fn describe(
+        &self,
+        id: &ArtifactId,
+        now_unix_seconds: u64,
+    ) -> Result<ArtifactMetadata, ArtifactError> {
+        let metadata = self.storage.get_metadata(id)?;
+        if metadata.is_expired(now_unix_seconds) {
+            return Err(ArtifactError::Expired(id.clone()));
+        }
+        Ok(metadata)
+    }
+
     pub fn delete(&self, id: &ArtifactId) -> Result<bool, ArtifactError> {
         let mut state = self.state.lock().expect("artifact state lock poisoned");
         let removed = self.storage.remove(id)?;

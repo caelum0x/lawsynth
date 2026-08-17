@@ -1,0 +1,44 @@
+# NATS JetStream event bus — production single-node profile.
+#
+# Durable job envelopes and per-run event streams. Not published to the host;
+# only in-cluster services connect. Storage and payload limits are bounded so a
+# runaway producer cannot exhaust the volume. Included by compose.yaml.
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command:
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+      - "--max_payload=${NATS_MAX_PAYLOAD:-8MB}"
+      - "--jetstream_max_memory=${NATS_JS_MAX_MEMORY:-256MB}"
+      - "--jetstream_max_file=${NATS_JS_MAX_FILE:-4GB}"
+    volumes:
+      - lawsynth_nats:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      resources:
+        limits:
+          cpus: "${NATS_CPU_LIMIT:-1}"
+          memory: ${NATS_MEMORY_LIMIT:-512m}
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:
+
+volumes:
+  lawsynth_nats:

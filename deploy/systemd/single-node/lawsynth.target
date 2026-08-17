@@ -1,0 +1,15 @@
+[Unit]
+Description=LawSynth single-node stack (gateway, api, scheduler, worker, artifact)
+Documentation=https://github.com/lawsynth/lawsynth
+# Aggregates every LawSynth unit so the whole stack starts, stops, and is
+# enabled as one. `PartOf=` in each unit means restarting the target restarts
+# all members; `Wants=` keeps the target up even if one member fails to start.
+Wants=lawsynth-artifact.service
+Wants=lawsynth-scheduler.service
+Wants=lawsynth-api.service
+Wants=lawsynth-gateway.service
+Wants=lawsynth-worker.service
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target

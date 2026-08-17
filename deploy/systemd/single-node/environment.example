@@ -1,0 +1,59 @@
+# LawSynth single-node environment file (EnvironmentFile= target).
+#
+# Copy to /etc/lawsynth/environment, fill in real values, and restrict it:
+#   install -o root -g lawsynth -m 0640 environment.example /etc/lawsynth/environment
+#
+# This file DOES contain secrets (database password, object-store keys, API
+# tokens). Keep it 0640 root:lawsynth so only the service user can read it, and
+# never commit a filled-in copy. Dataset content and column values must never
+# be placed in configuration or logs (architecture section 22).
+
+# --- Runtime posture --------------------------------------------------------
+LAWSYNTH_API_ENV=production
+LAWSYNTH_LOG_FORMAT=json
+LAWSYNTH_TELEMETRY=false
+RUST_LOG=info,lawsynth=info
+
+# --- Metadata database (durable storage is mandatory in production) ---------
+LAWSYNTH_DATABASE_URL=postgresql://lawsynth:CHANGE_ME@127.0.0.1:5432/lawsynth
+
+# --- Object store / artifact paths ------------------------------------------
+# On a single node the artifact service uses a local root; API and worker
+# reference the same tree. Must be an absolute path in production.
+LAWSYNTH_OBJECT_ROOT=/var/lib/lawsynth/objects
+LAWSYNTH_OBJECT_STORE_ACCESS_KEY=CHANGE_ME
+LAWSYNTH_OBJECT_STORE_SECRET_KEY=CHANGE_ME
+
+# --- Event bus --------------------------------------------------------------
+LAWSYNTH_EVENT_BUS_URL=nats://127.0.0.1:4222
+LAWSYNTH_EVENT_BUS_TOKEN=CHANGE_ME
+
+# --- Service discovery (loopback on a single host) --------------------------
+LAWSYNTH_API_URL=http://127.0.0.1:8080
+LAWSYNTH_GATEWAY_UPSTREAM_URL=http://127.0.0.1:8080
+LAWSYNTH_SCHEDULER_URL=http://127.0.0.1:8083
+LAWSYNTH_ARTIFACT_URL=http://127.0.0.1:8082
+
+# --- HTTP API limits --------------------------------------------------------
+LAWSYNTH_MAX_UPLOAD_BYTES=67108864
+LAWSYNTH_API_MAX_REQUEST_BYTES=67108864
+LAWSYNTH_MAX_PAGE_SIZE=100
+
+# API bearer tokens: JSON mapping of >=16-char tokens to tenant grants.
+LAWSYNTH_API_TOKENS_JSON={"CHANGE_ME_AT_LEAST_16_CHARS":{"organization_id":"local","scopes":["read","write"]}}
+
+# --- Gateway admission ------------------------------------------------------
+LAWSYNTH_GATEWAY_MAX_BODY_BYTES=67108864
+LAWSYNTH_GATEWAY_MAX_HEADER_BYTES=32768
+LAWSYNTH_GATEWAY_MAX_HEADERS=64
+LAWSYNTH_GATEWAY_MAX_CLIENTS=10000
+LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW=120
+LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS=60
+LAWSYNTH_GATEWAY_ALLOWED_ORIGINS=https://studio.example
+
+# --- Scheduler / worker bounds ----------------------------------------------
+LAWSYNTH_SCHEDULER_MAX_QUEUED_JOBS=10000
+LAWSYNTH_SCHEDULER_MAX_ATTEMPTS=3
+LAWSYNTH_SCHEDULER_LEASE_SECONDS=30
+LAWSYNTH_WORKER_HEARTBEAT_SECONDS=10
+LAWSYNTH_WORKER_MAX_CHECKPOINT_BYTES=16384

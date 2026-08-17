@@ -1,0 +1,21 @@
+# Staging profile for lawsynth-artifact.
+#
+# Mirrors production shape at reduced capacity so a pre-release environment can
+# validate garbage collection, retention, and multipart assembly against a
+# persistent root. Fields map to ArtifactConfig (services/artifact/src/config.rs).
+
+profile: staging
+
+# Persistent host path owned by the service user; must exist and be writable.
+root: /var/lib/lawsynth/artifacts
+
+store:
+  max_object_bytes: 268435456        # 256 MiB
+  cache_capacity_bytes: 134217728    # 128 MiB
+
+limits:
+  max_total_bytes: 34359738368       # 32 GiB
+  max_multipart_parts: 10000
+  max_multipart_bytes: 536870912     # 512 MiB
+
+cache_capacity_bytes: 134217728      # 128 MiB

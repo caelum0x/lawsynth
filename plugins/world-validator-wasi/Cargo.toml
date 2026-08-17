@@ -1,0 +1,16 @@
+[package]
+name = "lawsynth-world-validator"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "WASI world validator plugin for LawSynth"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lawsynth-plugin-api = { path = "../../crates/lawsynth-plugin-api" }
+
+# Standalone workspace: this plugin is built out-of-tree and is intentionally
+# not a member of the root LawSynth workspace.
+[workspace]

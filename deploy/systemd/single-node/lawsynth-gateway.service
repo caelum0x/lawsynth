@@ -1,0 +1,61 @@
+[Unit]
+Description=LawSynth gateway (public request-admission boundary)
+Documentation=https://github.com/lawsynth/lawsynth
+# The only public-facing unit; it must not start before the API it fronts.
+After=network-online.target lawsynth-api.service
+Wants=network-online.target
+Requires=lawsynth-api.service
+PartOf=lawsynth.target
+
+[Service]
+Type=exec
+User=lawsynth
+Group=lawsynth
+WorkingDirectory=/var/lib/lawsynth
+EnvironmentFile=/etc/lawsynth/environment
+# Public bind: enforces body/header caps, rate limiting, and CORS before
+# forwarding to the loopback API (architecture sections 7, 22).
+ExecStart=/opt/lawsynth/venv/bin/gunicorn \
+    --bind=0.0.0.0:8081 \
+    --workers=2 \
+    --timeout=120 \
+    --access-logfile=- \
+    --error-logfile=- \
+    lawsynth_gateway.wsgi:application
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# --- Filesystem and privilege hardening -------------------------------------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+# The gateway holds no state, so it needs no ReadWritePaths; the entire
+# filesystem stays read-only under ProtectSystem=strict above.
+
+# --- Resource limits --------------------------------------------------------
+LimitNOFILE=65536
+TasksMax=512
+
+[Install]
+WantedBy=lawsynth.target

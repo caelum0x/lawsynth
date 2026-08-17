@@ -1,0 +1,24 @@
+{
+  "fixture": "s3",
+  "description": "S3 object connector. Requires the 's3' extra (boto3). Resource must be an s3://bucket/key URI; an optional version id pins the object snapshot.",
+  "extra": "s3",
+  "config": {
+    "name": "s3",
+    "batch_size": 5000,
+    "options": {
+      "endpoint_url": null,
+      "region_name": "us-east-1"
+    }
+  },
+  "request": {
+    "resource": "s3://lawsynth-datasets/observations.jsonl",
+    "snapshot": null,
+    "options": {"version_id": null}
+  },
+  "credentials_expected": ["AWS credentials via boto3 provider chain"],
+  "sample_records": [
+    {"time": 0, "x": 1.0},
+    {"time": 1, "x": 2.0}
+  ],
+  "fingerprint_algorithm": "sha256"
+}

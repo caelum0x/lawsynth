@@ -1,0 +1,70 @@
+# Object store — production single-node profile (MinIO, S3-compatible).
+#
+# For larger deployments, point the services at a managed S3 instead and delete
+# this file from compose.yaml's include list (keep LAWSYNTH_S3_* in .env). Here
+# MinIO runs single-node with a data-checksummed volume and required
+# credentials, reachable only on the internal network (console optionally
+# exposed behind the proxy). Included by compose.yaml.
+
+services:
+  object-store:
+    image: quay.io/minio/minio:RELEASE.2024-10-13T13-34-11Z
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      MINIO_BROWSER: ${MINIO_BROWSER:-off}
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+    volumes:
+      - lawsynth_objects:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+    deploy:
+      resources:
+        limits:
+          cpus: "${MINIO_CPU_LIMIT:-2}"
+          memory: ${MINIO_MEMORY_LIMIT:-2g}
+    networks:
+      - lawsynth
+
+  # One-shot: ensure the bucket exists with versioning + a lifecycle rule for
+  # incomplete multipart uploads. Idempotent; exits 0.
+  object-store-init:
+    image: quay.io/minio/mc:RELEASE.2024-10-08T09-37-26Z
+    depends_on:
+      object-store:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+      LAWSYNTH_S3_BUCKET: ${LAWSYNTH_S3_BUCKET:-lawsynth-artifacts}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mc alias set local http://object-store:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD"
+        mc mb --ignore-existing "local/$$LAWSYNTH_S3_BUCKET"
+        mc version enable "local/$$LAWSYNTH_S3_BUCKET"
+        mc ilm rule add --expire-delete-marker "local/$$LAWSYNTH_S3_BUCKET" || true
+        echo "object store bucket $$LAWSYNTH_S3_BUCKET ready"
+    restart: "no"
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:
+
+volumes:
+  lawsynth_objects:

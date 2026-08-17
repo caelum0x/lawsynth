@@ -1,0 +1,51 @@
+{
+  "sectionTitles": {
+    "getting-started": "Getting started",
+    "concepts": "Core concepts",
+    "reference": "Reference"
+  },
+  "pages": [
+    {
+      "path": "/",
+      "title": "What is LawSynth?",
+      "section": "getting-started",
+      "order": 1
+    },
+    {
+      "path": "/quickstart",
+      "title": "Quickstart",
+      "section": "getting-started",
+      "order": 2
+    },
+    {
+      "path": "/concepts/world-ir",
+      "title": "World IR",
+      "section": "concepts",
+      "order": 1
+    },
+    {
+      "path": "/concepts/discovery-pipeline",
+      "title": "Discovery pipeline",
+      "section": "concepts",
+      "order": 2
+    },
+    {
+      "path": "/reference/lsworld-bundle",
+      "title": ".lsworld bundle",
+      "section": "reference",
+      "order": 1
+    },
+    {
+      "path": "/reference/rest-api",
+      "title": "REST API",
+      "section": "reference",
+      "order": 2
+    },
+    {
+      "path": "/internal/scratch",
+      "title": "Scratch",
+      "section": "reference",
+      "hidden": true
+    }
+  ]
+}

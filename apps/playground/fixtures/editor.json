@@ -1,0 +1,258 @@
+{
+  "text": "{\n  \"formatVersion\": \"0.1.0\",\n  \"id\": \"lotka_volterra\",\n  \"name\": \"Lotka\\u2013Volterra predator\\u2013prey\",\n  \"description\": \"Classic two-species predator\\u2013prey dynamics recovered from a synthetic ecology time series.\",\n  \"time\": {\n    \"kind\": \"continuous\",\n    \"symbol\": \"t\",\n    \"unit\": \"day\"\n  },\n  \"variables\": [\n    {\n      \"id\": \"prey\",\n      \"name\": \"Prey density\",\n      \"role\": \"state\",\n      \"unit\": \"1/hectare\",\n      \"description\": \"Herbivore population density.\",\n      \"bounds\": [\n        0,\n        null\n      ]\n    },\n    {\n      \"id\": \"predator\",\n      \"name\": \"Predator density\",\n      \"role\": \"state\",\n      \"unit\": \"1/hectare\",\n      \"description\": \"Carnivore population density.\",\n      \"bounds\": [\n        0,\n        null\n      ]\n    }\n  ],\n  \"parameters\": [\n    {\n      \"id\": \"alpha\",\n      \"value\": 1.1,\n      \"unit\": \"1/day\",\n      \"bounds\": [\n        0,\n        5\n      ],\n      \"description\": \"Prey intrinsic growth rate.\"\n    },\n    {\n      \"id\": \"beta\",\n      \"value\": 0.4,\n      \"unit\": \"hectare/day\",\n      \"bounds\": [\n        0,\n        5\n      ],\n      \"description\": \"Predation interaction rate.\"\n    },\n    {\n      \"id\": \"delta\",\n      \"value\": 0.1,\n      \"unit\": \"hectare/day\",\n      \"bounds\": [\n        0,\n        5\n      ],\n      \"description\": \"Predator reproduction per prey consumed.\"\n    },\n    {\n      \"id\": \"gamma\",\n      \"value\": 0.4,\n      \"unit\": \"1/day\",\n      \"bounds\": [\n        0,\n        5\n      ],\n      \"description\": \"Predator mortality rate.\"\n    }\n  ],\n  \"laws\": [\n    {\n      \"id\": \"prey_dynamics\",\n      \"kind\": \"continuous\",\n      \"target\": \"prey\",\n      \"description\": \"dprey/dt = alpha*prey - beta*prey*predator\",\n      \"expression\": {\n        \"kind\": \"binary\",\n        \"operator\": \"sub\",\n        \"left\": {\n          \"kind\": \"binary\",\n          \"operator\": \"mul\",\n          \"left\": {\n            \"kind\": \"symbol\",\n            \"id\": \"alpha\"\n          },\n          \"right\": {\n            \"kind\": \"symbol\",\n            \"id\": \"prey\"\n          }\n        },\n        \"right\": {\n          \"kind\": \"binary\",\n          \"operator\": \"mul\",\n          \"left\": {\n            \"kind\": \"binary\",\n            \"operator\": \"mul\",\n            \"left\": {\n              \"kind\": \"symbol\",\n              \"id\": \"beta\"\n            },\n            \"right\": {\n              \"kind\": \"symbol\",\n              \"id\": \"prey\"\n            }\n          },\n          \"right\": {\n            \"kind\": \"symbol\",\n            \"id\": \"predator\"\n          }\n        }\n      }\n    },\n    {\n      \"id\": \"predator_dynamics\",\n      \"kind\": \"continuous\",\n      \"target\": \"predator\",\n      \"description\": \"dpredator/dt = delta*prey*predator - gamma*predator\",\n      \"expression\": {\n        \"kind\": \"binary\",\n        \"operator\": \"sub\",\n        \"left\": {\n          \"kind\": \"binary\",\n          \"operator\": \"mul\",\n          \"left\": {\n            \"kind\": \"binary\",\n            \"operator\": \"mul\",\n            \"left\": {\n              \"kind\": \"symbol\",\n              \"id\": \"delta\"\n            },\n            \"right\": {\n              \"kind\": \"symbol\",\n              \"id\": \"prey\"\n            }\n          },\n          \"right\": {\n            \"kind\": \"symbol\",\n            \"id\": \"predator\"\n          }\n        },\n        \"right\": {\n          \"kind\": \"binary\",\n          \"operator\": \"mul\",\n          \"left\": {\n            \"kind\": \"symbol\",\n            \"id\": \"gamma\"\n          },\n          \"right\": {\n            \"kind\": \"symbol\",\n            \"id\": \"predator\"\n          }\n        }\n      }\n    }\n  ],\n  \"dependencies\": {\n    \"nodes\": [\n      \"prey\",\n      \"predator\"\n    ],\n    \"edges\": [\n      {\n        \"id\": \"prey_feeds_predator\",\n        \"source\": \"prey\",\n        \"target\": \"predator\",\n        \"kind\": \"directed\",\n        \"status\": \"identified\",\n        \"strength\": 0.91\n      },\n      {\n        \"id\": \"predator_limits_prey\",\n        \"source\": \"predator\",\n        \"target\": \"prey\",\n        \"kind\": \"directed\",\n        \"status\": \"identified\",\n        \"strength\": 0.87\n      }\n    ]\n  },\n  \"regimes\": {\n    \"regimes\": [\n      {\n        \"id\": \"oscillatory\",\n        \"name\": \"Stable limit cycle\",\n        \"lawIds\": [\n          \"prey_dynamics\",\n          \"predator_dynamics\"\n        ]\n      }\n    ],\n    \"intervals\": [\n      {\n        \"regime\": \"oscillatory\",\n        \"start\": 0,\n        \"end\": 12\n      }\n    ]\n  },\n  \"uncertainty\": {\n    \"entries\": [\n      {\n        \"level\": \"parameter\",\n        \"parameter\": \"alpha\",\n        \"standardError\": 0.03\n      },\n      {\n        \"level\": \"parameter\",\n        \"parameter\": \"beta\",\n        \"standardError\": 0.02\n      },\n      {\n        \"level\": \"parameter\",\n        \"parameter\": \"gamma\",\n        \"standardError\": 0.02\n      },\n      {\n        \"level\": \"parameter\",\n        \"parameter\": \"delta\",\n        \"standardError\": 0.01\n      }\n    ]\n  },\n  \"provenance\": {\n    \"createdAt\": \"2026-02-14T09:30:00.000Z\",\n    \"seed\": 42,\n    \"worldHash\": \"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\n    \"algorithms\": [\n      {\n        \"name\": \"sindy\",\n        \"version\": \"1.3.0\",\n        \"deterministic\": true\n      },\n      {\n        \"name\": \"pareto-refine\",\n        \"version\": \"0.4.1\",\n        \"deterministic\": true\n      }\n    ]\n  },\n  \"tags\": [\n    \"ecology\",\n    \"predator-prey\",\n    \"benchmark\"\n  ]\n}\n",
+  "revision": 3,
+  "dirty": false,
+  "world": {
+    "formatVersion": "0.1.0",
+    "id": "lotka_volterra",
+    "name": "Lotka\u2013Volterra predator\u2013prey",
+    "description": "Classic two-species predator\u2013prey dynamics recovered from a synthetic ecology time series.",
+    "time": {
+      "kind": "continuous",
+      "symbol": "t",
+      "unit": "day"
+    },
+    "variables": [
+      {
+        "id": "prey",
+        "name": "Prey density",
+        "role": "state",
+        "unit": "1/hectare",
+        "description": "Herbivore population density.",
+        "bounds": [
+          0,
+          null
+        ]
+      },
+      {
+        "id": "predator",
+        "name": "Predator density",
+        "role": "state",
+        "unit": "1/hectare",
+        "description": "Carnivore population density.",
+        "bounds": [
+          0,
+          null
+        ]
+      }
+    ],
+    "parameters": [
+      {
+        "id": "alpha",
+        "value": 1.1,
+        "unit": "1/day",
+        "bounds": [
+          0,
+          5
+        ],
+        "description": "Prey intrinsic growth rate."
+      },
+      {
+        "id": "beta",
+        "value": 0.4,
+        "unit": "hectare/day",
+        "bounds": [
+          0,
+          5
+        ],
+        "description": "Predation interaction rate."
+      },
+      {
+        "id": "delta",
+        "value": 0.1,
+        "unit": "hectare/day",
+        "bounds": [
+          0,
+          5
+        ],
+        "description": "Predator reproduction per prey consumed."
+      },
+      {
+        "id": "gamma",
+        "value": 0.4,
+        "unit": "1/day",
+        "bounds": [
+          0,
+          5
+        ],
+        "description": "Predator mortality rate."
+      }
+    ],
+    "laws": [
+      {
+        "id": "prey_dynamics",
+        "kind": "continuous",
+        "target": "prey",
+        "description": "dprey/dt = alpha*prey - beta*prey*predator",
+        "expression": {
+          "kind": "binary",
+          "operator": "sub",
+          "left": {
+            "kind": "binary",
+            "operator": "mul",
+            "left": {
+              "kind": "symbol",
+              "id": "alpha"
+            },
+            "right": {
+              "kind": "symbol",
+              "id": "prey"
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "operator": "mul",
+            "left": {
+              "kind": "binary",
+              "operator": "mul",
+              "left": {
+                "kind": "symbol",
+                "id": "beta"
+              },
+              "right": {
+                "kind": "symbol",
+                "id": "prey"
+              }
+            },
+            "right": {
+              "kind": "symbol",
+              "id": "predator"
+            }
+          }
+        }
+      },
+      {
+        "id": "predator_dynamics",
+        "kind": "continuous",
+        "target": "predator",
+        "description": "dpredator/dt = delta*prey*predator - gamma*predator",
+        "expression": {
+          "kind": "binary",
+          "operator": "sub",
+          "left": {
+            "kind": "binary",
+            "operator": "mul",
+            "left": {
+              "kind": "binary",
+              "operator": "mul",
+              "left": {
+                "kind": "symbol",
+                "id": "delta"
+              },
+              "right": {
+                "kind": "symbol",
+                "id": "prey"
+              }
+            },
+            "right": {
+              "kind": "symbol",
+              "id": "predator"
+            }
+          },
+          "right": {
+            "kind": "binary",
+            "operator": "mul",
+            "left": {
+              "kind": "symbol",
+              "id": "gamma"
+            },
+            "right": {
+              "kind": "symbol",
+              "id": "predator"
+            }
+          }
+        }
+      }
+    ],
+    "dependencies": {
+      "nodes": [
+        "prey",
+        "predator"
+      ],
+      "edges": [
+        {
+          "id": "prey_feeds_predator",
+          "source": "prey",
+          "target": "predator",
+          "kind": "directed",
+          "status": "identified",
+          "strength": 0.91
+        },
+        {
+          "id": "predator_limits_prey",
+          "source": "predator",
+          "target": "prey",
+          "kind": "directed",
+          "status": "identified",
+          "strength": 0.87
+        }
+      ]
+    },
+    "regimes": {
+      "regimes": [
+        {
+          "id": "oscillatory",
+          "name": "Stable limit cycle",
+          "lawIds": [
+            "prey_dynamics",
+            "predator_dynamics"
+          ]
+        }
+      ],
+      "intervals": [
+        {
+          "regime": "oscillatory",
+          "start": 0,
+          "end": 12
+        }
+      ]
+    },
+    "uncertainty": {
+      "entries": [
+        {
+          "level": "parameter",
+          "parameter": "alpha",
+          "standardError": 0.03
+        },
+        {
+          "level": "parameter",
+          "parameter": "beta",
+          "standardError": 0.02
+        },
+        {
+          "level": "parameter",
+          "parameter": "gamma",
+          "standardError": 0.02
+        },
+        {
+          "level": "parameter",
+          "parameter": "delta",
+          "standardError": 0.01
+        }
+      ]
+    },
+    "provenance": {
+      "createdAt": "2026-02-14T09:30:00.000Z",
+      "seed": 42,
+      "worldHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "algorithms": [
+        {
+          "name": "sindy",
+          "version": "1.3.0",
+          "deterministic": true
+        },
+        {
+          "name": "pareto-refine",
+          "version": "0.4.1",
+          "deterministic": true
+        }
+      ]
+    },
+    "tags": [
+      "ecology",
+      "predator-prey",
+      "benchmark"
+    ]
+  },
+  "diagnostics": []
+}

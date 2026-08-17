@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "lawsynth",
+  "project_id": "f9a1c232-d826-48ca-8d87-31b0ff229f22"
+}

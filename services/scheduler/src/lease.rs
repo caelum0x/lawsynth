@@ -43,22 +43,31 @@ pub struct Lease {
     pub envelope: JobEnvelope,
 }
 
-/// This crate supports only in-process dispatch. Queue/broker and network
-/// forms are surfaced explicitly so callers cannot mistake absence for success.
+/// Dispatch of executable work is in-process only. The available forms are
+/// surfaced explicitly so callers cannot mistake absence for success.
+///
+/// `HttpControlPlane` is available, but only for the SERIALIZABLE control plane
+/// (health, pools, job state, checkpoints, cancel, recover). It never carries an
+/// executable `JobEnvelope` over the wire — that payload has no codec — so typed
+/// dispatch (`LocalTyped`) remains the sole way to hand work to a worker.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SchedulerTransport {
     LocalTyped,
+    HttpControlPlane,
     BrokerNotLinked,
     NetworkNotLinked,
 }
 
 impl SchedulerTransport {
     pub const fn is_available(self) -> bool {
-        matches!(self, Self::LocalTyped)
+        matches!(self, Self::LocalTyped | Self::HttpControlPlane)
     }
     pub const fn reason(self) -> &'static str {
         match self {
             Self::LocalTyped => "in-process typed dispatch",
+            Self::HttpControlPlane => {
+                "HTTP serves the serializable control plane only; executable job dispatch stays in-process"
+            }
             Self::BrokerNotLinked => "no broker client or worker-job codec is linked",
             Self::NetworkNotLinked => "no HTTP, RPC, or authentication transport is linked",
         }

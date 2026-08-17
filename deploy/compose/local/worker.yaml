@@ -1,0 +1,82 @@
+# Execution plane for the local LawSynth stack.
+#
+# artifact  — content-addressed object lifecycle service (Rust, :8082). Stores
+#             to a local volume and verifies checksums on read.
+# scheduler — drains the outbox, assigns jobs, tracks leases (Rust).
+# worker    — leases jobs, executes discovery/simulation under quotas, uploads
+#             artifacts (Rust). Scale with `--scale worker=N`.
+#
+# All build from the repository root. Included by compose.yaml.
+
+services:
+  artifact:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/artifact:${LAWSYNTH_VERSION:-0.1.0}
+    build:
+      context: ../../..
+      dockerfile: deploy/docker/images/artifact.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LAWSYNTH_ARTIFACT_ROOT: /var/lib/lawsynth/artifacts
+      LAWSYNTH_ARTIFACT_ADDR: 0.0.0.0:8082
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-debug}
+    ports:
+      - "${LAWSYNTH_ARTIFACT_HOST_PORT:-8082}:8082"
+    volumes:
+      - lawsynth_artifacts:/var/lib/lawsynth/artifacts
+    networks:
+      - lawsynth
+
+  scheduler:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/scheduler:${LAWSYNTH_VERSION:-0.1.0}
+    build:
+      context: ../../..
+      dockerfile: deploy/docker/images/scheduler.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-debug}
+      LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:-lawsynth}:${POSTGRES_PASSWORD:-lawsynth_local_password}@postgres:5432/${POSTGRES_DB:-lawsynth}
+      LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
+      LAWSYNTH_SCHEDULER_LEASE_SECONDS: ${LAWSYNTH_SCHEDULER_LEASE_SECONDS:-60}
+    networks:
+      - lawsynth
+
+  worker:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/worker:${LAWSYNTH_VERSION:-0.1.0}
+    build:
+      context: ../../..
+      dockerfile: deploy/docker/images/worker.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      artifact:
+        condition: service_started
+    environment:
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-debug}
+      LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:-lawsynth}:${POSTGRES_PASSWORD:-lawsynth_local_password}@postgres:5432/${POSTGRES_DB:-lawsynth}
+      LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
+      LAWSYNTH_ARTIFACT_ENDPOINT: http://artifact:8082
+      LAWSYNTH_WORKER_SCRATCH: /var/lib/lawsynth/scratch
+      # Per-run resource quotas enforced at the process boundary.
+      LAWSYNTH_WORKER_MAX_CONCURRENCY: ${LAWSYNTH_WORKER_MAX_CONCURRENCY:-2}
+      LAWSYNTH_WORKER_JOB_TIMEOUT_SECONDS: ${LAWSYNTH_WORKER_JOB_TIMEOUT_SECONDS:-3600}
+    tmpfs:
+      - /var/lib/lawsynth/scratch
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:
+
+volumes:
+  lawsynth_artifacts:

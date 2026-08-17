@@ -88,17 +88,24 @@ pub enum JobOutput {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TransportSurface {
     LocalDirect,
+    HttpStatus,
     QueueNotImplemented,
     NetworkNotImplemented,
 }
 
 impl TransportSurface {
+    /// Whether the surface can admit executable jobs. Only in-process typed
+    /// execution can: the HTTP surface is status-only and the queue/network
+    /// surfaces are unimplemented.
     pub const fn is_available(self) -> bool {
         matches!(self, Self::LocalDirect)
     }
     pub const fn reason(self) -> &'static str {
         match self {
             Self::LocalDirect => "in-process typed execution",
+            Self::HttpStatus => {
+                "serves health, admission, and lifecycle status only; it does not accept executable jobs"
+            }
             Self::QueueNotImplemented => "no queue client or message codec is linked",
             Self::NetworkNotImplemented => "no HTTP, RPC, or authentication transport is linked",
         }

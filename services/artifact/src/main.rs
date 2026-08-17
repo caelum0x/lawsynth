@@ -1,4 +1,5 @@
-use lawsynth_artifact_service::{ArtifactConfig, ArtifactService};
+use lawsynth_artifact_service::{ArtifactConfig, ArtifactServer, ArtifactService};
+use std::net::TcpListener;
 
 fn main() {
     if let Err(error) = run(std::env::args().skip(1).collect()) {
@@ -43,10 +44,24 @@ fn run(arguments: Vec<String>) -> Result<(), String> {
             }
             Ok(())
         }
+        "serve" if arguments.len() == 3 => {
+            let service = ArtifactService::open(ArtifactConfig::new(&arguments[1]))
+                .map_err(|error| error.to_string())?;
+            let listener = TcpListener::bind(&arguments[2])
+                .map_err(|error| format!("cannot bind {}: {error}", arguments[2]))?;
+            let address = listener.local_addr().map_err(|error| error.to_string())?;
+            eprintln!(
+                "lawsynth-artifact: serving HTTP on {address} root={}",
+                service.root().display()
+            );
+            ArtifactServer::with_system_clock(service)
+                .serve(&listener)
+                .map_err(|error| error.to_string())
+        }
         _ => Err(usage()),
     }
 }
 
 fn usage() -> String {
-    "usage: lawsynth-artifact health <root> | lawsynth-artifact gc <root> <unix-seconds> [--dry-run]; HTTP serving is not implemented".into()
+    "usage: lawsynth-artifact health <root> | gc <root> <unix-seconds> [--dry-run] | serve <root> <addr>".into()
 }

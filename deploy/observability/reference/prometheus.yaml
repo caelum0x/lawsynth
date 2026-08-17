@@ -1,0 +1,106 @@
+# Reference Prometheus scrape configuration for a LawSynth deployment.
+#
+# Scrapes every service in the graph plus the backing infrastructure exporters.
+# Hostnames are the compose/Kubernetes service names; adjust to your DNS. Alert
+# rules live in alerts.yaml (loaded via rule_files) and are tied to the SLOs in
+# the production architecture (section 23).
+#
+# The LawSynth services expose Prometheus metrics on /metrics: the HTTP-facing
+# services on their service port, and the scheduler/worker on a dedicated
+# metrics port (9102). No dataset content is ever exported as a metric label.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    deployment: ${LAWSYNTH_DEPLOYMENT:-reference}
+
+rule_files:
+  - alerts.yaml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # --- LawSynth services ----------------------------------------------------
+  - job_name: lawsynth-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8080"]
+        labels: { service: api, tier: control }
+
+  - job_name: lawsynth-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gateway:8081"]
+        labels: { service: gateway, tier: edge }
+
+  - job_name: lawsynth-artifact
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["artifact:8082"]
+        labels: { service: artifact, tier: storage }
+
+  - job_name: lawsynth-scheduler
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["scheduler:9102"]
+        labels: { service: scheduler, tier: control }
+
+  - job_name: lawsynth-worker
+    metrics_path: /metrics
+    # Compose/K8s DNS returns every worker replica; Prometheus scrapes each.
+    dns_sd_configs:
+      - names: ["tasks.worker", "worker"]
+        type: A
+        port: 9102
+    static_configs:
+      - targets: ["worker:9102"]
+        labels: { service: worker, tier: execution }
+
+  # --- Backing infrastructure exporters -------------------------------------
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels: { service: postgres, tier: storage }
+
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+    static_configs:
+      - targets: ["object-store:9000"]
+        labels: { service: object-store, tier: storage }
+
+  - job_name: nats
+    static_configs:
+      - targets: ["nats-exporter:7777"]
+        labels: { service: nats, tier: bus }
+
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels: { tier: host }
+
+  # --- Blackbox HTTP probe for external availability SLO --------------------
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - https://${LAWSYNTH_DOMAIN:-lawsynth.example.com}/v1/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

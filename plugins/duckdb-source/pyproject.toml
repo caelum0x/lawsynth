@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-plugin-duckdb-source"
+version = "0.1.0"
+description = "Read-only DuckDB data source for LawSynth with SELECT-only validation and streamed result bounds"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth contributors" }]
+keywords = ["lawsynth", "plugin", "duckdb", "data-source"]
+dependencies = []
+
+# The duckdb driver is optional: importing this package never imports duckdb.
+# `invoke` raises RuntimeError with the exact extra to install when it is missing.
+[project.optional-dependencies]
+duckdb = ["duckdb>=1"]
+dev = ["pytest>=8", "duckdb>=1"]
+
+# The host discovers plugins through this entry-point group. The value points at
+# the callable class declared as `entrypoint` in plugin.toml.
+[project.entry-points."lawsynth.plugins"]
+duckdb-source = "duckdb_source.plugin:DuckDBSource"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.11"
+strict = true

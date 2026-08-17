@@ -10,6 +10,30 @@ impl UploadId {
     pub(crate) fn new(sequence: u64) -> Self {
         Self(format!("upload-{sequence:016x}"))
     }
+
+    /// Reconstructs a session identifier from an opaque token supplied by a caller
+    /// (for example, a transport path segment). The canonical form is
+    /// `upload-<16 lowercase hex digits>`; anything else is rejected so that
+    /// malformed tokens never reach the in-process session map.
+    pub fn parse(token: &str) -> Result<Self, ArtifactError> {
+        let digits = token
+            .strip_prefix("upload-")
+            .filter(|digits| {
+                digits.len() == 16
+                    && digits
+                        .bytes()
+                        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+            })
+            .ok_or_else(|| ArtifactError::InvalidUpload(format!("malformed upload id {token}")))?;
+        // A valid 16-digit lowercase hex string always parses; re-emit the canonical form.
+        let sequence = u64::from_str_radix(digits, 16)
+            .map_err(|_| ArtifactError::InvalidUpload(format!("malformed upload id {token}")))?;
+        Ok(Self::new(sequence))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 impl std::fmt::Display for UploadId {

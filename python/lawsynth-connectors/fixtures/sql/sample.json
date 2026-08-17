@@ -1,0 +1,23 @@
+{
+  "fixture": "sql",
+  "description": "SQLite connector (SQLiteConnector). Read-only SELECT or parameterized equality filter over a local database file.",
+  "extra": "stdlib (sqlite3)",
+  "config": {
+    "name": "sqlite",
+    "batch_size": 1000,
+    "options": {"database": "./datasets/timeseries.db"}
+  },
+  "request": {
+    "resource": "observations",
+    "options": {
+      "table": "observations",
+      "query": "SELECT time, x FROM observations ORDER BY time",
+      "params": {}
+    }
+  },
+  "sample_records": [
+    {"time": 0, "x": 1.0},
+    {"time": 1, "x": 2.0}
+  ],
+  "fingerprint_algorithm": "sha256"
+}

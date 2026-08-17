@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lawsynth-api-doc-gen"
+version = "0.1.0"
+description = "Generate LawSynth API documentation (OpenAPI, Rust, Python, TypeScript) from api-types."
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "LawSynth contributors" }]
+dependencies = []
+
+[project.scripts]
+api-doc-gen = "main:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+py-modules = ["main", "openapi", "python", "rust", "typescript"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

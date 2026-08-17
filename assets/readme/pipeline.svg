@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 210" width="1120" height="210" role="img" aria-label="LawSynth discovery pipeline">
+  <title>LawSynth discovery pipeline</title>
+  <desc>Multivariate data flows through derivative reconstruction, a feature library, and sparse discovery into the World IR, which compiles to a .lsworld bundle and a simulation.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#59635e"/>
+    </marker>
+    <style>
+      .box { fill: #fffdf7; stroke: #c8c6ba; stroke-width: 1.5; }
+      .box-accent { fill: #fffdf7; stroke: #b54b2a; stroke-width: 2.5; }
+      .kicker { font: 700 10px ui-monospace, monospace; letter-spacing: 0.08em; fill: #59635e; text-transform: uppercase; }
+      .label { font: 650 15px Georgia, serif; fill: #18201d; }
+      .sub { font: 400 11px Inter, system-ui, sans-serif; fill: #59635e; }
+      .flow { stroke: #59635e; stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1120" height="210" fill="#f3f0e8"/>
+  <text x="16" y="30" class="kicker">Discovery pipeline</text>
+
+  <!-- Stage 1: Data -->
+  <rect class="box" x="16" y="66" width="130" height="66" rx="8"/>
+  <text x="30" y="94" class="label">Data</text>
+  <text x="30" y="114" class="sub">time series</text>
+
+  <!-- Stage 2: Derivatives -->
+  <rect class="box" x="176" y="66" width="130" height="66" rx="8"/>
+  <text x="190" y="94" class="label">Derivatives</text>
+  <text x="190" y="114" class="sub">state &amp; delays</text>
+
+  <!-- Stage 3: Features -->
+  <rect class="box" x="336" y="66" width="130" height="66" rx="8"/>
+  <text x="350" y="94" class="label">Features</text>
+  <text x="350" y="114" class="sub">library terms</text>
+
+  <!-- Stage 4: Sparse discovery -->
+  <rect class="box" x="496" y="66" width="130" height="66" rx="8"/>
+  <text x="510" y="90" class="label">Sparse</text>
+  <text x="510" y="108" class="label">discovery</text>
+  <text x="510" y="124" class="sub">SINDy / SR</text>
+
+  <!-- Stage 5: World IR (central artifact) -->
+  <rect class="box-accent" x="656" y="66" width="130" height="66" rx="8"/>
+  <text x="670" y="94" class="label">World IR</text>
+  <text x="670" y="114" class="sub">typed model</text>
+
+  <!-- Stage 6: Bundle -->
+  <rect class="box" x="816" y="66" width="130" height="66" rx="8"/>
+  <text x="830" y="94" class="label">Bundle</text>
+  <text x="830" y="114" class="sub">.lsworld</text>
+
+  <!-- Stage 7: Simulation -->
+  <rect class="box" x="976" y="66" width="130" height="66" rx="8"/>
+  <text x="990" y="94" class="label">Simulation</text>
+  <text x="990" y="114" class="sub">interventions</text>
+
+  <!-- flow arrows -->
+  <line class="flow" x1="146" y1="99" x2="176" y2="99" marker-end="url(#arrow)"/>
+  <line class="flow" x1="306" y1="99" x2="336" y2="99" marker-end="url(#arrow)"/>
+  <line class="flow" x1="466" y1="99" x2="496" y2="99" marker-end="url(#arrow)"/>
+  <line class="flow" x1="626" y1="99" x2="656" y2="99" marker-end="url(#arrow)"/>
+  <line class="flow" x1="786" y1="99" x2="816" y2="99" marker-end="url(#arrow)"/>
+  <line class="flow" x1="946" y1="99" x2="976" y2="99" marker-end="url(#arrow)"/>
+
+  <text x="16" y="176" class="sub">Every run is deterministic and produces an inspectable, reproducible artifact.</text>
+</svg>

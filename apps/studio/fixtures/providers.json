@@ -1,0 +1,28 @@
+{
+  "apiBaseUrl": "/api",
+  "randomIdPrefix": "studio",
+  "notifications": [
+    {
+      "id": "note_run_done",
+      "tone": "success",
+      "title": "Discovery run succeeded",
+      "detail": "Sparse discovery sweep produced 4 candidate laws.",
+      "action": {
+        "label": "Open candidates",
+        "command": "discovery.open:run_sparse_7"
+      }
+    },
+    {
+      "id": "note_sim_queued",
+      "tone": "info",
+      "title": "Simulation queued",
+      "detail": "Lotka\u2013Volterra r3 is scheduled for a 12-day horizon."
+    },
+    {
+      "id": "note_upload_limit",
+      "tone": "warning",
+      "title": "Large upload",
+      "detail": "Dataset is close to the 512 MiB browser limit."
+    }
+  ]
+}

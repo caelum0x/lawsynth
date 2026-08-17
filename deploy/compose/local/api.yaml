@@ -1,0 +1,84 @@
+# API + admission gateway for the local LawSynth stack.
+#
+# api     — Python WSGI facade over the domain core (gunicorn, :8080).
+# gateway — in-process admission layer (body/header limits, rate window, CORS)
+#           wrapping the API, exposed to the host on :8081. Studio and the CLI
+#           talk to the gateway, not the API, in a realistic setup.
+#
+# Both build from the repository root using the Dockerfiles under
+# deploy/docker/images/. Included by compose.yaml.
+
+services:
+  api:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/api:${LAWSYNTH_VERSION:-0.1.0}
+    build:
+      context: ../../..
+      dockerfile: deploy/docker/images/api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    environment:
+      LAWSYNTH_API_ENV: development
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-debug}
+      GUNICORN_WORKERS: ${LAWSYNTH_API_WORKERS:-2}
+      # Metadata database.
+      LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:-lawsynth}:${POSTGRES_PASSWORD:-lawsynth_local_password}@postgres:5432/${POSTGRES_DB:-lawsynth}
+      # Object store (S3-compatible MinIO).
+      LAWSYNTH_S3_ENDPOINT: http://minio:9000
+      LAWSYNTH_S3_REGION: ${LAWSYNTH_S3_REGION:-us-east-1}
+      LAWSYNTH_S3_BUCKET: ${LAWSYNTH_S3_BUCKET:-lawsynth-artifacts}
+      LAWSYNTH_S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-lawsynth}
+      LAWSYNTH_S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-lawsynth_local_password}
+      LAWSYNTH_S3_FORCE_PATH_STYLE: "true"
+      # Event bus + downstream services.
+      LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
+      LAWSYNTH_ARTIFACT_ENDPOINT: http://artifact:8082
+      # Local bearer tokens (map form: token=org:scope). Local-only value.
+      LAWSYNTH_API_TOKENS: ${LAWSYNTH_API_TOKENS:-local-dev-token=local:admin}
+    expose:
+      - "8080"
+    ports:
+      - "${LAWSYNTH_API_HOST_PORT:-8080}:8080"
+    networks:
+      - lawsynth
+
+  gateway:
+    image: ${LAWSYNTH_REGISTRY:-ghcr.io/lawsynth}/gateway:${LAWSYNTH_VERSION:-0.1.0}
+    build:
+      context: ../../..
+      dockerfile: deploy/docker/images/gateway.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      LAWSYNTH_LOG_LEVEL: ${LAWSYNTH_LOG_LEVEL:-debug}
+      GUNICORN_WORKERS: ${LAWSYNTH_GATEWAY_WORKERS:-2}
+      LAWSYNTH_GATEWAY_BACKEND: lawsynth_api.main:application
+      LAWSYNTH_GATEWAY_MAX_BODY_BYTES: ${LAWSYNTH_GATEWAY_MAX_BODY_BYTES:-67108864}
+      LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW: ${LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW:-120}
+      LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS: ${LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS:-60}
+      LAWSYNTH_GATEWAY_ALLOWED_ORIGINS: ${LAWSYNTH_GATEWAY_ALLOWED_ORIGINS:-http://localhost:8083}
+      # The gateway bundles the API package and applies the same database and
+      # object-store configuration so the wrapped backend resolves identically.
+      LAWSYNTH_DATABASE_URL: postgresql://${POSTGRES_USER:-lawsynth}:${POSTGRES_PASSWORD:-lawsynth_local_password}@postgres:5432/${POSTGRES_DB:-lawsynth}
+      LAWSYNTH_S3_ENDPOINT: http://minio:9000
+      LAWSYNTH_S3_BUCKET: ${LAWSYNTH_S3_BUCKET:-lawsynth-artifacts}
+      LAWSYNTH_S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-lawsynth}
+      LAWSYNTH_S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-lawsynth_local_password}
+      LAWSYNTH_S3_FORCE_PATH_STYLE: "true"
+      LAWSYNTH_EVENT_BUS_URL: nats://nats:4222
+      LAWSYNTH_ARTIFACT_ENDPOINT: http://artifact:8082
+      LAWSYNTH_API_TOKENS: ${LAWSYNTH_API_TOKENS:-local-dev-token=local:admin}
+    ports:
+      - "${LAWSYNTH_GATEWAY_HOST_PORT:-8081}:8081"
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:

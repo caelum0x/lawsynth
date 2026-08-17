@@ -1,0 +1,39 @@
+# NATS JetStream event bus for the local LawSynth stack.
+#
+# Carries the transactional-outbox job envelopes and per-run event streams.
+# JetStream is enabled so job/event delivery is durable across restarts (the
+# scheduler is reconstructable from Postgres, but durable streams keep
+# in-flight work from being lost on a bounce).
+#
+# 4222 = client protocol, 8222 = HTTP monitoring (used by the healthcheck),
+# 6222 = cluster route (unused for a single node). Included by compose.yaml.
+
+services:
+  nats:
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    command:
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+      - "--max_payload=8MB"
+    ports:
+      - "${NATS_CLIENT_HOST_PORT:-4222}:4222"
+      - "${NATS_MONITOR_HOST_PORT:-8222}:8222"
+    volumes:
+      - lawsynth_nats:/data
+    healthcheck:
+      # /healthz is served by the monitoring endpoint; wget ships in the image.
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - lawsynth
+
+networks:
+  lawsynth:
+
+volumes:
+  lawsynth_nats:

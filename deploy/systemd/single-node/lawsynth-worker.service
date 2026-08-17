@@ -1,0 +1,63 @@
+[Unit]
+Description=LawSynth worker (discovery pipeline execution)
+Documentation=https://github.com/lawsynth/lawsynth
+# Workers lease jobs from the scheduler and push artifacts to the artifact store.
+After=network-online.target lawsynth-scheduler.service lawsynth-artifact.service
+Wants=network-online.target lawsynth-scheduler.service lawsynth-artifact.service
+PartOf=lawsynth.target
+
+[Service]
+Type=exec
+User=lawsynth
+Group=lawsynth
+WorkingDirectory=/var/lib/lawsynth
+EnvironmentFile=/etc/lawsynth/environment
+ExecStart=/opt/lawsynth/bin/lawsynth-worker \
+    --health-addr=127.0.0.1:8084 \
+    --metrics-addr=127.0.0.1:9094 \
+    --scratch-dir=/var/lib/lawsynth/work
+Restart=on-failure
+RestartSec=5
+# Long grace period so cooperative cancellation can flush checkpoints and
+# release the current lease cleanly (architecture section 10).
+TimeoutStopSec=120
+KillSignal=SIGTERM
+
+# --- Filesystem and privilege hardening -------------------------------------
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# MemoryDenyWriteExecute is intentionally omitted: the discovery engine may
+# generate and evaluate native expression code, which needs writable+executable
+# pages. All other W^X-adjacent protections remain in force.
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+StateDirectory=lawsynth
+ReadWritePaths=/var/lib/lawsynth/work
+
+# --- Resource limits (per-run quotas; the worker enforces finer bounds) -----
+LimitNOFILE=65536
+TasksMax=1024
+MemoryHigh=6G
+MemoryMax=8G
+CPUQuota=400%
+
+[Install]
+WantedBy=lawsynth.target

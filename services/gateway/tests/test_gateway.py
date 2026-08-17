@@ -109,6 +109,38 @@ class GatewayIntegrationTests(unittest.TestCase):
         finally:
             broken.close()
 
+    def test_unauthenticated_request_is_forwarded_and_rejected_by_api(self) -> None:
+        # The gateway is an admission layer, not an auth server: it forwards
+        # the (missing) Authorization header and the non-internet-exposed API
+        # makes the 401 decision.  This proves auth passthrough end to end.
+        status, _, body = invoke(self.gateway, "GET", "/v1/projects")
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "authentication_required")
+
+    def test_route_and_method_allowlist_reject_before_the_backend(self) -> None:
+        observed: dict[str, object] = {}
+
+        def counting_backend(environ, start_response):
+            observed["called"] = True
+            start_response("200 OK", [("Content-Type", "application/json")])
+            return [b"{}"]
+
+        gateway = create_gateway(counting_backend, GatewaySettings(requests_per_window=50))
+        try:
+            # Route outside the API prefix is rejected without reaching the backend.
+            status, _, body = invoke(gateway, "GET", "/admin")
+            self.assertEqual((status, body["error"]["code"]), (404, "route_not_found"))
+            # Unsupported method is rejected during admission.
+            status, _, body = invoke(gateway, "PUT", "/v1/projects")
+            self.assertEqual((status, body["error"]["code"]), (405, "method_not_allowed"))
+            self.assertNotIn("called", observed)
+            # An allowed route and method reaches the backend.
+            status, _, _ = invoke(gateway, "GET", "/v1/projects")
+            self.assertEqual(status, 200)
+            self.assertTrue(observed["called"])
+        finally:
+            gateway.close()
+
 
 if __name__ == "__main__":
     unittest.main()

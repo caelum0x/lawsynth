@@ -1,0 +1,54 @@
+# Non-secret configuration shared by the LawSynth service layer.
+#
+# Only values that are safe to read by anyone with namespace access belong
+# here. Credentials (database DSN with password, object-store keys, API tokens)
+# live in the "lawsynth-secrets" Secret and are referenced through envFrom /
+# secretKeyRef, never inlined below. Dataset content and column values must
+# never appear in configuration or logs (architecture section 22).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lawsynth-config
+  labels:
+    app.kubernetes.io/part-of: lawsynth
+    app.kubernetes.io/component: config
+data:
+  # --- Shared runtime posture -------------------------------------------
+  # Overridden to "staging"/"production" by each overlay.
+  LAWSYNTH_API_ENV: "production"
+  # Structured logs so no dataset content leaks through free-text messages.
+  LAWSYNTH_LOG_FORMAT: "json"
+  # Telemetry is opt-in and disabled by default (architecture section 22).
+  LAWSYNTH_TELEMETRY: "false"
+  RUST_LOG: "info,lawsynth=info"
+
+  # --- HTTP API (services/api) ------------------------------------------
+  LAWSYNTH_MAX_UPLOAD_BYTES: "67108864"        # 64 MiB
+  LAWSYNTH_API_MAX_REQUEST_BYTES: "67108864"   # 64 MiB
+  LAWSYNTH_MAX_PAGE_SIZE: "100"
+  # Durable object root is backed by a volume mount on the API Pod.
+  LAWSYNTH_OBJECT_ROOT: "/var/lib/lawsynth/objects"
+
+  # --- Gateway (services/gateway) ---------------------------------------
+  LAWSYNTH_GATEWAY_MAX_BODY_BYTES: "67108864"
+  LAWSYNTH_GATEWAY_MAX_HEADER_BYTES: "32768"
+  LAWSYNTH_GATEWAY_MAX_HEADERS: "64"
+  LAWSYNTH_GATEWAY_MAX_CLIENTS: "10000"
+  LAWSYNTH_GATEWAY_REQUESTS_PER_WINDOW: "120"
+  LAWSYNTH_GATEWAY_RATE_WINDOW_SECONDS: "60"
+  # Comma-separated bare origins; overlays set the real Studio origin.
+  LAWSYNTH_GATEWAY_ALLOWED_ORIGINS: ""
+
+  # --- Service discovery (in-cluster DNS names) -------------------------
+  LAWSYNTH_API_URL: "http://api.lawsynth.svc.cluster.local:8080"
+  LAWSYNTH_GATEWAY_UPSTREAM_URL: "http://api.lawsynth.svc.cluster.local:8080"
+  LAWSYNTH_SCHEDULER_URL: "http://scheduler.lawsynth.svc.cluster.local:8083"
+  LAWSYNTH_ARTIFACT_URL: "http://artifact.lawsynth.svc.cluster.local:8082"
+  LAWSYNTH_EVENT_BUS_URL: "nats://nats.lawsynth.svc.cluster.local:4222"
+
+  # --- Scheduler / worker job semantics (architecture section 10) -------
+  LAWSYNTH_SCHEDULER_MAX_QUEUED_JOBS: "10000"
+  LAWSYNTH_SCHEDULER_MAX_ATTEMPTS: "3"
+  LAWSYNTH_SCHEDULER_LEASE_SECONDS: "30"
+  LAWSYNTH_WORKER_HEARTBEAT_SECONDS: "10"
+  LAWSYNTH_WORKER_MAX_CHECKPOINT_BYTES: "16384"
