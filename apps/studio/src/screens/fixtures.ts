@@ -1,4 +1,5 @@
 import type { CandidateSummary } from "@lawsynth/api-client";
+import type { TrajectoryInput } from "@lawsynth/chart-core";
 import type { Expression, TrajectoryBand, WorldDefinition } from "@lawsynth/world-schema";
 
 /**
@@ -114,6 +115,41 @@ export function fixtureWorld(): WorldDefinition {
     },
     tags: ["demo", "mechanics"],
   };
+}
+
+/** Options controlling the seeded shock injected into a comparison dataset. */
+export interface ShockOptions {
+  readonly variableIndex?: number;
+  readonly startFraction?: number;
+  readonly magnitude?: number;
+  readonly decay?: number;
+}
+
+/**
+ * Builds a deterministic "new data" comparison dataset from a clean baseline
+ * trajectory by injecting a localized shock into one state: a step that appears
+ * partway through the window and decays exponentially. Because the baseline is
+ * typically the model's own prediction, the resulting residuals are ~zero
+ * everywhere except across the shock, giving Monitor an unambiguous anomaly to
+ * flag and an in-control → drift transition to verdict on. Pure: the input is
+ * copied, never mutated.
+ */
+export function shockDataset(baseline: TrajectoryInput, options: ShockOptions = {}): TrajectoryInput {
+  const rows = baseline.times.length;
+  if (rows === 0 || baseline.variables.length === 0) return baseline;
+  const target = Math.min(Math.max(0, options.variableIndex ?? 0), baseline.variables.length - 1);
+  const start = Math.floor(rows * Math.min(0.95, Math.max(0, options.startFraction ?? 0.6)));
+  const magnitude = options.magnitude ?? 0.9;
+  const decay = options.decay ?? 0.35;
+  const values = baseline.values.map((row, index) => {
+    const copy = row.slice();
+    if (index >= start) {
+      const elapsed = index - start;
+      copy[target] = (copy[target] ?? 0) + magnitude * Math.exp(-decay * elapsed);
+    }
+    return copy;
+  });
+  return { variables: baseline.variables.slice(), times: baseline.times.slice(), values };
 }
 
 export function fixtureCandidates(runId = "run-demo"): readonly CandidateSummary[] {

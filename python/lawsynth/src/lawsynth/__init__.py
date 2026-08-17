@@ -10,6 +10,7 @@ from .client import Client, Run
 from .config import DiscoveryConfig
 from .dataset import Dataset
 from .errors import ApiError, LawSynthError, NativeError, RunTimeout, ValidationError
+from .prepare import preprocess
 from .profile import ColumnProfile, DataProfile, TimeProfile, profile
 from .sources import SourceError, load_source
 
@@ -72,6 +73,17 @@ def __getattr__(name):
         from . import study as _study
 
         return getattr(_study, name)
+    if name in {"Ensemble", "ForecastBand", "TermStat"}:
+        from . import ensemble as _ensemble
+
+        return getattr(_ensemble, name)
+    if name in {"monitor", "MonitorReport", "StateResidual", "Anomaly"}:
+        # Import via importlib: the submodule shares the name ``monitor`` with the
+        # function, so ``from . import monitor`` would re-enter this hook.
+        import importlib
+
+        _monitor = importlib.import_module(".monitor", __name__)
+        return getattr(_monitor, name)
     raise AttributeError(name)
 
 
@@ -80,7 +92,10 @@ __all__ = [
     "ApiError", "RunTimeout", "Client", "Run",
     "SourceError", "load_source", "recipes",
     "profile", "DataProfile", "ColumnProfile", "TimeProfile",
+    "preprocess",
     "discover", "Scenario", "Trajectory", "World",
     "Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "ScenarioComparison",
+    "Ensemble", "ForecastBand", "TermStat",
+    "monitor", "MonitorReport", "StateResidual", "Anomaly",
     "__version__",
 ]

@@ -5,6 +5,7 @@
  */
 export type ScreenId =
   | "data-lens"
+  | "data-prep"
   | "discovery-canvas"
   | "equation-explorer"
   | "structure-map"
@@ -12,10 +13,12 @@ export type ScreenId =
   | "uncertainty-lens"
   | "world-lab"
   | "scenario-board"
+  | "monitor"
   | "export-screen";
 
 export const SCREEN_IDS: readonly ScreenId[] = Object.freeze([
   "data-lens",
+  "data-prep",
   "discovery-canvas",
   "equation-explorer",
   "structure-map",
@@ -23,6 +26,7 @@ export const SCREEN_IDS: readonly ScreenId[] = Object.freeze([
   "uncertainty-lens",
   "world-lab",
   "scenario-board",
+  "monitor",
   "export-screen",
 ]);
 

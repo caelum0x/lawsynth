@@ -21,10 +21,13 @@ import {
   type DiscoverySolver,
 } from "./discovery-canvas.js";
 import { dataLensModel } from "./data-lens.js";
+import { dataPrepModel, defaultDataPrepConfig, prepareDataset, type DataPrepConfig } from "./data-prep.js";
 import { equationExplorerModel } from "./equation-explorer.js";
 import { exportScreenModel } from "./export-screen.js";
 import { fixtureCandidates, fixtureWorld, FIXTURE_INITIAL_STATE } from "./fixtures.js";
+import { defaultMonitorConfig, monitorModel, MONITOR_SOURCES, type MonitorConfig, type MonitorSource } from "./monitor.js";
 import { regimeTimelineModel } from "./regime-timeline.js";
+import { forwardEuler } from "./simulate.js";
 import {
   BASELINE_SCENARIO_ID,
   defaultScenarios,
@@ -90,6 +93,7 @@ const SECTION_KIND: Readonly<Record<string, string>> = {
   "structure-graph": "var",
   "structure-laws": "law",
   scenarios: "scenario",
+  "mon-anomalies": "anomaly",
 };
 
 function num(raw: string, fallback: number): number {
@@ -125,6 +129,9 @@ export class ScreensController extends EventTarget {
   #focusVariable = "";
   #lab: LabState;
   #board: BoardState;
+  #prep: DataPrepConfig;
+  #prepApplied = false;
+  #monitor: MonitorConfig;
   #runStatus: RunStatus | undefined;
   #runProgress = 0;
   #running = false;
@@ -161,6 +168,8 @@ export class ScreensController extends EventTarget {
       horizon: 12,
       step: 0.1,
     };
+    this.#prep = defaultDataPrepConfig();
+    this.#monitor = defaultMonitorConfig();
     this.#unsubscribe = this.#store.subscribe(() => this.#emit());
   }
 
@@ -203,6 +212,7 @@ export class ScreensController extends EventTarget {
     this.#trajectory = trajectory;
     this.#lab = { ...this.#lab, overrides: {}, activeInterventionIds: (world.interventions ?? []).map((intervention) => intervention.id) };
     this.#board = { ...this.#board, scenarios: defaultScenarios(world), draft: EMPTY_DRAFT, focusVariable: "" };
+    this.#prepApplied = false;
     this.#emit();
   }
 
@@ -225,6 +235,22 @@ export class ScreensController extends EventTarget {
           world: this.#world,
           initialState: this.#trajectoryInitial(),
           ...(this.#trajectory === undefined ? {} : { trajectory: this.#trajectory }),
+        });
+      case "data-prep":
+        return dataPrepModel({
+          world: this.#world,
+          initialState: this.#trajectoryInitial(),
+          config: this.#prep,
+          applied: this.#prepApplied,
+          ...(this.#trajectory === undefined ? {} : { trajectory: this.#trajectory }),
+        });
+      case "monitor":
+        return monitorModel({
+          world: this.#world,
+          initialState: this.#trajectoryInitial(),
+          config: this.#monitor,
+          ...(this.#trajectory === undefined ? {} : { observed: this.#trajectory }),
+          ...(this.#selected("anomaly") === undefined ? {} : { selectedAnomalyId: this.#selected("anomaly")! }),
         });
       case "discovery-canvas":
         return discoveryCanvasModel({
@@ -300,6 +326,8 @@ export class ScreensController extends EventTarget {
     if (fieldId.startsWith("cfg:")) this.#updateDiscovery(fieldId.slice(4), raw);
     else if (fieldId.startsWith("lab:")) this.#updateLab(fieldId.slice(4), raw);
     else if (fieldId.startsWith("board:")) this.#updateBoard(fieldId.slice("board:".length), raw);
+    else if (fieldId.startsWith("prep:")) this.#updatePrep(fieldId.slice("prep:".length), raw);
+    else if (fieldId.startsWith("mon:")) this.#updateMonitor(fieldId.slice("mon:".length), raw);
     else if (fieldId === "eq:law") this.#selectEntity("law", raw);
     else if (fieldId === "eq:variable") {
       this.#focusVariable = raw;
@@ -317,6 +345,13 @@ export class ScreensController extends EventTarget {
     }
     if (actionId === "lab:reset") {
       this.#lab = { ...this.#lab, overrides: {} };
+      this.#emit();
+      return;
+    }
+    if (actionId === "prep:apply") { this.#applyPrep(); return; }
+    if (actionId === "prep:reset") {
+      this.#prep = defaultDataPrepConfig();
+      this.#prepApplied = false;
       this.#emit();
       return;
     }
@@ -402,6 +437,46 @@ export class ScreensController extends EventTarget {
       else set.delete(id);
       this.#board = { ...board, draft: { ...board.draft, activeInterventionIds: Object.freeze([...set]) } };
     }
+    this.#emit();
+  }
+
+  #updatePrep(key: string, raw: string): void {
+    const prep = this.#prep;
+    if (key === "smooth") this.#prep = { ...prep, smoothingWindow: Math.round(num(raw, prep.smoothingWindow)) };
+    else if (key === "dt") this.#prep = { ...prep, resampleDt: Math.max(0, num(raw, prep.resampleDt)) };
+    else if (key === "trim") this.#prep = { ...prep, trim: Math.max(0, Math.round(num(raw, prep.trim))) };
+    else if (key === "detrend") this.#prep = { ...prep, detrend: raw === "true" };
+    this.#emit();
+  }
+
+  #updateMonitor(key: string, raw: string): void {
+    const monitor = this.#monitor;
+    if (key === "threshold") this.#monitor = { ...monitor, threshold: num(raw, monitor.threshold) };
+    else if (key === "step") this.#monitor = { ...monitor, step: num(raw, monitor.step) };
+    else if (key === "source" && (MONITOR_SOURCES as readonly string[]).includes(raw)) this.#monitor = { ...monitor, source: raw as MonitorSource };
+    this.#emit();
+  }
+
+  /**
+   * Promotes the prepared dataset to the shared working dataset. The raw input
+   * is the current working trajectory (or a local integration when none exists);
+   * the prepared result becomes `#trajectory`, so the Data Lens, Monitor, and any
+   * trajectory-driven screen immediately operate on the cleaned series — closing
+   * the prep → discover loop.
+   */
+  #applyPrep(): void {
+    const raw = this.#trajectory ?? (() => {
+      try {
+        return forwardEuler(this.#world, { horizon: 12, step: 0.1, initialState: this.#trajectoryInitial() });
+      } catch {
+        return undefined;
+      }
+    })();
+    if (raw === undefined || raw.times.length === 0) return;
+    const prepared = prepareDataset(raw, this.#prep).prepared;
+    if (prepared.times.length === 0) return;
+    this.#trajectory = prepared;
+    this.#prepApplied = true;
     this.#emit();
   }
 

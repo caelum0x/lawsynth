@@ -487,6 +487,62 @@ def _compare_scenarios(
 # --------------------------------------------------------------------------- #
 
 
+def _resolve_config(
+    config: DiscoveryConfig | None,
+    recipe: str | None,
+    overrides: Mapping[str, object],
+) -> DiscoveryConfig:
+    """Resolve a discovery config from an optional recipe/config plus overrides.
+
+    ``recipe`` and ``config`` are mutually exclusive: a recipe *is* a starting
+    config. Explicit ``overrides`` always layer on top and win.
+    """
+    if recipe is not None:
+        if config is not None:
+            raise ValidationError(
+                "pass either a recipe or a config, not both; explicit "
+                "**overrides refine whichever you choose"
+            )
+        from .recipes import get as _get_recipe
+
+        return _get_recipe(recipe).merge(dict(overrides))
+    base = config or DiscoveryConfig()
+    if overrides:
+        base = _apply_overrides(base, overrides)
+    return base
+
+
+def _discover_world(dataset: Dataset, states: Sequence[str], config: DiscoveryConfig) -> object:
+    """Run the native discovery boundary for ``dataset`` under ``config``.
+
+    This is the single choke-point every discovery path funnels through — the
+    fluent :meth:`Study.discover`, bootstrap ensembles, and prepared studies all
+    share it, so the lazy-native contract and argument wiring stay in one place.
+    """
+    time, columns = dataset.as_native_arguments()
+    try:
+        from ._native import discover_world
+    except ImportError as error:
+        raise NativeError("the lawsynth native extension is unavailable; build it first") from error
+    try:
+        return discover_world(
+            time, columns, list(states),
+            polynomial_degree=config.polynomial_degree,
+            threshold=config.threshold,
+            solver=config.solver,
+            include_trigonometric=config.include_trigonometric,
+            include_rational=config.include_rational,
+            smoothing_radius=config.smoothing_radius,
+            derivative_method=config.derivative_method,
+            savgol_window=5,
+            tvreg_lambda=0.1,
+            tvreg_iterations=100,
+            symbolic_depth=config.symbolic_depth,
+        )
+    except Exception as error:
+        raise NativeError(f"discovery failed: {error}") from error
+
+
 def _default_step(dataset: Dataset) -> float:
     if len(dataset.time) < 2:
         return 0.1
@@ -839,6 +895,37 @@ class Study:
 
         return _profile(self._dataset, name=self._name)
 
+    def prepare(
+        self,
+        *,
+        trim: tuple[float, float] | None = None,
+        resample_dt: float | None = None,
+        smooth: int | None = None,
+        detrend: bool | Sequence[str] = False,
+        columns: Sequence[str] | None = None,
+        name: str | None = None,
+    ) -> "Study":
+        """Return a new study on a cleaned copy of this study's dataset.
+
+        Applies, in order, window ``trim`` -> uniform ``resample_dt`` (linear
+        interpolation onto a regular grid) -> moving-average ``smooth`` (window
+        in samples) -> ``detrend`` (remove a per-column linear trend). Every
+        operation is pure standard library and deterministic. The original study
+        is left untouched; the returned study starts undiscovered on the cleaned
+        data, ready to :meth:`discover`.
+        """
+        from .prepare import preprocess
+
+        cleaned = preprocess(
+            self._dataset,
+            trim=trim,
+            resample_dt=resample_dt,
+            smooth=smooth,
+            detrend=detrend,
+            columns=columns,
+        )
+        return Study(cleaned, self._states, name=name or f"{self._name}+prepared")
+
     @property
     def world(self) -> object:
         self._require_world()
@@ -863,42 +950,9 @@ class Study:
         on top of the recipe (or ``config``) and always win. ``recipe`` and
         ``config`` are mutually exclusive: a recipe *is* a starting config.
         """
-        if recipe is not None:
-            if config is not None:
-                raise ValidationError(
-                    "pass either a recipe or a config, not both; explicit "
-                    "**overrides refine whichever you choose"
-                )
-            from .recipes import get as _get_recipe
-
-            base = _get_recipe(recipe).merge(overrides)
-        else:
-            base = config or DiscoveryConfig()
-            if overrides:
-                base = _apply_overrides(base, overrides)
+        base = _resolve_config(config, recipe, overrides)
         enable_rich_display()
-        time, columns = self._dataset.as_native_arguments()
-        try:
-            from ._native import discover_world
-        except ImportError as error:
-            raise NativeError("the lawsynth native extension is unavailable; build it first") from error
-        try:
-            world = discover_world(
-                time, columns, list(self._states),
-                polynomial_degree=base.polynomial_degree,
-                threshold=base.threshold,
-                solver=base.solver,
-                include_trigonometric=base.include_trigonometric,
-                include_rational=base.include_rational,
-                smoothing_radius=base.smoothing_radius,
-                derivative_method=base.derivative_method,
-                savgol_window=5,
-                tvreg_lambda=0.1,
-                tvreg_iterations=100,
-                symbolic_depth=base.symbolic_depth,
-            )
-        except Exception as error:
-            raise NativeError(f"discovery failed: {error}") from error
+        world = _discover_world(self._dataset, self._states, base)
         self._world = world
         self._config = base
         return DiscoveryResult(world, self._dataset, self._states, base, self._name)
@@ -912,6 +966,54 @@ class Study:
     def forecast(self, interventions: Mapping[str, float], *, horizon: float | None = None, step: float | None = None) -> Forecast:
         """Run a what-if: override initial conditions and compare to baseline."""
         return _forecast(self._require_world(), self._dataset, self._states, interventions=interventions, horizon=horizon, step=step)
+
+    # -- uncertainty via ensemble discovery --------------------------------- #
+
+    def discover_ensemble(
+        self,
+        *,
+        n: int = 16,
+        fraction: float = 0.8,
+        seed: int = 0,
+        config: DiscoveryConfig | None = None,
+        recipe: str | None = None,
+        **overrides: object,
+    ):
+        """Discover on ``n`` seeded bootstrap resamples to quantify uncertainty.
+
+        Each member re-discovers the world on a deterministic subsample (an
+        ``m``-of-``n`` draw *without* replacement, so the time axis stays valid)
+        of ``fraction`` of the rows. Returns an :class:`~lawsynth.ensemble.Ensemble`
+        reporting, per law term, its selection frequency and coefficient
+        mean/std across members — so robust terms are separated from unstable
+        ones. Resample indices are derived purely from ``seed`` (never the
+        clock), so the whole ensemble reproduces exactly.
+        """
+        from .ensemble import build_ensemble
+
+        base = _resolve_config(config, recipe, overrides)
+        return build_ensemble(
+            self._dataset, self._states, base,
+            n=n, fraction=fraction, seed=seed, name=self._name,
+        )
+
+    # -- model monitoring / anomaly detection ------------------------------- #
+
+    def monitor(self, new_dataset: Dataset, *, threshold: float = 3.0):
+        """Score fresh observations against the discovered world.
+
+        Simulates the world across ``new_dataset``, computes robust standardized
+        residuals per state, and flags any timestamp whose residual exceeds
+        ``threshold`` sigma. Returns a :class:`~lawsynth.monitor.MonitorReport`
+        with per-state residual statistics, the flagged anomalies, and an
+        in-control / drift verdict.
+        """
+        from .monitor import monitor as _monitor
+
+        return _monitor(
+            self._require_world(), new_dataset,
+            state=self._states, threshold=threshold, name=self._name,
+        )
 
     # -- scenario boards ---------------------------------------------------- #
 
