@@ -65,6 +65,12 @@ __all__ = [
     "EstimateReport",
     "ReducedSystem",
     "ReductionReport",
+    "LyapunovReport",
+    "Attractor",
+    "BasinReport",
+    "NetworkEdge",
+    "NetworkModel",
+    "MpcResult",
     "stability",
     "discover_controlled",
     "domains",
@@ -74,6 +80,10 @@ __all__ = [
     "sensitivity",
     "estimate",
     "reduce",
+    "lyapunov",
+    "basins",
+    "network",
+    "mpc",
 ]
 
 
@@ -374,6 +384,157 @@ class ReductionReport:
     reduced: ReducedSystem
 
 
+@dataclass(frozen=True, slots=True)
+class LyapunovReport:
+    """The parsed result of ``lawsynth lyapunov WORLD --initial ... --json``.
+
+    The world's laws are read as an autonomous field ``ẋ = f(x)`` and the
+    deterministic Benettin/QR estimator is run from ``--initial``. This is a
+    **time-averaged estimate**, not an exact spectrum: accuracy grows with the run
+    length (``steps``) and shrinks with the step (``dt``), and the initial
+    condition should lie in the basin of the target attractor. The ``sum`` (the
+    time-averaged divergence) is the tightest quantity.
+
+    ``exponents`` is the spectrum sorted descending; ``largest`` its first entry;
+    ``sum`` the exponent sum; ``kaplan_yorke_dimension`` the Kaplan–Yorke (Lyapunov)
+    dimension; ``integration_time`` the post-transient averaging window; and
+    ``chaotic`` is exactly ``largest > 0`` (the signature of chaos).
+    """
+
+    world: str
+    states: tuple[str, ...]
+    exponents: tuple[float, ...]
+    largest: float
+    sum: float
+    kaplan_yorke_dimension: float
+    integration_time: float
+    chaotic: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Attractor:
+    """One stable fixed-point attractor located by a basin mapping.
+
+    ``coordinates`` are ordered like the report's ``states``; ``classification`` is
+    the engine's human label (``"stable node"`` / ``"stable spiral"``); and
+    ``basin_fraction`` is this attractor's share of the *settled* initial
+    conditions (the fractions over all attractors sum to ``1`` up to rounding).
+    """
+
+    coordinates: tuple[float, ...]
+    classification: str
+    basin_fraction: float
+
+    def at(self, states: Sequence[str]) -> dict[str, float]:
+        """Map coordinates onto ``states`` (``{state: value}``)."""
+        return {str(name): value for name, value in zip(states, self.coordinates)}
+
+
+@dataclass(frozen=True, slots=True)
+class BasinReport:
+    """The parsed result of ``lawsynth basins WORLD --box ... --json``.
+
+    A deterministic grid of initial conditions (``resolution`` samples per axis,
+    ``total`` in all) is integrated forward with fixed-step RK4 and each is
+    classified. **Only fixed-point attractors are recognized**: a limit cycle or
+    strange attractor reads as ``undetermined`` rather than being forced into a
+    basin, and a trajectory leaving the box is ``escaped``. ``settled`` is the
+    number that reached some attractor. ``grid_labels`` is the flattened per-cell
+    fate — ``"a{index}"`` for attractor ``index``, ``"escaped"``, or
+    ``"undetermined"``. (The engine's ``--json`` reports the grid ``resolution``
+    but not the ``--box`` echo.)
+    """
+
+    world: str
+    states: tuple[str, ...]
+    resolution: int
+    total: int
+    settled: int
+    escaped: int
+    undetermined: int
+    attractors: tuple[Attractor, ...]
+    grid_labels: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkEdge:
+    """One directed coupling edge ``driver -> target`` with its aggregate strength.
+
+    ``driver`` and ``target`` are node *names*; the edge means node ``driver``
+    appears in node ``target``'s discovered equation (``driver`` drives
+    ``target``). Self edges (``driver == target``) are included.
+    """
+
+    driver: str
+    target: str
+    strength: float
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkModel:
+    """The parsed result of ``lawsynth network OBS --state ... --json``.
+
+    Each named column is a node; its derivative is sparsely regressed onto a shared
+    polynomial library over all nodes, and a surviving cross term ``x_driver`` in
+    node ``target``'s equation is a directed edge ``driver -> target``. The graph
+    is **correlational, not causal**: a confounder or common drive can induce a
+    spurious edge, and only couplings the library can represent and that clear the
+    edge threshold are recovered.
+
+    ``adjacency`` is the boolean matrix with ``adjacency[target][driver]`` true
+    when ``driver -> target``; ``strength`` is the matching aggregated-strength
+    matrix (same ``[target][driver]`` indexing); ``edges`` is the flattened edge
+    list in ascending ``(target, driver)`` order.
+    """
+
+    source: str
+    nodes: tuple[str, ...]
+    adjacency: tuple[tuple[bool, ...], ...]
+    strength: tuple[tuple[float, ...], ...]
+    edges: tuple[NetworkEdge, ...]
+
+    def edge_strength(self, driver: str, target: str) -> float:
+        """Return the aggregated strength of ``driver -> target`` via node names.
+
+        Uses the ``strength`` matrix indexed as ``strength[target][driver]``.
+        Raises :class:`KeyError` if either name is not a node.
+        """
+        index = {name: position for position, name in enumerate(self.nodes)}
+        try:
+            return self.strength[index[target]][index[driver]]
+        except KeyError as error:
+            raise KeyError(f"unknown node {error.args[0]!r}") from error
+
+
+@dataclass(frozen=True, slots=True)
+class MpcResult:
+    """The parsed result of ``lawsynth mpc WORLD --control ... --setpoint ... --json``.
+
+    The world's forced field ``ẋ = f(x, u)`` is regulated to ``setpoint`` by
+    **successive-linearization LQR-MPC**: at each step the engine relinearizes,
+    designs a local LQR gain, applies the first (optionally saturated) move, and
+    RK4-advances the true nonlinear plant. Honest limits: the local LQR needs a
+    **stabilizable** linearization, saturation is a clamp (not a constraint-optimal
+    projection), optimality is only local to each linearization, and there is no
+    horizon/feasibility guarantee — a failed LQR design surfaces as a
+    :class:`CliError`.
+
+    ``setpoint`` / ``final_state`` are ordered like ``states``; ``final_error_norm``
+    is the Euclidean state error at the final step (``None`` if unavailable);
+    ``state_trajectory`` / ``control_trajectory`` are the per-step rows over
+    ``states`` / ``controls``.
+    """
+
+    world: str
+    states: tuple[str, ...]
+    controls: tuple[str, ...]
+    setpoint: tuple[float, ...]
+    final_state: tuple[float, ...]
+    final_error_norm: float | None
+    state_trajectory: tuple[tuple[float, ...], ...]
+    control_trajectory: tuple[tuple[float, ...], ...]
+
+
 # --------------------------------------------------------------------------- #
 # Parsers — the JSON/text shapes each CLI subcommand emits                     #
 #                                                                              #
@@ -505,6 +666,18 @@ def _as_matrix(value: object, field: str) -> tuple[tuple[float, ...], ...]:
     return tuple(rows)
 
 
+def _as_bool_matrix(value: object, field: str) -> tuple[tuple[bool, ...], ...]:
+    """Parse a row-major list-of-lists of booleans into nested bool tuples."""
+    if not isinstance(value, list):
+        raise AnalysisError(f"CLI JSON field {field!r} must be a list of rows")
+    rows: list[tuple[bool, ...]] = []
+    for row_index, row in enumerate(value):
+        if not isinstance(row, list):
+            raise AnalysisError(f"CLI JSON field {field!r}[{row_index}] must be a list")
+        rows.append(tuple(bool(cell) for cell in row))
+    return tuple(rows)
+
+
 def _parse_bifurcation(data: Mapping[str, object]) -> BifurcationReport:
     """Parse the ``bifurcation --json`` object (see ``bifurcation.rs::render_json``)."""
     range_raw = _require(data, "range", "bifurcation")
@@ -615,6 +788,106 @@ def _parse_reduce(data: Mapping[str, object]) -> ReductionReport:
             a=_as_matrix(_require(reduced_raw, "a", "reduce"), "reduced.a"),
             b=_as_matrix(_require(reduced_raw, "b", "reduce"), "reduced.b"),
             c=_as_matrix(_require(reduced_raw, "c", "reduce"), "reduced.c"),
+        ),
+    )
+
+
+def _parse_lyapunov(data: Mapping[str, object]) -> LyapunovReport:
+    """Parse the ``lyapunov --json`` object (see ``lyapunov.rs::render_json``)."""
+    exponents_raw = _require(data, "exponents", "lyapunov")
+    if not isinstance(exponents_raw, list):
+        raise AnalysisError("`lawsynth lyapunov` JSON 'exponents' must be a list")
+    return LyapunovReport(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "lyapunov")),  # type: ignore[union-attr]
+        exponents=tuple(_as_float(value, "exponents[]") for value in exponents_raw),
+        largest=_as_float(_require(data, "largest", "lyapunov"), "largest"),
+        sum=_as_float(_require(data, "sum", "lyapunov"), "sum"),
+        kaplan_yorke_dimension=_as_float(
+            _require(data, "kaplan_yorke_dimension", "lyapunov"), "kaplan_yorke_dimension"
+        ),
+        integration_time=_as_float(
+            _require(data, "integration_time", "lyapunov"), "integration_time"
+        ),
+        chaotic=bool(_require(data, "chaotic", "lyapunov")),
+    )
+
+
+def _parse_basins(data: Mapping[str, object]) -> BasinReport:
+    """Parse the ``basins --json`` object (see ``basins.rs::render_json``)."""
+    attractors_raw = _require(data, "attractors", "basins")
+    if not isinstance(attractors_raw, list):
+        raise AnalysisError("`lawsynth basins` JSON 'attractors' must be a list")
+    labels_raw = _require(data, "grid_labels", "basins")
+    if not isinstance(labels_raw, list):
+        raise AnalysisError("`lawsynth basins` JSON 'grid_labels' must be a list")
+    attractors = tuple(
+        Attractor(
+            coordinates=tuple(
+                _as_float(value, "attractors[].coordinates[]")
+                for value in entry.get("coordinates", [])
+            ),
+            classification=str(_require(entry, "classification", "basins")),
+            basin_fraction=_as_float(
+                _require(entry, "basin_fraction", "basins"), "attractors[].basin_fraction"
+            ),
+        )
+        for entry in attractors_raw
+    )
+    return BasinReport(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "basins")),  # type: ignore[union-attr]
+        resolution=_as_int(_require(data, "resolution", "basins"), "resolution"),
+        total=_as_int(_require(data, "total", "basins"), "total"),
+        settled=_as_int(_require(data, "settled", "basins"), "settled"),
+        escaped=_as_int(_require(data, "escaped", "basins"), "escaped"),
+        undetermined=_as_int(_require(data, "undetermined", "basins"), "undetermined"),
+        attractors=attractors,
+        grid_labels=tuple(str(label) for label in labels_raw),
+    )
+
+
+def _parse_network(data: Mapping[str, object]) -> NetworkModel:
+    """Parse the ``network --json`` object (see ``network.rs::render_json``)."""
+    edges_raw = _require(data, "edges", "network")
+    if not isinstance(edges_raw, list):
+        raise AnalysisError("`lawsynth network` JSON 'edges' must be a list")
+    edges = tuple(
+        NetworkEdge(
+            driver=str(_require(entry, "driver", "network")),
+            target=str(_require(entry, "target", "network")),
+            strength=_as_float(_require(entry, "strength", "network"), "edges[].strength"),
+        )
+        for entry in edges_raw
+    )
+    return NetworkModel(
+        source=str(data.get("source", "")),
+        nodes=tuple(str(node) for node in _require(data, "nodes", "network")),  # type: ignore[union-attr]
+        adjacency=_as_bool_matrix(_require(data, "adjacency", "network"), "adjacency"),
+        strength=_as_matrix(_require(data, "strength", "network"), "strength"),
+        edges=edges,
+    )
+
+
+def _parse_mpc(data: Mapping[str, object]) -> MpcResult:
+    """Parse the ``mpc --json`` object (see ``mpc.rs::render_json``)."""
+    error_norm = data.get("final_error_norm")
+    return MpcResult(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "mpc")),  # type: ignore[union-attr]
+        controls=tuple(str(control) for control in _require(data, "controls", "mpc")),  # type: ignore[union-attr]
+        setpoint=tuple(
+            _as_float(value, "setpoint[]") for value in _require(data, "setpoint", "mpc")  # type: ignore[union-attr]
+        ),
+        final_state=tuple(
+            _as_float(value, "final_state[]") for value in _require(data, "final_state", "mpc")  # type: ignore[union-attr]
+        ),
+        final_error_norm=_as_float(error_norm, "final_error_norm") if error_norm is not None else None,
+        state_trajectory=_as_matrix(
+            _require(data, "state_trajectory", "mpc"), "state_trajectory"
+        ),
+        control_trajectory=_as_matrix(
+            _require(data, "control_trajectory", "mpc"), "control_trajectory"
         ),
     )
 
@@ -832,6 +1105,29 @@ def _initial_args(
     for name, value in items:
         args += ["--initial", f"{str(name)}={float(value)}"]
     return args
+
+
+def _format_assignments(
+    assignments: Mapping[str, float] | Sequence[tuple[str, float]],
+    *,
+    label: str,
+) -> str:
+    """Format state assignments as a single ``NAME=VALUE[,NAME=VALUE...]`` value.
+
+    The ``lyapunov`` and ``mpc`` commands take one comma-separated flag value (via
+    the engine's ``parse_state_vector``, which requires exactly one entry per state
+    of the world), unlike ``sensitivity``'s repeated ``--initial`` flags.
+    """
+    items = list(assignments.items() if isinstance(assignments, Mapping) else assignments)
+    if not items:
+        raise ValidationError(f"{label} must assign at least one state")
+    parts: list[str] = []
+    for name, value in items:
+        text = str(name).strip()
+        if not text:
+            raise ValidationError(f"{label} contains an empty state name")
+        parts.append(f"{text}={float(value)}")
+    return ",".join(parts)
 
 
 def stability(
@@ -1124,6 +1420,196 @@ def reduce(
     return _parse_reduce(_run_cli(args))
 
 
+def lyapunov(
+    world_path: str | PathLike[str],
+    *,
+    initial: Mapping[str, float] | Sequence[tuple[str, float]],
+    dt: float | None = None,
+    steps: int | None = None,
+    reorth: int | None = None,
+    transient: float | None = None,
+) -> LyapunovReport:
+    """Estimate the Lyapunov spectrum (chaos diagnostic) of a world via the CLI engine.
+
+    Runs ``lawsynth lyapunov WORLD --initial ... --json`` and parses the result
+    into a :class:`LyapunovReport`. ``initial`` is the launch point (mapping
+    ``{state: value}`` or ``(state, value)`` pairs) and must assign **every** state
+    of the world exactly once — the engine folds it into a single comma-separated
+    ``--initial`` flag. ``dt`` is the integration step, ``steps`` the number of
+    steps, ``reorth`` the QR reorthonormalization interval, and ``transient`` the
+    fraction (in ``[0, 1)``) discarded before averaging.
+
+    The spectrum is a **time-averaged estimate**, not exact: its accuracy grows
+    with ``steps`` and shrinks with ``dt``, the initial condition should sit in the
+    target attractor's basin, and the exponent ``sum`` is the tightest quantity.
+    ``report.chaotic`` is exactly ``report.largest > 0``.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (unreadable world, an ``--initial`` that
+    does not cover the states, ...).
+    """
+    args: list[str] = [
+        "lyapunov", str(world_path),
+        "--initial", _format_assignments(initial, label="initial"),
+    ]
+    if dt is not None:
+        args += ["--dt", repr(float(dt))]
+    if steps is not None:
+        args += ["--steps", str(int(steps))]
+    if reorth is not None:
+        args += ["--reorth", str(int(reorth))]
+    if transient is not None:
+        args += ["--transient", repr(float(transient))]
+    args.append("--json")
+    return _parse_lyapunov(_run_cli(args))
+
+
+def basins(
+    world_path: str | PathLike[str],
+    *,
+    box: str | Sequence[tuple[float, float]],
+    resolution: int | None = None,
+    dt: float | None = None,
+    max_time: float | None = None,
+    tolerance: float | None = None,
+) -> BasinReport:
+    """Map the basins of attraction of a multistable world via the CLI engine.
+
+    Runs ``lawsynth basins WORLD --box ... --json`` and parses the result into a
+    :class:`BasinReport`. ``box`` is the required search box (one ``(low, high)``
+    per state, or the raw ``"LOW:HIGH,LOW:HIGH"`` string): it fixes both the
+    initial-condition grid and the escape region. ``resolution`` sets the grid
+    samples per axis, ``dt`` the RK4 step, ``max_time`` the settle horizon, and
+    ``tolerance`` the attractor-convergence radius.
+
+    **Only fixed-point attractors are recognized**: a limit cycle or strange
+    attractor reads as ``undetermined`` rather than being forced into a basin, and
+    a trajectory leaving the box is ``escaped``. An empty ``attractors`` means no
+    stable fixed point was found inside the box — widen it.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit.
+    """
+    args: list[str] = ["basins", str(world_path), "--box", _format_box(box)]
+    if resolution is not None:
+        args += ["--resolution", str(int(resolution))]
+    if dt is not None:
+        args += ["--dt", repr(float(dt))]
+    if max_time is not None:
+        args += ["--max-time", repr(float(max_time))]
+    if tolerance is not None:
+        args += ["--tolerance", repr(float(tolerance))]
+    args.append("--json")
+    return _parse_basins(_run_cli(args))
+
+
+def network(
+    dataset_path: str | PathLike[str],
+    *,
+    states: Sequence[str],
+    degree: int | None = None,
+    threshold: float | None = None,
+    edge_threshold: float | None = None,
+    time: str = "time",
+) -> NetworkModel:
+    """Discover the directed coupling graph of a networked system via the CLI engine.
+
+    Runs ``lawsynth network OBSERVATIONS --state ... --json`` and parses the result
+    into a :class:`NetworkModel`. Each name in ``states`` is a network node (a
+    dataset column); its derivative is sparsely regressed onto a shared polynomial
+    library over all nodes, and a surviving cross term ``x_driver`` in node
+    ``target``'s equation becomes a directed edge ``driver -> target``. **At least
+    two nodes are required.** ``degree`` sets the library degree (``1`` = linear
+    couplings), ``threshold`` the per-term sparsity cutoff, ``edge_threshold`` the
+    minimum aggregated strength for an edge, and ``time`` the time column
+    (default ``"time"``).
+
+    The recovered graph is **correlational, not causal**: a confounder or common
+    drive can induce a spurious edge, and heavy noise degrades recovery as it does
+    for strong-form SINDy.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (a named state that is not a column, ...).
+    """
+    node_list = [str(name) for name in states]
+    if len(node_list) < 2:
+        raise ValidationError("network requires at least two node names in states")
+    args: list[str] = [
+        "network", str(dataset_path),
+        "--state", _format_identifiers(node_list, label="states"),
+        "--time", str(time),
+    ]
+    if degree is not None:
+        args += ["--degree", str(int(degree))]
+    if threshold is not None:
+        args += ["--threshold", repr(float(threshold))]
+    if edge_threshold is not None:
+        args += ["--edge-threshold", repr(float(edge_threshold))]
+    args.append("--json")
+    return _parse_network(_run_cli(args))
+
+
+def mpc(
+    world_path: str | PathLike[str],
+    *,
+    control: Sequence[str],
+    setpoint: Mapping[str, float] | Sequence[tuple[str, float]],
+    initial: Mapping[str, float] | Sequence[tuple[str, float]],
+    dt: float | None = None,
+    steps: int | None = None,
+    q: float | None = None,
+    r: float | None = None,
+    u_min: float | None = None,
+    u_max: float | None = None,
+) -> MpcResult:
+    """Regulate a forced world to a setpoint by LQR-MPC via the CLI engine.
+
+    Runs ``lawsynth mpc WORLD --control ... --setpoint ... --initial ... --json``
+    and parses the result into an :class:`MpcResult`. ``control`` names the world's
+    control symbols (the forcing channels of ``ẋ = f(x, u)``). ``setpoint`` and
+    ``initial`` are state assignments (mapping ``{state: value}`` or
+    ``(state, value)`` pairs) and must each assign **every** state exactly once —
+    the engine folds each into a single comma-separated flag. ``dt`` is the step,
+    ``steps`` the closed-loop horizon, ``q`` / ``r`` scale the identity state /
+    control weights ``Q = q·I`` / ``R = r·I``. ``u_min`` / ``u_max`` saturate every
+    control channel and must be given **together** (two-sided) or not at all.
+
+    This is **successive-linearization LQR-MPC**, not a constrained QP-MPC: the
+    local LQR needs a **stabilizable** linearization, saturation is a clamp (not a
+    constraint-optimal projection), optimality is only local, and there is no
+    horizon/feasibility guarantee. A failed LQR design (unstabilizable
+    linearization, non-positive-definite ``R``) surfaces as a :class:`CliError`.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit.
+    """
+    control_list = [str(name) for name in control]
+    if not control_list:
+        raise ValidationError("mpc requires at least one control name")
+    if u_min is None and u_max is not None or u_min is not None and u_max is None:
+        raise ValidationError("provide both u_min and u_max (two-sided saturation) or neither")
+    args: list[str] = [
+        "mpc", str(world_path),
+        "--control", _format_identifiers(control_list, label="control"),
+        "--setpoint", _format_assignments(setpoint, label="setpoint"),
+        "--initial", _format_assignments(initial, label="initial"),
+    ]
+    if dt is not None:
+        args += ["--dt", repr(float(dt))]
+    if steps is not None:
+        args += ["--steps", str(int(steps))]
+    if q is not None:
+        args += ["--q", repr(float(q))]
+    if r is not None:
+        args += ["--r", repr(float(r))]
+    if u_min is not None:
+        args += ["--u-min", repr(float(u_min))]
+    if u_max is not None:
+        args += ["--u-max", repr(float(u_max))]
+    args.append("--json")
+    return _parse_mpc(_run_cli(args))
+
+
 # --------------------------------------------------------------------------- #
 # Attach convenience methods to DiscoveryResult / Study (best-effort, lazy)     #
 # --------------------------------------------------------------------------- #
@@ -1170,6 +1656,9 @@ def _install() -> None:
         "sensitivity": sensitivity,
         "estimate": estimate,
         "reduce": reduce,
+        "lyapunov": lyapunov,
+        "basins": basins,
+        "mpc": mpc,
     }
     for cls in (Study, DiscoveryResult):
         for name, function in methods.items():

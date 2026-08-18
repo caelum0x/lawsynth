@@ -1,0 +1,29 @@
+[package]
+name = "lawsynth-integration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Cross-crate end-to-end integration tests for the LawSynth pipeline (no library surface)."
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+# Pipeline crates are dev-dependencies: this crate has no runtime API, it only
+# hosts integration tests that exercise many crates together. Every dependency
+# is an internal path dep — offline, std-only, no external crates.
+[dev-dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-world = { path = "../lawsynth-world" }
+lawsynth-discovery = { path = "../lawsynth-discovery" }
+lawsynth-stability = { path = "../lawsynth-stability" }
+lawsynth-lyapunov = { path = "../lawsynth-lyapunov" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+lawsynth-invariants = { path = "../lawsynth-invariants" }
+lawsynth-egraph = { path = "../lawsynth-egraph" }
+lawsynth-sim = { path = "../lawsynth-sim" }
+lawsynth-basins = { path = "../lawsynth-basins" }
+lawsynth-koopman = { path = "../lawsynth-koopman" }

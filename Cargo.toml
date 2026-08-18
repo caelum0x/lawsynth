@@ -44,6 +44,7 @@ members = [
   "crates/lawsynth-lyapunov",
   "crates/lawsynth-network",
   "crates/lawsynth-basins",
+  "crates/lawsynth-integration",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",

@@ -776,3 +776,122 @@ def test_new_analysis_convenience_methods_on_result(tmp_path):
     assert reduction.order == 1
     observer = result.estimate(box=[(-1.0, 1.0), (-1.0, 1.0)], measure=["x", "y"], kalman=True)
     assert observer.convergent is True
+
+
+# --------------------------------------------------------------------------- #
+# Global-dynamics commands: lyapunov / basins / network / mpc                  #
+# Dep-free parser tests. The JSON below is hand-constructed to match each      #
+# parser's required keys (see analysis._parse_* and the Rust `*.rs::render_json`)#
+# and does not require the built CLI binary.                                   #
+# --------------------------------------------------------------------------- #
+
+_LYAPUNOV_JSON = """{
+  "world": "oscillator.lsworld",
+  "states": ["x", "y"],
+  "exponents": [0.0004, -0.0004],
+  "largest": 0.0004,
+  "sum": 0.0,
+  "kaplan_yorke_dimension": 2.0,
+  "integration_time": 90.0,
+  "chaotic": false
+}"""
+
+_BASINS_JSON = """{
+  "world": "bistable.lsworld",
+  "states": ["x"],
+  "resolution": 5,
+  "total": 5,
+  "settled": 4,
+  "escaped": 0,
+  "undetermined": 1,
+  "attractors": [
+    {"coordinates": [-1.0], "classification": "stable node", "basin_fraction": 0.5},
+    {"coordinates": [1.0], "classification": "stable node", "basin_fraction": 0.5}
+  ],
+  "grid_labels": ["a0", "a0", "undetermined", "a1", "a1"]
+}"""
+
+_NETWORK_JSON = """{
+  "source": "chain.csv",
+  "nodes": ["x1", "x2", "x3"],
+  "adjacency": [[true, false, false], [true, true, false], [false, true, true]],
+  "strength": [[1.0, 0.0, 0.0], [0.5, 1.0, 0.0], [0.0, 0.5, 1.0]],
+  "edges": [
+    {"driver": "x1", "target": "x1", "strength": 1.0},
+    {"driver": "x1", "target": "x2", "strength": 0.5},
+    {"driver": "x2", "target": "x3", "strength": 0.5}
+  ]
+}"""
+
+_MPC_JSON = """{
+  "world": "double-integrator.lsworld",
+  "states": ["x", "v"],
+  "controls": ["u"],
+  "setpoint": [0.0, 0.0],
+  "final_state": [0.0008, -0.0003],
+  "final_error_norm": 0.00085,
+  "state_trajectory": [[1.0, 0.0], [0.5, -0.4], [0.0008, -0.0003]],
+  "control_trajectory": [[-1.2], [-0.3], [-0.01]]
+}"""
+
+
+def test_parse_lyapunov_dataclasses():
+    report = analysis._parse_lyapunov(json.loads(_LYAPUNOV_JSON))
+    assert report.states == ("x", "y")
+    assert report.exponents == (0.0004, -0.0004)
+    assert report.largest == 0.0004
+    assert report.sum == 0.0
+    assert report.kaplan_yorke_dimension == 2.0
+    assert report.chaotic is False
+    # A near-conservative oscillator: exponents straddle zero, sum ~ 0.
+    assert abs(report.largest) < 1e-2 and abs(report.sum) < 1e-2
+
+
+def test_parse_basins_dataclasses():
+    report = analysis._parse_basins(json.loads(_BASINS_JSON))
+    assert len(report.attractors) == 2
+    assert report.attractors[0].at(report.states) == {"x": -1.0}
+    assert report.attractors[1].coordinates == (1.0,)
+    assert report.settled == 4 and report.undetermined == 1 and report.escaped == 0
+    assert report.grid_labels[2] == "undetermined"
+    # Symmetric bistable split.
+    assert report.attractors[0].basin_fraction == report.attractors[1].basin_fraction
+
+
+def test_parse_network_dataclasses():
+    model = analysis._parse_network(json.loads(_NETWORK_JSON))
+    assert model.nodes == ("x1", "x2", "x3")
+    # x1 -> x2 and x2 -> x3 present; no spurious x1 -> x3.
+    assert model.edge_strength("x1", "x2") == 0.5
+    assert model.edge_strength("x2", "x3") == 0.5
+    assert model.edge_strength("x1", "x3") == 0.0
+    assert {(e.driver, e.target) for e in model.edges} >= {("x1", "x2"), ("x2", "x3")}
+
+
+def test_parse_mpc_dataclasses():
+    result = analysis._parse_mpc(json.loads(_MPC_JSON))
+    assert result.states == ("x", "v") and result.controls == ("u",)
+    assert result.setpoint == (0.0, 0.0)
+    assert result.final_error_norm is not None and result.final_error_norm < 1e-2
+    assert len(result.state_trajectory) == 3 and len(result.control_trajectory) == 3
+
+
+def test_parse_mpc_allows_null_error_norm():
+    payload = json.loads(_MPC_JSON)
+    payload["final_error_norm"] = None
+    result = analysis._parse_mpc(payload)
+    assert result.final_error_norm is None
+
+
+@pytest.mark.parametrize(
+    "parser, payload",
+    [
+        (analysis._parse_lyapunov, "{}"),
+        (analysis._parse_basins, '{"world": "w", "states": ["x"]}'),
+        (analysis._parse_network, '{"nodes": ["x"]}'),
+        (analysis._parse_mpc, '{"states": ["x"]}'),
+    ],
+)
+def test_global_dynamics_parsers_reject_malformed(parser, payload):
+    with pytest.raises(analysis.AnalysisError):
+        parser(json.loads(payload))

@@ -158,10 +158,12 @@ def __getattr__(name):
     if name in {
         "stability", "discover_controlled", "domains", "domain_show", "domain_run",
         "bifurcation", "sensitivity", "estimate", "reduce",
+        "lyapunov", "basins", "network", "mpc",
         "StabilityReport", "FixedPoint", "Eigenvalue",
         "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
         "Bifurcation", "BifurcationReport", "Sensitivity", "SensitivityReport",
         "EstimateReport", "ReducedSystem", "ReductionReport",
+        "LyapunovReport", "Attractor", "BasinReport", "NetworkEdge", "NetworkModel", "MpcResult",
         "AnalysisError", "CliError", "MissingBinaryError",
     }:
         from . import analysis as _analysis
@@ -191,10 +193,12 @@ __all__ = [
     "run_record", "log_to_mlflow", "log_to_wandb", "RunRecord", "RunArtifact", "TrackingError",
     "stability", "discover_controlled", "domains", "domain_show", "domain_run",
     "bifurcation", "sensitivity", "estimate", "reduce",
+    "lyapunov", "basins", "network", "mpc",
     "StabilityReport", "FixedPoint", "Eigenvalue",
     "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
     "Bifurcation", "BifurcationReport", "Sensitivity", "SensitivityReport",
     "EstimateReport", "ReducedSystem", "ReductionReport",
+    "LyapunovReport", "Attractor", "BasinReport", "NetworkEdge", "NetworkModel", "MpcResult",
     "AnalysisError", "CliError", "MissingBinaryError",
     "__version__",
 ]

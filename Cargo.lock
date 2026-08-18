@@ -239,6 +239,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-integration"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-basins",
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-discovery",
+ "lawsynth-egraph",
+ "lawsynth-expr",
+ "lawsynth-invariants",
+ "lawsynth-jacobian",
+ "lawsynth-koopman",
+ "lawsynth-lyapunov",
+ "lawsynth-sim",
+ "lawsynth-stability",
+ "lawsynth-world",
+]
+
+[[package]]
 name = "lawsynth-invariants"
 version = "0.1.0"
 dependencies = [
