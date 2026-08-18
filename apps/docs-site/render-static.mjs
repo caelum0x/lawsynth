@@ -13,11 +13,14 @@
 //
 // Usage (after `npm run build`): node render-static.mjs [outputDir=public]
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { buildDocsSite } from "./dist/src/content.js";
+
+/** Static assets (favicon, og image) copied verbatim into the output tree. */
+const ASSETS_DIR = fileURLToPath(new URL("./assets", import.meta.url));
 
 /** Production configuration for https://lawsynth.dev. */
 export const SITE_CONFIGURATION = Object.freeze({ origin: "https://lawsynth.dev", name: "LawSynth" });
@@ -69,6 +72,15 @@ export function emitStaticSite(site, outputDir, configuration = SITE_CONFIGURATI
   for (const [file, contents] of files) {
     write(file, contents);
     written.push(file);
+  }
+  // Copy static assets (favicon.svg, og.svg, ...) verbatim into the output.
+  if (existsSync(ASSETS_DIR)) {
+    mkdirSync(outputDir, { recursive: true });
+    for (const name of readdirSync(ASSETS_DIR).sort()) {
+      const destination = join(outputDir, name);
+      copyFileSync(join(ASSETS_DIR, name), destination);
+      written.push(destination);
+    }
   }
   return written.sort();
 }

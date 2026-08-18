@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="LawSynth — discover executable mathematical worlds from data">
+  <rect width="1200" height="630" fill="#101714"/>
+  <path d="M0 480 C 200 480 260 300 480 300 S 740 480 940 300 S 1150 360 1200 320" fill="none" stroke="#e0703f" stroke-width="10" opacity="0.45"/>
+  <rect x="80" y="86" width="96" height="96" rx="22" fill="#18201d" stroke="#3c4a43" stroke-width="2"/>
+  <path d="M100 150 C 116 150 116 118 128 118 S 150 150 156 122" fill="none" stroke="#e0703f" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="128" cy="118" r="6" fill="#eef3ef"/>
+  <text x="80" y="332" font-family="Georgia, 'Times New Roman', serif" font-size="104" font-weight="700" fill="#eef3ef">LawSynth</text>
+  <text x="84" y="392" font-family="Inter, system-ui, sans-serif" font-size="34" fill="#a9b7b0">Discover interpretable, executable law systems from time-series data.</text>
+  <text x="84" y="446" font-family="ui-monospace, SFMono-Regular, monospace" font-size="26" fill="#e0703f">deterministic &#183; offline &#183; lawsynth.dev</text>
+</svg>
