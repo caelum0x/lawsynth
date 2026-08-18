@@ -1,7 +1,7 @@
 import { isAnalysisReport, type AnalysisReport } from "./analysis.js";
 import { isScreenId, type ScreenId } from "./screens/ids.js";
 
-export type StudioRouteName = "home" | "project" | "dataset" | "discovery" | "world" | "simulation" | "analysis" | "screen" | "settings";
+export type StudioRouteName = "home" | "project" | "dataset" | "discovery" | "world" | "simulation" | "analysis" | "visualize" | "screen" | "settings";
 
 export type StudioRoute =
   | { readonly name: "home" }
@@ -12,6 +12,7 @@ export type StudioRoute =
   | { readonly name: "world"; readonly projectId: string; readonly worldId: string; readonly panel?: string }
   | { readonly name: "simulation"; readonly projectId: string; readonly simulationId: string }
   | { readonly name: "analysis"; readonly projectId: string; readonly report?: AnalysisReport }
+  | { readonly name: "visualize"; readonly projectId: string }
   | { readonly name: "screen"; readonly projectId: string; readonly screen: ScreenId };
 
 const safeId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u;
@@ -31,6 +32,7 @@ export function routePath(route: StudioRoute): string {
     case "world": return `/projects/${segment(route.projectId)}/worlds/${segment(route.worldId)}${route.panel === undefined ? "" : `?panel=${encodeURIComponent(route.panel)}`}`;
     case "simulation": return `/projects/${segment(route.projectId)}/simulations/${segment(route.simulationId)}`;
     case "analysis": return `/projects/${segment(route.projectId)}/analysis${route.report === undefined ? "" : `/${encodeURIComponent(route.report)}`}`;
+    case "visualize": return `/projects/${segment(route.projectId)}/visualize`;
     case "screen": return `/projects/${segment(route.projectId)}/screens/${encodeURIComponent(route.screen)}`;
   }
 }
@@ -56,6 +58,7 @@ export function parseRoute(input: string | URL): StudioRoute {
     if (!isAnalysisReport(report)) throw new RangeError(`unknown Studio analysis report: ${String(report)}`);
     return { name: "analysis", projectId, report };
   }
+  if (parts[2] === "visualize" && parts.length === 3) return { name: "visualize", projectId };
   if (parts[2] === "screens" && parts.length === 4) {
     const screen = parts[3];
     if (!isScreenId(screen)) throw new RangeError(`unknown Studio screen: ${String(screen)}`);

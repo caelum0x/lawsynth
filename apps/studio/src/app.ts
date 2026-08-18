@@ -6,6 +6,14 @@ import { ScreensController, renderScreenModel, SCREEN_REGISTRY, type ScreenActio
 import { DEFAULT_SETTINGS, mergeSettings, parseSettings, type StudioSettings } from "./settings.js";
 import { ShortcutRegistry } from "./shortcuts.js";
 import { SimulationController } from "./simulation.js";
+import {
+  SAMPLE_TRAJECTORY_IDS,
+  isSampleTrajectoryId,
+  renderTrajectoryChart,
+  sampleTrajectoryLabel,
+  sampleViewerBundleJson,
+  type SampleTrajectoryId,
+} from "./visualize.js";
 import { WorkspaceController } from "./workspace.js";
 
 export type StudioPhase = "created" | "starting" | "ready" | "failed" | "stopped";
@@ -46,6 +54,7 @@ const STUDIO_CSS = `.lss{--ink:#18201d;--paper:#f3f0e8;--surface:#fffdf7;--line:
 .lss-scr-graph{width:100%;height:auto;border:1px solid var(--line);background:var(--surface)}.lss-scr-graph-node:focus-visible{outline:none}.lss-scr-graph-node:focus-visible rect{stroke:var(--accent);stroke-width:2.5}
 .lss-scr-codes{display:flex;flex-direction:column;gap:14px}.lss-scr-code{border:1px solid var(--line);background:var(--surface)}.lss-scr-code-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line)}.lss-scr-code-label{font:600 11px/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em;color:#59635e}.lss-scr-copy{min-height:28px!important;padding:4px 12px!important;font-size:12px!important}.lss-scr-code-body{margin:0;padding:12px;overflow:auto;font:12px/1.5 ui-monospace,monospace;max-height:320px}.lss-scr-code-caption{margin:0;padding:0 12px 10px;color:#8a9089;font-size:11px}
 .lss-analysis{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}.lss-analysis h2{margin:0 0 12px}.lss-analysis-input{margin:0 0 12px}.lss-analysis-input textarea{width:100%;min-height:120px;padding:8px 10px;border:1px solid var(--line);background:var(--surface);font:12px/1.5 ui-monospace,monospace;resize:vertical}.lss-analysis-input textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}.lss-analysis-result{margin-top:16px}.lss-analysis-result .lss-scr-section+.lss-scr-section,.lss-analysis-result .lss-scr-metrics{margin-top:12px}
+.lss-visualize-result{margin-top:16px}.lss-visualize-result .lss-scr-notice{margin-bottom:12px}.lss-visualize-result .lss-scr-chart{margin-top:12px}.lss-visualize-result .lss-scr-metrics{margin-top:4px}
 .lss-badge{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-left-width:3px;border-radius:3px;font:600 11px/1.4 ui-monospace,monospace;background:var(--surface)}.lss-badge.lss-tone-success{border-color:#2f7d43;color:#2f7d43}.lss-badge.lss-tone-warning{border-color:#c58a1e;color:#8a5e00}.lss-badge.lss-tone-error{border-color:#b32d2d;color:#b32d2d}.lss-badge.lss-tone-info{border-color:#3768a6;color:#3768a6}`;
 
 export class StudioApp extends EventTarget {
@@ -67,6 +76,9 @@ export class StudioApp extends EventTarget {
   #analysisReport: AnalysisReport | undefined;
   #analysisText = "";
   #analysisSubmitted: string | null = null;
+  #visualizeSample: SampleTrajectoryId = "damped-oscillator";
+  #visualizeText = "";
+  #visualizeSubmitted: string | null = null;
   readonly #document: Document | undefined;
   readonly #settingsKey: string;
   readonly #popstate = (): void => {
@@ -149,7 +161,7 @@ export class StudioApp extends EventTarget {
     header.append(node(document, "div", "lss-wordmark", "LawSynth"), node(document, "div", "lss-context", "Scientific model studio"));
     const layout = node(document, "div", "lss-layout");
     const nav = node(document, "nav", "lss-nav"); nav.setAttribute("aria-label", "Studio navigation");
-    const routes: readonly [string, StudioRoute][] = [["Home", { name: "home" }], ["Workspace", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "project", projectId: this.#workspace.snapshot.projectId }], ["Analysis", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "analysis", projectId: this.#workspace.snapshot.projectId }], ["Settings", { name: "settings" }]];
+    const routes: readonly [string, StudioRoute][] = [["Home", { name: "home" }], ["Workspace", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "project", projectId: this.#workspace.snapshot.projectId }], ["Analysis", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "analysis", projectId: this.#workspace.snapshot.projectId }], ["Visualize", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "visualize", projectId: this.#workspace.snapshot.projectId }], ["Settings", { name: "settings" }]];
     for (const [label, route] of routes) {
       const button = node(document, "button", undefined, label); button.type = "button";
       if (route.name === this.router.current.name) button.setAttribute("aria-current", "page");
@@ -226,6 +238,9 @@ export class StudioApp extends EventTarget {
       }
       main.append(grid);
       if (route.report !== undefined) main.append(this.#renderAnalysisDetail(document, route.report));
+    } else if (route.name === "visualize") {
+      main.append(node(document, "p", undefined, "Visualize a world's dynamics as a trajectory chart. There is no in-browser engine yet, so this surface renders a bundled, deterministic sample trajectory — or a `.viewer.json` bundle you paste. Worlds without a simulated trajectory are shown honestly, without a fabricated curve."));
+      main.append(this.#renderVisualizeDetail(document));
     } else main.append(node(document, "p", undefined, `Active route: ${routePath(route)}`));
   }
 
@@ -254,6 +269,43 @@ export class StudioApp extends EventTarget {
     actions.append(analyze, sample, clear);
     panel.append(actions);
     panel.append(renderAnalysisReport(document, report, this.#analysisSubmitted));
+    return panel;
+  }
+
+  #renderVisualizeDetail(document: Document): HTMLElement {
+    const panel = node(document, "section", "lss-analysis"); panel.setAttribute("aria-label", "Trajectory visualization");
+    panel.append(node(document, "h2", "lss-scr-heading", "Trajectory chart"));
+    const sampleField = node(document, "label", "lss-scr-field");
+    sampleField.append(node(document, "span", "lss-scr-field-label", "Bundled sample"));
+    const select = node(document, "select"); select.setAttribute("aria-label", "Bundled sample trajectory");
+    for (const id of SAMPLE_TRAJECTORY_IDS) {
+      const option = node(document, "option", undefined, sampleTrajectoryLabel(id)); option.value = id;
+      if (id === this.#visualizeSample) option.selected = true;
+      select.append(option);
+    }
+    select.addEventListener("change", () => {
+      if (isSampleTrajectoryId(select.value)) this.#visualizeSample = select.value;
+      this.#visualizeText = ""; this.#visualizeSubmitted = null; this.render();
+    });
+    sampleField.append(select);
+    panel.append(sampleField);
+    const field = node(document, "label", "lss-scr-field lss-analysis-input");
+    field.append(node(document, "span", "lss-scr-field-label", "Paste a `.viewer.json` bundle (optional)"));
+    const textarea = node(document, "textarea"); textarea.value = this.#visualizeText; textarea.setAttribute("rows", "6"); textarea.setAttribute("spellcheck", "false");
+    textarea.setAttribute("aria-label", "Viewer bundle JSON");
+    textarea.addEventListener("input", () => { this.#visualizeText = textarea.value; });
+    field.append(textarea);
+    panel.append(field);
+    const actions = node(document, "div", "lss-scr-actions");
+    const render = node(document, "button", "lss-scr-btn lss-tone-success", "Render bundle"); render.type = "button";
+    render.addEventListener("click", () => { this.#visualizeText = textarea.value; this.#visualizeSubmitted = textarea.value; this.render(); });
+    const loadSample = node(document, "button", "lss-scr-btn", "Load sample bundle"); loadSample.type = "button";
+    loadSample.addEventListener("click", () => { this.#visualizeText = sampleViewerBundleJson(this.#visualizeSample); this.#visualizeSubmitted = this.#visualizeText; this.render(); });
+    const clear = node(document, "button", "lss-scr-btn", "Show sample"); clear.type = "button";
+    clear.addEventListener("click", () => { this.#visualizeText = ""; this.#visualizeSubmitted = null; this.render(); });
+    actions.append(render, loadSample, clear);
+    panel.append(actions);
+    panel.append(renderTrajectoryChart(document, this.#visualizeSubmitted, this.#visualizeSample));
     return panel;
   }
 
