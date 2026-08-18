@@ -21,6 +21,7 @@ use lawsynth_world::{ContinuousLaw, Variable, VariableRole, World};
 use crate::{
     CancellationToken, DimensionalPruningReport, DimensionalUnits, DiscoveryCandidate,
     DiscoveryCheckpoint, DiscoveryConfig, DiscoveryError, DiscoveryResult, SparseMethod,
+    StateCoefficientEnsemble,
 };
 
 /// Discovers a continuous polynomial World using finite differences and STLSQ.
@@ -151,6 +152,9 @@ pub(crate) fn run_discovery(
     let mut complexity = 0;
     // Diagnostic tally of dimensional pruning, only surfaced when units are on.
     let mut pruning = DimensionalPruningReport::default();
+    // Per-state bootstrap coefficient uncertainty, populated only when the opt-in
+    // bootstrap is requested; empty (and later `None`) on the default path.
+    let mut coefficient_ensembles: Vec<StateCoefficientEnsemble> = Vec::new();
     for state in &config.state {
         ensure_active(cancellation)?;
         if let Some(saved) = checkpoint.law(state) {
@@ -197,6 +201,16 @@ pub(crate) fn run_discovery(
             checkpoint.record_law(state.clone(), checkpoint_expression, residual_sum_squares);
             continue;
         }
+        // Capture the state's fit inputs before the regression problem consumes
+        // them, so the optional coefficient bootstrap resamples the *same* (Θ, ẋ)
+        // that produced the point fit. Cloned only when a bootstrap is requested.
+        let coefficient_inputs = config.bootstrap.as_ref().map(|_| {
+            (
+                problem_rows.clone(),
+                target.clone(),
+                fit_terms.iter().map(|term| term.name.clone()).collect::<Vec<_>>(),
+            )
+        });
         // The trapping solver damps the state's own linear self-feedback term; its
         // column is the fit term named exactly after the state. Other solvers
         // ignore this index, so the default (STLSQ) path is unaffected.
@@ -225,6 +239,23 @@ pub(crate) fn run_discovery(
         complexity += expression_complexity(&expression);
         laws.push(ContinuousLaw::new(state.clone(), expression));
         checkpoint.record_law(state.clone(), checkpoint_expression, residual_sum_squares);
+        // Bootstrap this state's coefficients over the same (Θ, ẋ) when requested.
+        // Seeded deterministically from the fit content, so identical inputs yield
+        // bit-identical intervals; skipped entirely on the default path.
+        if let (Some(bootstrap), Some((theta, target, names))) =
+            (config.bootstrap.as_ref(), coefficient_inputs)
+            && let Some(ensemble) = crate::coefficients::bootstrap_state_coefficients(
+                state,
+                &theta,
+                &target,
+                &names,
+                &config.sparse,
+                bootstrap,
+                config.coefficient_confidence,
+            )?
+        {
+            coefficient_ensembles.push(ensemble);
+        }
     }
     let variables = working_dataset
         .columns()
@@ -299,6 +330,7 @@ pub(crate) fn run_discovery(
         dependency_assumptions,
         dimensional_pruning: config.units.as_ref().map(|_| pruning),
         template_filter: template_selection.map(|selection| selection.report),
+        coefficient_uncertainty: config.bootstrap.as_ref().map(|_| coefficient_ensembles),
     })
 }
 
@@ -607,6 +639,140 @@ mod tests {
         assert_eq!(resumed.candidates[0].world, result.candidates[0].world);
     }
 
+    /// Builds a clean `dx/dt = 2x` growth dataset over `[0, 1]` with `dt = 0.01`.
+    fn linear_growth_dataset() -> (Identifier, Dataset) {
+        let id = Identifier::new("x").unwrap();
+        let time = (0..101).map(|step| step as f64 * 0.01).collect::<Vec<_>>();
+        let values = time.iter().map(|time| (2.0 * time).exp()).collect::<Vec<_>>();
+        let data =
+            Dataset::new(TimeAxis::new(time).unwrap(), [NumericColumn::new(id.clone(), values)])
+                .unwrap();
+        (id, data)
+    }
+
+    /// Deterministic standard normals via SplitMix64 + Box–Muller (no wall clock),
+    /// mirroring the uncertainty crate's known-law noise so recovery is testable.
+    fn seeded_normals(count: usize, seed: u64) -> Vec<f64> {
+        let mut state = seed;
+        let mut uniform = || {
+            state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+            let mut z = state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+            z ^= z >> 31;
+            ((z >> 11) as f64 + 0.5) / (1_u64 << 53) as f64
+        };
+        (0..count)
+            .map(|_| {
+                let u1 = uniform();
+                let u2 = uniform();
+                (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
+            })
+            .collect()
+    }
+
+    /// Builds a noisy `dx/dt = 2x` growth dataset. A fine step keeps the
+    /// finite-difference bias tiny while seeded observation noise gives the
+    /// bootstrap a genuine spread that can bracket the true coefficient.
+    fn noisy_growth_dataset(sigma: f64, seed: u64) -> (Identifier, Dataset) {
+        let id = Identifier::new("x").unwrap();
+        let time = (0..201).map(|step| step as f64 * 0.005).collect::<Vec<_>>();
+        let noise = seeded_normals(time.len(), seed);
+        let values = time
+            .iter()
+            .zip(&noise)
+            .map(|(time, noise)| (2.0 * time).exp() + sigma * noise)
+            .collect::<Vec<_>>();
+        let data =
+            Dataset::new(TimeAxis::new(time).unwrap(), [NumericColumn::new(id.clone(), values)])
+                .unwrap();
+        (id, data)
+    }
+
+    /// Locates a term's ensemble index by its library column name.
+    fn term_index(ensemble: &StateCoefficientEnsemble, name: &str) -> usize {
+        ensemble
+            .term_names
+            .iter()
+            .position(|candidate| candidate == name)
+            .unwrap_or_else(|| panic!("term '{name}' absent from {:?}", ensemble.term_names))
+    }
+
+    #[test]
+    fn bootstrap_recovers_a_known_law_through_discovery() {
+        // Mirror the uncertainty crate's known-law recovery, but drive it through
+        // the discovery entry point: the true `x` term must survive sparsity in
+        // essentially every resample with an interval covering the true 2.0, while
+        // the spurious constant is selected far less consistently.
+        let (id, data) = noisy_growth_dataset(2e-3, 1);
+        let mut config = DiscoveryConfig::new([id.clone()]);
+        config.polynomial_degree = 1;
+        config.smoothing_radius = Some(2);
+        config.bootstrap =
+            Some(lawsynth_stats::BootstrapConfig { replicates: 200, block_size: 8, seed: 7 });
+
+        let result = discover(&data, &config).unwrap();
+        let ensembles = result.coefficient_uncertainty.expect("bootstrap requested");
+        assert_eq!(ensembles.len(), 1, "one ensemble per fitted state");
+        let ensemble = &ensembles[0];
+        assert_eq!(ensemble.state, id);
+        assert_eq!(ensemble.term_names.len(), ensemble.ensemble.terms.len());
+
+        let x_index = term_index(ensemble, "x");
+        let x = &ensemble.ensemble.terms[x_index];
+        assert!(x.inclusion_probability > 0.95, "x inclusion {}", x.inclusion_probability);
+        assert!(x.lower <= 2.0 && 2.0 <= x.upper, "x CI [{}, {}]", x.lower, x.upper);
+        assert!((x.mean - 2.0).abs() < 0.1, "x mean {}", x.mean);
+
+        // The intercept term is spurious: it is selected far less consistently than
+        // the true term, so its inclusion is honestly lower.
+        let intercept_index = (0..ensemble.term_names.len())
+            .find(|&index| index != x_index)
+            .expect("a spurious intercept column");
+        let intercept = &ensemble.ensemble.terms[intercept_index];
+        assert!(
+            intercept.inclusion_probability < x.inclusion_probability,
+            "spurious inclusion {} should trail true inclusion {}",
+            intercept.inclusion_probability,
+            x.inclusion_probability
+        );
+    }
+
+    #[test]
+    fn coefficient_uncertainty_is_bit_identical_across_runs() {
+        let (id, data) = linear_growth_dataset();
+        let mut config = DiscoveryConfig::new([id]);
+        config.polynomial_degree = 1;
+        config.bootstrap =
+            Some(lawsynth_stats::BootstrapConfig { replicates: 120, block_size: 8, seed: 11 });
+
+        let first = discover(&data, &config).unwrap().coefficient_uncertainty.unwrap();
+        let second = discover(&data, &config).unwrap().coefficient_uncertainty.unwrap();
+        assert_eq!(first.len(), second.len());
+        for (left, right) in first.iter().zip(&second) {
+            assert_eq!(left.term_names, right.term_names);
+            assert_eq!(left.ensemble.replicates.len(), right.ensemble.replicates.len());
+            for (a, b) in left.ensemble.terms.iter().zip(&right.ensemble.terms) {
+                assert_eq!(a.mean.to_bits(), b.mean.to_bits());
+                assert_eq!(a.standard_error.to_bits(), b.standard_error.to_bits());
+                assert_eq!(a.lower.to_bits(), b.lower.to_bits());
+                assert_eq!(a.upper.to_bits(), b.upper.to_bits());
+                assert_eq!(a.inclusion_probability.to_bits(), b.inclusion_probability.to_bits());
+            }
+        }
+    }
+
+    #[test]
+    fn default_path_leaves_coefficient_uncertainty_absent() {
+        // Without a bootstrap request the field is `None` and the rest of the
+        // result is untouched: the opt-in never perturbs the fast path.
+        let (id, data) = linear_growth_dataset();
+        let mut config = DiscoveryConfig::new([id]);
+        config.polynomial_degree = 1;
+        let result = discover(&data, &config).unwrap();
+        assert!(result.coefficient_uncertainty.is_none());
+    }
+
     #[test]
     fn supports_sr3_sparse_discovery() {
         let x = Identifier::new("x").unwrap();
@@ -786,6 +952,7 @@ mod tests {
                 causal: None,
                 units: None,
                 template_prior: None,
+                coefficient_confidence: 0.95,
                 resource_limits: Default::default(),
             },
         )
@@ -844,6 +1011,7 @@ mod tests {
                 causal: None,
                 units: None,
                 template_prior: None,
+                coefficient_confidence: 0.95,
                 resource_limits: Default::default(),
             },
         )

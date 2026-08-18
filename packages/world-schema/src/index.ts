@@ -1,3 +1,4 @@
+export * from "./analysis.js";
 export * from "./event.js";
 export * from "./expression.js";
 export * from "./generated.js";

@@ -6,6 +6,7 @@ mod cancellation;
 mod candidate;
 mod causal;
 mod checkpoint;
+mod coefficients;
 mod config;
 mod distributed;
 mod error;
@@ -24,6 +25,7 @@ pub use candidate::{
     DimensionalPruningReport, DiscoveryCandidate, DiscoveryResult, ParameterRefinement,
 };
 pub use checkpoint::DiscoveryCheckpoint;
+pub use coefficients::StateCoefficientEnsemble;
 pub use config::{
     CausalHypothesisConfig, DimensionalUnits, DiscoveryConfig, RefinementConfig, SparseMethod,
 };

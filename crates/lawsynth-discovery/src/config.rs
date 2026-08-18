@@ -153,6 +153,12 @@ pub struct DiscoveryConfig {
     /// Default `None` admits every candidate term, leaving discovery
     /// byte-identical; enable via [`DiscoveryConfig::with_template_prior`].
     pub template_prior: Option<TemplatePrior>,
+    /// Two-sided confidence level for the per-coefficient bootstrap intervals
+    /// (`crates/lawsynth-uncertainty`). Only consulted when [`bootstrap`](Self::bootstrap)
+    /// is `Some`, in which case discovery also attaches a per-state
+    /// [`StateCoefficientEnsemble`](crate::StateCoefficientEnsemble). Defaults to
+    /// `0.95`; it never affects the default (no-bootstrap) path.
+    pub coefficient_confidence: f64,
     /// Hard bounds enforced before data profiling and feature expansion.
     pub resource_limits: ResourceLimits,
 }
@@ -176,6 +182,7 @@ impl DiscoveryConfig {
             causal: None,
             units: None,
             template_prior: None,
+            coefficient_confidence: 0.95,
             resource_limits: ResourceLimits::default(),
         }
     }

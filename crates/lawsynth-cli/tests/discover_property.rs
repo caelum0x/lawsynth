@@ -131,6 +131,127 @@ fn discover_command_writes_a_simulatable_world() {
 }
 
 #[test]
+fn discover_command_reports_coefficient_uncertainty() {
+    let directory = std::env::temp_dir().join(format!(
+        "lawsynth-cli-coeff-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    fs::create_dir_all(&directory).unwrap();
+    let csv = directory.join("growth.csv");
+    // Clean `dx/dt = 2x` growth: the `x` term is recovered in every resample.
+    let contents = (0..101)
+        .map(|step| {
+            let time = step as f64 * 0.01;
+            format!("{time},{:.17e}", (2.0 * time).exp())
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&csv, format!("t,x\n{contents}\n")).unwrap();
+    let bundle = directory.join("growth.lsworld");
+
+    let arguments = |extra: &[&str]| {
+        let mut base = vec![
+            "discover".to_owned(),
+            csv.display().to_string(),
+            "--time".to_owned(),
+            "t".to_owned(),
+            "--state".to_owned(),
+            "x".to_owned(),
+            "--output".to_owned(),
+            bundle.display().to_string(),
+            "--degree".to_owned(),
+            "1".to_owned(),
+        ];
+        base.extend(extra.iter().map(|value| (*value).to_owned()));
+        base
+    };
+
+    // With a bootstrap the summary carries the interval + inclusion columns.
+    let with_bootstrap = run(&arguments(&["--bootstrap", "200"])).unwrap();
+    assert!(with_bootstrap.starts_with("discovered world:"));
+    assert!(
+        with_bootstrap.contains("coefficient uncertainty (bootstrap percentile, B=200"),
+        "missing header: {with_bootstrap}"
+    );
+    assert!(with_bootstrap.contains("state x:"), "missing state block: {with_bootstrap}");
+    // The recovered `x` term is present with an interval and inclusion column.
+    let x_line = with_bootstrap
+        .lines()
+        .find(|line| line.trim_start().starts_with("x:"))
+        .unwrap_or_else(|| panic!("no x term line: {with_bootstrap}"));
+    assert!(x_line.contains('[') && x_line.contains(']'), "no interval: {x_line}");
+    assert!(x_line.contains("incl=1.00"), "expected full inclusion: {x_line}");
+
+    // Without a bootstrap the default output is byte-for-byte unchanged.
+    let plain = run(&arguments(&[])).unwrap();
+    assert!(plain.starts_with("discovered world:"));
+    assert!(!plain.contains("coefficient uncertainty"), "unexpected section: {plain}");
+    assert!(!plain.contains("incl="), "unexpected inclusion column: {plain}");
+
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn discover_command_emits_coefficient_uncertainty_json() {
+    let directory = std::env::temp_dir().join(format!(
+        "lawsynth-cli-coeff-json-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    fs::create_dir_all(&directory).unwrap();
+    let csv = directory.join("growth.csv");
+    let contents = (0..101)
+        .map(|step| {
+            let time = step as f64 * 0.01;
+            format!("{time},{:.17e}", (2.0 * time).exp())
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    fs::write(&csv, format!("t,x\n{contents}\n")).unwrap();
+    let bundle = directory.join("growth.lsworld");
+
+    let arguments = |extra: &[&str]| {
+        let mut base = vec![
+            "discover".to_owned(),
+            csv.display().to_string(),
+            "--time".to_owned(),
+            "t".to_owned(),
+            "--state".to_owned(),
+            "x".to_owned(),
+            "--output".to_owned(),
+            bundle.display().to_string(),
+            "--degree".to_owned(),
+            "1".to_owned(),
+            "--json".to_owned(),
+        ];
+        base.extend(extra.iter().map(|value| (*value).to_owned()));
+        base
+    };
+
+    let json = run(&arguments(&["--bootstrap", "200", "--confidence", "0.9"])).unwrap();
+    // Structurally valid-ish and carries the coefficient uncertainty fields.
+    assert!(
+        json.trim_start().starts_with('{') && json.trim_end().ends_with('}'),
+        "not json: {json}"
+    );
+    assert_eq!(json.matches('{').count(), json.matches('}').count(), "unbalanced braces: {json}");
+    assert!(json.contains("\"coefficient_uncertainty\": {"), "no object: {json}");
+    assert!(json.contains("\"method\": \"bootstrap-percentile\""), "no method: {json}");
+    assert!(json.contains("\"resamples\": 200"), "no resamples: {json}");
+    assert!(json.contains("\"confidence\": 0.9"), "no confidence: {json}");
+    assert!(json.contains("\"inclusion_probability\":"), "no inclusion: {json}");
+    assert!(json.contains("\"lower\":") && json.contains("\"upper\":"), "no interval: {json}");
+    assert!(json.contains("\"term\": \"x\""), "no x term: {json}");
+
+    // Without a bootstrap the JSON is still emitted but the field is null.
+    let plain = run(&arguments(&[])).unwrap();
+    assert!(plain.contains("\"coefficient_uncertainty\": null"), "expected null: {plain}");
+
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn discover_command_reports_pareto_frontier_and_regimes() {
     let directory = std::env::temp_dir().join(format!(
         "lawsynth-cli-regimes-{}-{}",

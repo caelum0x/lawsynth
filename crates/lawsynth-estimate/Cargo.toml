@@ -1,0 +1,15 @@
+[package]
+name = "lawsynth-estimate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic state estimation (Luenberger observer, Kalman filter) for discovered LawSynth linear models."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-koopman = { path = "../lawsynth-koopman" }
+lawsynth-feedback = { path = "../lawsynth-feedback" }
+
+[lib]
+path = "src/lib.rs"

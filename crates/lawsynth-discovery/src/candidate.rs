@@ -130,6 +130,14 @@ pub struct DiscoveryResult {
     /// [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on the default path.
     /// Records every candidate term the prior dropped and why.
     pub template_filter: Option<crate::TemplateFilterReport>,
+    /// Per-state bootstrap coefficient uncertainty
+    /// (`crates/lawsynth-uncertainty`), present only when the opt-in bootstrap is
+    /// requested in the [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on the
+    /// default path. Each entry pairs a state's candidate library term names with
+    /// a percentile confidence interval and inclusion probability per term. The
+    /// intervals are **bootstrap approximations**, not exact frequentist
+    /// coverage.
+    pub coefficient_uncertainty: Option<Vec<crate::StateCoefficientEnsemble>>,
 }
 
 impl DiscoveryResult {

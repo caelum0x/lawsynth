@@ -15,3 +15,18 @@ When symbolic search is enabled, one affine-calibrated symbolic candidate may
 be added. Final retention uses `pareto_front`: a candidate is discarded only
 when another has no greater MSE and complexity and is strictly better in at
 least one. Input order among retained candidates is preserved.
+
+## Coefficient uncertainty
+
+When a bootstrap is requested (`DiscoveryConfig::bootstrap`), `DiscoveryResult`
+also carries `coefficient_uncertainty`: one `StateCoefficientEnsemble` per
+fitted state, pairing the state's candidate library term names with a
+per-coefficient percentile confidence interval and inclusion probability from
+`crates/lawsynth-uncertainty` (`bootstrap_coefficients`). The bootstrap
+resamples the *same* `(Θ, ẋ)` used for the point fit, seeded deterministically
+from the fit content, at the configured `coefficient_confidence` level (default
+`0.95`). The intervals are **bootstrap approximations**, not exact frequentist
+coverage; a small resample count `B` simply widens them. The field is `None` on
+the default (no-bootstrap) path, which stays byte-identical. The `discover`
+CLI renders these intervals (`--bootstrap N [--confidence C]`, and `--json`).
+See `specs/coefficient-uncertainty/` for the underlying method.

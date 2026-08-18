@@ -129,6 +129,8 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     let mut tvreg_iterations = 100;
     let mut smoothing_radius = None;
     let mut bootstrap_replicates = None;
+    let mut coefficient_confidence = None;
+    let mut as_json = false;
     let mut symbolic_depth = None;
     let mut units = None;
     let mut sparse_method = seed.sparse_method;
@@ -158,6 +160,7 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
             || option == "--refine"
             || option == "--causal"
             || option == "--track"
+            || option == "--json"
             || option == "--forbid-interactions"
         {
             match option.as_str() {
@@ -170,6 +173,7 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
                 "--refine" => enable_refine = true,
                 "--causal" => enable_causal = true,
                 "--track" => track = true,
+                "--json" => as_json = true,
                 "--forbid-interactions" => prior_forbid_interactions = true,
                 _ => unreachable!(),
             }
@@ -196,6 +200,7 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
             "--max-active" => prior_max_active = Some(parse_steps(value)?),
             "--require-kind" => prior_require_kinds.push(parse_term_kind(value)?),
             "--bootstrap" => bootstrap_replicates = Some(parse_steps(value)?),
+            "--confidence" => coefficient_confidence = Some(parse_number(value)?),
             "--symbolic-depth" => symbolic_depth = Some(parse_steps(value)?),
             "--solver" => {
                 sparse_method = match value.as_str() {
@@ -243,6 +248,12 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     }
     if let Some(replicates) = bootstrap_replicates {
         config.bootstrap = Some(BootstrapConfig { replicates, ..BootstrapConfig::default() });
+    }
+    if let Some(confidence) = coefficient_confidence {
+        if !confidence.is_finite() || confidence <= 0.0 || confidence >= 1.0 {
+            return Err("--confidence must be a number strictly between 0 and 1".to_owned());
+        }
+        config.coefficient_confidence = confidence;
     }
     if let Some(max_depth) = symbolic_depth {
         config.symbolic =
@@ -298,6 +309,7 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     let dependency_edges = result.dependency_hypothesis.as_ref().map(|graph| graph.edges().count());
     let dimensional_pruning = result.dimensional_pruning;
     let template_filter = result.template_filter;
+    let coefficient_uncertainty = result.coefficient_uncertainty;
     let candidate = result
         .candidates
         .into_iter()
@@ -305,6 +317,21 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
         .ok_or_else(|| "discovery produced no candidates".to_owned())?;
     write_world(output.ok_or_else(usage)?, &candidate.world).map_err(|error| error.to_string())?;
     let solver = solver_label(sparse_method);
+    let bootstrap_resamples = config.bootstrap.as_ref().map(|bootstrap| bootstrap.replicates);
+    // A machine-readable report mode: emit the discovery summary (and any
+    // coefficient uncertainty) as stable JSON. It writes the world exactly as the
+    // text path does, but is otherwise a pure report (no run tracking).
+    if as_json {
+        return Ok(discover::discover_json(
+            candidate.metrics.mean_squared_error,
+            candidate.metrics.complexity,
+            solver,
+            config.state.len(),
+            coefficient_uncertainty.as_deref(),
+            bootstrap_resamples.unwrap_or(0),
+            config.coefficient_confidence,
+        ));
+    }
     let mut summary = format!(
         "discovered world: mse={:.6e}, complexity={}\n",
         candidate.metrics.mean_squared_error, candidate.metrics.complexity
@@ -345,6 +372,15 @@ fn discover_command(arguments: &[String]) -> Result<String, String> {
     }
     if let Some(edges) = dependency_edges {
         writeln!(&mut summary, "dependency hypothesis: {edges} edge(s)").unwrap();
+    }
+    if let (Some(ensembles), Some(resamples)) = (&coefficient_uncertainty, bootstrap_resamples)
+        && !ensembles.is_empty()
+    {
+        summary.push_str(&discover::render_coefficient_uncertainty(
+            ensembles,
+            resamples,
+            config.coefficient_confidence,
+        ));
     }
     if track {
         // Record this run deterministically. The data hash is a content anchor
@@ -687,5 +723,5 @@ fn solver_label(method: SparseMethod) -> &'static str {
 }
 
 fn usage() -> String {
-    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--preset NAME] [--degree N] [--threshold VALUE] [--solver stlsq|sr3|frols|ssr|trapping] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--units NAME=UNIT[,NAME=UNIT...]] [--bootstrap REPLICATES] [--symbolic-depth N] [--max-degree N] [--allow-vars NAME[,NAME...]] [--allow-kinds KIND[,KIND...]] [--forbid-interactions] [--max-active N] [--require-kind KIND] [--regimes] [--pareto] [--refine] [--causal] [--track [--label TEXT] [--runs-dir DIR]]\n  lawsynth prep OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] --output CLEAN.csv [--trim START:END] [--drop-constant] [--detrend] [--smooth-window N] [--resample DT]\n  lawsynth monitor WORLD.lsworld --data NEW.{csv,tsv,parquet} [--time COLUMN] [--threshold K]\n  lawsynth stream OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] [--window N] [--step M] [--threshold K] [--sustain W] [--degree D] [--growing] [--output HISTORY.jsonl]\n  lawsynth profile OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] [--json]\n  lawsynth runs <list|show|compare> [--dir DIR] ...\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth stability WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] [--grid N] [--tolerance V] [--dedup V] [--marginal-band V] [--max-iterations N] [--divergence V] [--json]\n  lawsynth control OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --control NAME[,NAME...] [--degree N] [--threshold V] [--validate] [--json]\n  lawsynth domains [show NAME | run NAME [--json]]\n  lawsynth simplify WORLD.lsworld [--output SIMPLIFIED.lsworld]\n  lawsynth compose WORLD-A.lsworld WORLD-B.lsworld --output COMBINED.lsworld [--prefix-a A_] [--prefix-b B_]\n  lawsynth edit WORLD.lsworld --output EDITED.lsworld [--rename OLD:NEW] [--set-param NAME=VALUE] [--drop-law TARGET] [--scale-law TARGET=FACTOR]\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv] [--confidence --data OBS.{csv,tsv,parquet} [--time COLUMN] [--level L] [--replicates N] [--seed N] [--html BANDS.html]]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|search|compare|remove> [--dir DIR] ...\n  lawsynth presets\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|c|onnx|matlab|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n  lawsynth backtest WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--origins N] [--horizon H] [--html REPORT.html]\n  lawsynth workspace <export|import> ARCHIVE.lsworkspace [--dir DIR] [--force]\n  lawsynth plugin <pack|install|list|verify|remove|registry> ...\n\nRun any command with --help for details.".to_owned()
+    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--preset NAME] [--degree N] [--threshold VALUE] [--solver stlsq|sr3|frols|ssr|trapping] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--units NAME=UNIT[,NAME=UNIT...]] [--bootstrap REPLICATES [--confidence C]] [--json] [--symbolic-depth N] [--max-degree N] [--allow-vars NAME[,NAME...]] [--allow-kinds KIND[,KIND...]] [--forbid-interactions] [--max-active N] [--require-kind KIND] [--regimes] [--pareto] [--refine] [--causal] [--track [--label TEXT] [--runs-dir DIR]]\n  lawsynth prep OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] --output CLEAN.csv [--trim START:END] [--drop-constant] [--detrend] [--smooth-window N] [--resample DT]\n  lawsynth monitor WORLD.lsworld --data NEW.{csv,tsv,parquet} [--time COLUMN] [--threshold K]\n  lawsynth stream OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] [--window N] [--step M] [--threshold K] [--sustain W] [--degree D] [--growing] [--output HISTORY.jsonl]\n  lawsynth profile OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] [--json]\n  lawsynth runs <list|show|compare> [--dir DIR] ...\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth stability WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] [--grid N] [--tolerance V] [--dedup V] [--marginal-band V] [--max-iterations N] [--divergence V] [--json]\n  lawsynth control OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --control NAME[,NAME...] [--degree N] [--threshold V] [--validate] [--json]\n  lawsynth domains [show NAME | run NAME [--json]]\n  lawsynth simplify WORLD.lsworld [--output SIMPLIFIED.lsworld]\n  lawsynth compose WORLD-A.lsworld WORLD-B.lsworld --output COMBINED.lsworld [--prefix-a A_] [--prefix-b B_]\n  lawsynth edit WORLD.lsworld --output EDITED.lsworld [--rename OLD:NEW] [--set-param NAME=VALUE] [--drop-law TARGET] [--scale-law TARGET=FACTOR]\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv] [--confidence --data OBS.{csv,tsv,parquet} [--time COLUMN] [--level L] [--replicates N] [--seed N] [--html BANDS.html]]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|search|compare|remove> [--dir DIR] ...\n  lawsynth presets\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|c|onnx|matlab|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n  lawsynth backtest WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--origins N] [--horizon H] [--html REPORT.html]\n  lawsynth workspace <export|import> ARCHIVE.lsworkspace [--dir DIR] [--force]\n  lawsynth plugin <pack|install|list|verify|remove|registry> ...\n\nRun any command with --help for details.".to_owned()
 }

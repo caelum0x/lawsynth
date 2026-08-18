@@ -1,3 +1,4 @@
+export * from "./analysis.js";
 export * from "./artifacts.js";
 export * from "./auth.js";
 export * from "./client.js";

@@ -32,6 +32,8 @@ members = [
   "crates/lawsynth-bifurcation",
   "crates/lawsynth-feedback",
   "crates/lawsynth-sensitivity",
+  "crates/lawsynth-estimate",
+  "crates/lawsynth-modelreduce",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",

@@ -124,6 +124,7 @@ dependencies = [
  "lawsynth-sparse",
  "lawsynth-stats",
  "lawsynth-symbolic",
+ "lawsynth-uncertainty",
  "lawsynth-units",
  "lawsynth-world",
 ]
@@ -155,6 +156,15 @@ version = "0.1.0"
 dependencies = [
  "lawsynth-core",
  "lawsynth-expr",
+]
+
+[[package]]
+name = "lawsynth-estimate"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-feedback",
+ "lawsynth-koopman",
 ]
 
 [[package]]
@@ -213,6 +223,14 @@ version = "0.1.0"
 dependencies = [
  "lawsynth-core",
  "lawsynth-data",
+]
+
+[[package]]
+name = "lawsynth-modelreduce"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-koopman",
 ]
 
 [[package]]
