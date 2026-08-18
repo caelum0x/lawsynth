@@ -17,6 +17,7 @@ from .errors import ConflictError, NotFoundError, ValidationError
 from .health import check
 from .middleware import invoke
 from .native import discover_world, simulate_world
+from .analysis import analyze_stability, validate_stability_request
 from .pagination import page
 from .settings import Settings
 from .simulations import validate_simulation_spec
@@ -107,6 +108,43 @@ class Application:
                 key,
                 {"method": method, "path": path, "body": simulation},
                 execute_simulation,
+            )
+            return {
+                "status": status,
+                "headers": {"Idempotency-Replayed": str(replayed).lower()},
+                "body": response,
+            }
+        if (
+            method == "POST"
+            and len(parts) == 4
+            and parts[0] == "worlds"
+            and parts[2] == "analysis"
+            and parts[3] == "stability"
+        ):
+            require_scope(principal, "write")
+            body = request.get("body")
+            if not isinstance(body, dict):
+                raise ValidationError("body must be an object")
+            stability_request = validate_stability_request(body)
+            key = headers.get("Idempotency-Key")
+            if not isinstance(key, str):
+                raise ValidationError("Idempotency-Key is required for writes")
+
+            def execute_stability() -> tuple[int, dict[str, object]]:
+                world = self.services.worlds.get(principal.organization_id, parts[1])
+                report = analyze_stability(world, stability_request)
+                self.services.events.append(
+                    principal.organization_id,
+                    "worlds.analyzed",
+                    {"id": parts[1], "analysis": "stability", "fixed_points": len(report["fixed_points"])},
+                )
+                return 200, report
+
+            status, response, replayed = self.services.idempotency.execute(
+                principal.organization_id,
+                key,
+                {"method": method, "path": path, "body": stability_request},
+                execute_stability,
             )
             return {
                 "status": status,

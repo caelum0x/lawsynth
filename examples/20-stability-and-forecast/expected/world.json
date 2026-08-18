@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "Frictionless order book",
+  "kind": "market_microstructure",
+  "states": [
+    "mid",
+    "imbalance"
+  ],
+  "initial": [
+    1.0,
+    0.0
+  ],
+  "time": {
+    "start": 0,
+    "stop": 20,
+    "step": 0.02
+  },
+  "parameters": {
+    "impact": 1.0,
+    "resilience": 0.0,
+    "liquidity": 4.0
+  },
+  "description": "An undamped mid-price / order-flow oscillator (zero resilience): a conservative center.",
+  "status": "reference-model"
+}

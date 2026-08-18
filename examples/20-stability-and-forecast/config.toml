@@ -1,0 +1,14 @@
+name = "Frictionless order book"
+kind = "market_microstructure"
+states = ["mid", "imbalance"]
+initial = [1.0, 0.0]
+start = 0
+stop = 20
+step = 0.02
+threshold = 0.0001
+description = "An undamped mid-price / order-flow oscillator (zero resilience): a conservative center."
+
+[parameters]
+impact = 1.0
+resilience = 0.0
+liquidity = 4.0

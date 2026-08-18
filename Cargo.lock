@@ -60,6 +60,7 @@ version = "0.1.0"
 name = "lawsynth-cli"
 version = "0.1.0"
 dependencies = [
+ "lawsynth-basins",
  "lawsynth-bifurcation",
  "lawsynth-bundle",
  "lawsynth-control",
@@ -74,8 +75,11 @@ dependencies = [
  "lawsynth-invariants",
  "lawsynth-jacobian",
  "lawsynth-koopman",
+ "lawsynth-lyapunov",
  "lawsynth-modelreduce",
  "lawsynth-modelselect",
+ "lawsynth-mpc",
+ "lawsynth-network",
  "lawsynth-plugin-api",
  "lawsynth-plugin-host",
  "lawsynth-preprocess",

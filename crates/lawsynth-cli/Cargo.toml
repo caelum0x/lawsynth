@@ -26,6 +26,7 @@ name = "lawsynth"
 path = "src/main.rs"
 
 [dependencies]
+lawsynth-basins = { path = "../lawsynth-basins" }
 lawsynth-bifurcation = { path = "../lawsynth-bifurcation" }
 lawsynth-bundle = { path = "../lawsynth-bundle" }
 lawsynth-control = { path = "../lawsynth-control" }
@@ -40,8 +41,11 @@ lawsynth-expr = { path = "../lawsynth-expr" }
 lawsynth-invariants = { path = "../lawsynth-invariants" }
 lawsynth-jacobian = { path = "../lawsynth-jacobian" }
 lawsynth-koopman = { path = "../lawsynth-koopman" }
+lawsynth-lyapunov = { path = "../lawsynth-lyapunov" }
 lawsynth-modelreduce = { path = "../lawsynth-modelreduce" }
 lawsynth-modelselect = { path = "../lawsynth-modelselect" }
+lawsynth-mpc = { path = "../lawsynth-mpc" }
+lawsynth-network = { path = "../lawsynth-network" }
 lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
 lawsynth-plugin-host = { path = "../lawsynth-plugin-host" }
 lawsynth-preprocess = { path = "../lawsynth-preprocess" }

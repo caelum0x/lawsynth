@@ -252,6 +252,46 @@ pub fn parse_assignment(value: &str) -> Result<(Identifier, f64), String> {
     Ok((identifier, parse_number(number.trim(), "assignment value")?))
 }
 
+/// Parses a comma-separated `NAME=VALUE[,NAME=VALUE...]` assignment list and
+/// orders the values against `states`, producing one value per state.
+///
+/// Every state must be assigned exactly once and no unknown name may appear, so
+/// the returned vector is a faithful, state-ordered image of the assignments —
+/// the shape [`lawsynth_lyapunov`] and [`lawsynth_mpc`] expect for an initial
+/// condition or setpoint. `flag` names the originating option for error text.
+pub fn parse_state_vector(
+    value: &str,
+    states: &[Identifier],
+    flag: &str,
+) -> Result<Vec<f64>, String> {
+    let mut assignments: Vec<(Identifier, f64)> = Vec::new();
+    for entry in value.split(',') {
+        let (name, number) = parse_assignment(entry)?;
+        if assignments.iter().any(|(existing, _)| existing == &name) {
+            return Err(format!("{flag} assigns '{}' more than once", name.as_str()));
+        }
+        assignments.push((name, number));
+    }
+    let mut ordered = Vec::with_capacity(states.len());
+    for state in states {
+        let value = assignments
+            .iter()
+            .find(|(name, _)| name == state)
+            .map(|(_, value)| *value)
+            .ok_or_else(|| {
+                format!("{flag} is missing an assignment for state '{}'", state.as_str())
+            })?;
+        ordered.push(value);
+    }
+    if let Some((name, _)) = assignments.iter().find(|(name, _)| !states.contains(name)) {
+        return Err(format!(
+            "{flag} names '{}', which is not a state of this world",
+            name.as_str()
+        ));
+    }
+    Ok(ordered)
+}
+
 /// Parses a finite floating-point value, tagging the flag for error messages.
 pub fn parse_number(value: &str, flag: &str) -> Result<f64, String> {
     let number: f64 = value.parse().map_err(|_| format!("invalid number '{value}' for {flag}"))?;
