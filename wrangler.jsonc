@@ -6,5 +6,11 @@
   // see apps/docs-site/wrangler.toml + DEPLOY.md.
   "name": "lawsynth",
   "compatibility_date": "2025-01-01",
-  "assets": { "directory": "./apps/docs-site/public" }
+  "assets": { "directory": "./apps/docs-site/public" },
+  // Serve at the apex (and www) — lawsynth.dev is a zone in this account, so
+  // Cloudflare provisions the custom domain + certificate on deploy.
+  "routes": [
+    { "pattern": "lawsynth.dev", "custom_domain": true },
+    { "pattern": "www.lawsynth.dev", "custom_domain": true }
+  ]
 }
