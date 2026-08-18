@@ -5,6 +5,7 @@
 //! equations, variable/parameter tables, and hand-built inline SVG charts
 //! (a trajectory line chart plus a phase portrait for multi-state worlds).
 
+mod analysis;
 mod html;
 mod render;
 mod svg;
@@ -103,6 +104,14 @@ pub struct ReportOptions {
     pub regimes: Option<Vec<RegimeSpan>>,
     /// Optional per-state uncertainty bands.
     pub uncertainty: Option<Vec<UncertaintyBand>>,
+    /// Whether to render the qualitative "Dynamics analysis" section (fixed
+    /// points & stability, largest Lyapunov exponent, conserved quantities).
+    ///
+    /// Defaults to `true`. The section is skipped with an honest note when the
+    /// world's field is non-autonomous after parameter substitution or has no
+    /// states; set this to `false` to omit it entirely (byte-identical to the
+    /// pre-feature report for that path).
+    pub include_dynamics: bool,
     /// Brand theme applied to the document and its charts.
     ///
     /// Defaults to [`Theme::default`] (brand light), so existing callers that
@@ -122,6 +131,7 @@ impl Default for ReportOptions {
             observations: None,
             regimes: None,
             uncertainty: None,
+            include_dynamics: true,
             theme: Theme::default(),
         }
     }
@@ -240,5 +250,160 @@ mod tests {
             render_report(&world, &options).unwrap(),
             render_report(&world, &options).unwrap()
         );
+    }
+
+    /// Damped linear oscillator: ẋ = y, ẏ = -x - c·y with c = 0.3. A stable
+    /// spiral at the origin; dissipative (Σλ = -c) with no quadratic invariant.
+    fn damped_oscillator_world() -> World {
+        World::new(
+            [
+                Variable::new(id("x"), VariableRole::State),
+                Variable::new(id("y"), VariableRole::State),
+            ],
+            [Parameter::new(id("c"), 0.3)],
+            [
+                ContinuousLaw::new(id("x"), Expr::symbol(id("y"))),
+                ContinuousLaw::new(
+                    id("y"),
+                    Expr::difference(
+                        Expr::product(Expr::constant(-1.0), Expr::symbol(id("x"))),
+                        Expr::product(Expr::symbol(id("c")), Expr::symbol(id("y"))),
+                    ),
+                ),
+            ],
+        )
+        .unwrap()
+    }
+
+    /// Undamped harmonic oscillator: ẋ = y, ẏ = -x. A center at the origin
+    /// (inconclusive) with conserved energy x² + y² and ≈ zero exponents.
+    fn harmonic_oscillator_world() -> World {
+        World::new(
+            [
+                Variable::new(id("x"), VariableRole::State),
+                Variable::new(id("y"), VariableRole::State),
+            ],
+            Vec::<Parameter>::new(),
+            [
+                ContinuousLaw::new(id("x"), Expr::symbol(id("y"))),
+                ContinuousLaw::new(
+                    id("y"),
+                    Expr::product(Expr::constant(-1.0), Expr::symbol(id("x"))),
+                ),
+            ],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn damped_world_reports_stable_spiral_and_dissipative_verdict() {
+        let html = render_report(&damped_oscillator_world(), &ReportOptions::default()).unwrap();
+        assert!(html.contains("Dynamics analysis"));
+        assert!(html.contains("Fixed points"));
+        // A stable spiral at the origin.
+        assert!(html.contains("stable spiral"), "expected a stable spiral verdict");
+        // Dissipative Lyapunov verdict (largest exponent < 0).
+        assert!(html.contains("dissipative"), "expected a dissipative chaos verdict");
+        // No conserved quadratic for a dissipative system.
+        assert!(
+            html.contains("No conserved quantity found in the polynomial basis"),
+            "expected an honest no-invariant note"
+        );
+    }
+
+    #[test]
+    fn harmonic_world_reports_center_energy_and_neutral_verdict() {
+        let html = render_report(&harmonic_oscillator_world(), &ReportOptions::default()).unwrap();
+        assert!(html.contains("Dynamics analysis"));
+        // A center at the origin, flagged inconclusive.
+        assert!(html.contains("center"), "expected a center classification");
+        assert!(html.contains("inconclusive"), "expected the inconclusive note");
+        // Conserved energy H = x^2 + y^2.
+        assert!(html.contains("x^2 + y^2"), "expected the conserved energy x^2 + y^2");
+        // Neutral / conservative chaos verdict (largest exponent ≈ 0).
+        assert!(html.contains("neutral"), "expected a neutral chaos verdict");
+    }
+
+    #[test]
+    fn dynamics_section_is_deterministic() {
+        let world = harmonic_oscillator_world();
+        let options = ReportOptions::default();
+        assert_eq!(
+            render_report(&world, &options).unwrap(),
+            render_report(&world, &options).unwrap()
+        );
+    }
+
+    #[test]
+    fn no_analysis_omits_section_and_pins_pre_feature_output() {
+        let world = damped_oscillator_world();
+        let with = ReportOptions::default();
+        let without = ReportOptions { include_dynamics: false, ..ReportOptions::default() };
+
+        let html_on = render_report(&world, &with).unwrap();
+        let html_off = render_report(&world, &without).unwrap();
+
+        // The gated section is present with the flag on, absent with it off.
+        assert!(html_on.contains("Dynamics analysis"));
+        assert!(!html_off.contains("Dynamics analysis"));
+
+        // Byte-stable: the no-analysis output is the with-analysis output minus
+        // exactly the appended dynamics section (nothing else changes), which is
+        // the pre-feature document for that path.
+        let marker = "  <section>\n    <h2>Dynamics analysis</h2>";
+        let start = html_on.find(marker).expect("dynamics section present");
+        let main_close = html_on[start..].find("</main>").expect("closing main tag") + start;
+        let spliced = format!("{}{}", &html_on[..start], &html_on[main_close..]);
+        assert_eq!(
+            spliced, html_off,
+            "no-analysis output must be byte-identical minus the section"
+        );
+    }
+
+    #[test]
+    fn non_autonomous_world_skips_section_honestly() {
+        // A field that references a non-state symbol after substitution is
+        // non-autonomous: dx/dt = u * x with `u` an exogenous input. The section
+        // skips with an honest note rather than fabricating a verdict. Tested at
+        // the section level with a supplied trajectory because such a world
+        // cannot be forward-simulated (no value for `u`), so `render_report`
+        // never reaches the analysis stage.
+        let world = World::new(
+            [
+                Variable::new(id("x"), VariableRole::State),
+                Variable::new(id("u"), VariableRole::Exogenous),
+            ],
+            Vec::<Parameter>::new(),
+            [ContinuousLaw::new(
+                id("x"),
+                Expr::product(Expr::symbol(id("u")), Expr::symbol(id("x"))),
+            )],
+        )
+        .unwrap();
+        let trajectory = Trajectory {
+            time: vec![0.0, 1.0],
+            values: [(id("x"), vec![1.0, 0.5])].into_iter().collect(),
+        };
+        let mut body = String::new();
+        analysis::dynamics_analysis_section(&mut body, &world, &trajectory, 1.0, &Theme::default());
+        assert!(body.contains("Dynamics analysis"));
+        assert!(body.contains("non-autonomous"), "expected an honest non-autonomous skip note");
+        // The skipped section must not fabricate any verdict.
+        assert!(!body.contains("Fixed points"));
+    }
+
+    #[test]
+    fn stateless_world_skips_section_honestly() {
+        // Zero states: nothing to analyze. The section says so instead of erroring.
+        let empty = World::new(
+            Vec::<Variable>::new(),
+            Vec::<Parameter>::new(),
+            Vec::<ContinuousLaw>::new(),
+        )
+        .unwrap();
+        let trajectory = Trajectory { time: vec![0.0], values: BTreeMap::new() };
+        let mut body = String::new();
+        analysis::dynamics_analysis_section(&mut body, &empty, &trajectory, 1.0, &Theme::default());
+        assert!(body.contains("no state variables"), "expected an honest stateless skip note");
     }
 }

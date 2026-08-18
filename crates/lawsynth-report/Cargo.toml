@@ -12,6 +12,10 @@ lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-expr = { path = "../lawsynth-expr" }
 lawsynth-world = { path = "../lawsynth-world" }
 lawsynth-sim = { path = "../lawsynth-sim" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+lawsynth-stability = { path = "../lawsynth-stability" }
+lawsynth-lyapunov = { path = "../lawsynth-lyapunov" }
+lawsynth-invariants = { path = "../lawsynth-invariants" }
 
 [lib]
 path = "src/lib.rs"

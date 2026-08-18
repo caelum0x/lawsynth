@@ -73,6 +73,15 @@ pub fn page(
         uncertainty_section(&mut body, bands, theme);
     }
     phase_section(&mut body, world, trajectory, theme);
+    if options.include_dynamics {
+        crate::analysis::dynamics_analysis_section(
+            &mut body,
+            world,
+            trajectory,
+            options.default_initial,
+            theme,
+        );
+    }
 
     document(title, &body, theme)
 }

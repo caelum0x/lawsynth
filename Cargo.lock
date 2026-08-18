@@ -426,7 +426,11 @@ version = "0.1.0"
 dependencies = [
  "lawsynth-core",
  "lawsynth-expr",
+ "lawsynth-invariants",
+ "lawsynth-jacobian",
+ "lawsynth-lyapunov",
  "lawsynth-sim",
+ "lawsynth-stability",
  "lawsynth-world",
 ]
 

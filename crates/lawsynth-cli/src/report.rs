@@ -14,11 +14,14 @@ use crate::read_numeric_dataset;
 pub fn help() -> String {
     "lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] \
 [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... \
-[--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n\n\
+[--data OBS.{csv,tsv,parquet}] [--time COLUMN] [--no-analysis]\n\n\
 Renders a single, dependency-free HTML file: rendered law equations, \
 variable/parameter tables, and inline SVG trajectory and phase-portrait charts. \
 With --data, overlays simulated vs observed samples and a residual strip so you \
-can see how well the world fits the measurements."
+can see how well the world fits the measurements.\n\n\
+A \"Dynamics analysis\" section (fixed points & stability, largest Lyapunov \
+exponent, and conserved quantities) is included by default; pass --no-analysis \
+to omit it."
         .to_owned()
 }
 
@@ -41,6 +44,12 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
     let mut index = 1;
     while index < arguments.len() {
         let option = arguments[index].as_str();
+        // Valueless flags are handled before requiring a following value.
+        if option == "--no-analysis" {
+            options.include_dynamics = false;
+            index += 1;
+            continue;
+        }
         let value =
             arguments.get(index + 1).ok_or_else(|| format!("missing value for {option}"))?;
         match option {
