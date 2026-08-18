@@ -32,6 +32,15 @@ pub fn stlsq(
         if next == active {
             break;
         }
+        // A threshold large enough to prune every remaining term drains `active`
+        // to empty. The reported support is then empty, so the coefficients must
+        // be the all-zero model — not the pre-prune dense fit still sitting in
+        // `coefficients`. Zero them before breaking so an aggressive threshold
+        // over-prunes (as intended) instead of silently returning a dense law.
+        if next.is_empty() {
+            coefficients.fill(0.0);
+            break;
+        }
         active = next;
     }
     Ok(SparseSolution {
@@ -143,5 +152,20 @@ mod tests {
             stlsq(&problem, &SparseConfig { threshold: 0.1, ..Default::default() }).unwrap();
         assert!(result.coefficients[0].abs() < 1e-8);
         assert!((result.coefficients[1] - 2.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn threshold_above_every_coefficient_yields_the_empty_model() {
+        // The true slope is 2.0; a threshold of 10.0 exceeds every coefficient,
+        // so STLSQ must drain to the all-zero model rather than returning the
+        // pre-prune dense fit.
+        let problem = RegressionProblem::new(
+            vec![vec![1.0, 0.0], vec![1.0, 1.0], vec![1.0, 2.0], vec![1.0, 3.0]],
+            vec![0.0, 2.0, 4.0, 6.0],
+        )
+        .unwrap();
+        let result =
+            stlsq(&problem, &SparseConfig { threshold: 10.0, ..Default::default() }).unwrap();
+        assert!(result.coefficients.iter().all(|coefficient| *coefficient == 0.0));
     }
 }

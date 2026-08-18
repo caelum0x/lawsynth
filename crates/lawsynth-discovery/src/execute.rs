@@ -228,7 +228,13 @@ pub(crate) fn run_discovery(
         let expression = fit_terms
             .iter()
             .zip(solution.coefficients)
-            .filter(|(_, coefficient)| coefficient.abs() >= config.sparse.threshold)
+            // Sparsity is enforced inside the standardized solver, which thresholds
+            // in RMS-normalized space and zeroes pruned terms exactly. Re-filtering
+            // the *restored* original-unit coefficients by `config.sparse.threshold`
+            // would defeat that standardization, dropping genuine terms whose
+            // coefficient is small only because their state carries a large
+            // magnitude (e.g. SIR's beta/N ~ 1e-3). Keep every surviving term.
+            .filter(|(_, coefficient)| *coefficient != 0.0)
             .map(|(term, coefficient)| {
                 Expr::product(Expr::constant(coefficient), term.expression.clone())
             })
@@ -637,6 +643,37 @@ mod tests {
         )
         .unwrap();
         assert_eq!(resumed.candidates[0].world, result.candidates[0].world);
+    }
+
+    /// A term whose coefficient is small *purely* because the state carries a
+    /// large magnitude (SIR populations ~1e3 give an interaction coefficient
+    /// ~1e-3) must survive sparsity. Discovery standardizes features before
+    /// thresholding, so the standardized solver keeps the term; it must not then
+    /// be re-pruned by a redundant raw-unit threshold. Regression guard for the
+    /// `dx/dt = 5e-4 * x` law recovered from `x ~ O(1e3)` at the default 0.05
+    /// threshold: pre-fix, the restored 5e-4 coefficient fell below 0.05 and the
+    /// law collapsed to zero.
+    #[test]
+    fn keeps_scale_small_coefficients_after_standardized_fit() {
+        let id = Identifier::new("x").unwrap();
+        let time = (0..201).map(|step| step as f64 * 0.01).collect::<Vec<_>>();
+        // dx/dt = 5e-4 * x with x(0) = 1000, so x stays ~O(1e3) and the true
+        // coefficient (5e-4) sits far below the default raw threshold (0.05).
+        let values = time.iter().map(|t| 1000.0 * (5e-4 * t).exp()).collect::<Vec<_>>();
+        let data =
+            Dataset::new(TimeAxis::new(time).unwrap(), [NumericColumn::new(id.clone(), values)])
+                .unwrap();
+        let mut config = DiscoveryConfig::new([id.clone()]);
+        config.polynomial_degree = 1;
+        let result = discover(&data, &config).unwrap();
+        let expression = &result.candidates[0].world.laws()[&id].expression;
+        // The law must stay non-trivial and reproduce dx/dt ~ 0.5 at x = 1000.
+        let dxdt = evaluate(expression, &BTreeMap::from([(id.clone(), 1000.0)])).unwrap();
+        assert!(
+            (dxdt - 0.5).abs() < 0.05,
+            "scale-small term pruned: dx/dt at x=1000 was {dxdt}, expected ~0.5 (law: {})",
+            expression.to_canonical_string()
+        );
     }
 
     /// Builds a clean `dx/dt = 2x` growth dataset over `[0, 1]` with `dt = 0.01`.

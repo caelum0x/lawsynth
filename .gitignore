@@ -21,3 +21,15 @@ build/
 
 # Nested Rust build artifacts (standalone plugin crates)
 **/target/
+
+# Local datasets (large; not part of the repo)
+*.csv
+!examples/**/*.csv
+!benchmarks/**/*.csv
+!tests/**/*.csv
+!docs/**/*.csv
+
+# Scratch discovery artifacts (regenerable worlds/reports)
+examples/_run/
+examples/**/_work/
+*.lsworld
