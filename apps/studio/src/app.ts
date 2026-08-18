@@ -1,3 +1,4 @@
+import { ANALYSIS_REPORTS, analysisReportLabel, analysisReportSummary } from "./analysis.js";
 import { DiscoveryController } from "./discovery.js";
 import { ProviderScope, type StudioProviders } from "./providers.js";
 import { StudioRouter, parseRoute, routePath, type StudioRoute } from "./routes.js";
@@ -143,7 +144,7 @@ export class StudioApp extends EventTarget {
     header.append(node(document, "div", "lss-wordmark", "LawSynth"), node(document, "div", "lss-context", "Scientific model studio"));
     const layout = node(document, "div", "lss-layout");
     const nav = node(document, "nav", "lss-nav"); nav.setAttribute("aria-label", "Studio navigation");
-    const routes: readonly [string, StudioRoute][] = [["Home", { name: "home" }], ["Workspace", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "project", projectId: this.#workspace.snapshot.projectId }], ["Settings", { name: "settings" }]];
+    const routes: readonly [string, StudioRoute][] = [["Home", { name: "home" }], ["Workspace", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "project", projectId: this.#workspace.snapshot.projectId }], ["Analysis", this.#workspace?.snapshot.projectId === undefined ? { name: "home" } : { name: "analysis", projectId: this.#workspace.snapshot.projectId }], ["Settings", { name: "settings" }]];
     for (const [label, route] of routes) {
       const button = node(document, "button", undefined, label); button.type = "button";
       if (route.name === this.router.current.name) button.setAttribute("aria-current", "page");
@@ -207,6 +208,18 @@ export class StudioApp extends EventTarget {
         const grid = node(document, "div", "lss-grid");
         grid.append(this.#card(document, "World revisions", String(workspace.resources.worlds.length)), this.#card(document, "Discovery runs", String(workspace.resources.runs.length)), this.#card(document, "Loaded", new Date(workspace.resources.loadedAt).toLocaleString())); main.append(grid);
       }
+    } else if (route.name === "analysis") {
+      main.append(node(document, "p", undefined, "Inspect the engine's analysis reports. Load a `lawsynth … --json` artifact to view a checked, typed report — stability fixed points and eigenvalues, controlled discovery, domain recovery, bifurcation, sensitivity, estimator design, and balanced-truncation reduction."));
+      const grid = node(document, "div", "lss-grid");
+      const projectId = this.#workspace?.snapshot.projectId ?? "demo";
+      for (const report of ANALYSIS_REPORTS) {
+        const card = node(document, "button", "lss-card lss-card-link"); card.type = "button";
+        if (route.report === report) card.setAttribute("aria-current", "true");
+        card.append(node(document, "strong", undefined, analysisReportLabel(report)), node(document, "div", undefined, analysisReportSummary(report)));
+        card.addEventListener("click", () => this.navigate({ name: "analysis", projectId, report }));
+        grid.append(card);
+      }
+      main.append(grid);
     } else main.append(node(document, "p", undefined, `Active route: ${routePath(route)}`));
   }
 

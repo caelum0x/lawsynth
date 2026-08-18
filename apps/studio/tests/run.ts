@@ -1,3 +1,4 @@
+import { analysisTests } from "./analysis.test.js";
 import { appTests } from "./app.test.js";
 import { collaborationTests } from "./collaboration.test.js";
 import { dataPrepTests } from "./data-prep.test.js";
@@ -15,7 +16,7 @@ import { wiredDiscoveryTests } from "./wired-discovery.test.js";
 import { workspaceTests } from "./workspace.test.js";
 
 const tests: readonly [string, () => Promise<void>][] = [
-  ["app lifecycle", appTests], ["collaboration", collaborationTests], ["data prep", dataPrepTests], ["dataset profiling", datasetTests], ["discovery observation", discoveryTests],
+  ["analysis view models", analysisTests], ["app lifecycle", appTests], ["collaboration", collaborationTests], ["data prep", dataPrepTests], ["dataset profiling", datasetTests], ["discovery observation", discoveryTests],
   ["equation comparison", equationsTests], ["monitor", monitorTests], ["provider lifecycle", providersTests], ["regime planning", regimesTests],
   ["routes", routesTests], ["scenario board", scenarioBoardTests], ["simulation execution", simulationTests], ["structure filtering", structureTests],
   ["wired discovery", wiredDiscoveryTests], ["workspace selection", workspaceTests],

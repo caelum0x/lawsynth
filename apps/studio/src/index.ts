@@ -1,3 +1,4 @@
+export * from "./analysis.js";
 export * from "./app.js";
 export * from "./dataset.js";
 export * from "./discovery.js";

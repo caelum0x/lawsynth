@@ -1,0 +1,21 @@
+[package]
+name = "lawsynth-modelselect"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic cross-validated hyperparameter selection for LawSynth discovery."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-discovery = { path = "../lawsynth-discovery" }
+lawsynth-score = { path = "../lawsynth-score" }
+lawsynth-sim = { path = "../lawsynth-sim" }
+lawsynth-world = { path = "../lawsynth-world" }
+
+[dev-dependencies]
+lawsynth-expr = { path = "../lawsynth-expr" }
+
+[lib]
+path = "src/lib.rs"
