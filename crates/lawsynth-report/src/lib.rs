@@ -39,7 +39,10 @@ pub use svg::{
 };
 
 mod comparison;
-pub use comparison::{render_comparison, render_comparison_with_theme};
+pub use comparison::{
+    ComparisonOptions, render_comparison, render_comparison_with_options,
+    render_comparison_with_theme,
+};
 
 mod backtest;
 pub use backtest::{BacktestHorizonPoint, BacktestOriginRow, BacktestReport, render_backtest};

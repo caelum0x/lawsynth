@@ -23,11 +23,13 @@ use std::fmt::Write as _;
 use lawsynth_core::Identifier;
 use lawsynth_expr::{Expr, symbols};
 use lawsynth_sim::Trajectory;
-use lawsynth_stability::{Classification, Complex, StabilityConfig, analyze_stability};
+use lawsynth_stability::{
+    Classification, Complex, StabilityConfig, StabilityReport, analyze_stability,
+};
 use lawsynth_world::World;
 
-use lawsynth_invariants::{InvariantConfig, detect_invariants};
-use lawsynth_lyapunov::{LyapunovConfig, lyapunov_spectrum};
+use lawsynth_invariants::{InvariantConfig, InvariantReport, detect_invariants};
+use lawsynth_lyapunov::{LyapunovConfig, LyapunovReport, lyapunov_spectrum};
 
 use crate::html::escape;
 use crate::render::format_number;
@@ -240,6 +242,251 @@ fn render_invariant_terms(labels: &[String], coefficients: &[f64]) -> String {
     if out.is_empty() { "0".to_owned() } else { out }
 }
 
+/// The result of running the three deterministic dynamics engines over a single
+/// world's autonomous field — the *one source of truth* shared by the
+/// single-world Dynamics section and the world-comparison Dynamics diff.
+///
+/// [`analyze_world`] produces this; the single-world section renders the full
+/// tables from it, and the comparison renders a compact per-world summary via
+/// [`WorldDynamics::summary`]. Every field is derived deterministically, so a
+/// given `(world, trajectory, default_initial)` yields byte-identical output on
+/// both paths.
+pub(crate) struct WorldDynamics {
+    /// The world's state variables, in declaration order.
+    states: Vec<Identifier>,
+    /// Either an honest skip note or the engines' computed reports.
+    outcome: DynamicsOutcome,
+}
+
+/// Whether a world could be analyzed as `ẋ = f(x)`, and if so its reports.
+enum DynamicsOutcome {
+    /// The field is not an autonomous ODE; carries the honest reason.
+    Skipped(SkipReason),
+    /// The three engines ran; carries their (possibly failed) reports.
+    Analyzed(Box<AnalyzedDynamics>),
+}
+
+/// Why a world cannot be analyzed as an autonomous field `ẋ = f(x)`.
+enum SkipReason {
+    /// The world declares no state variables.
+    NoStates,
+    /// At least one state has no law, so the field is under-determined.
+    UnderDetermined,
+    /// After substituting parameters the field still references these
+    /// undeclared symbols, making it non-autonomous.
+    NonAutonomous(Vec<Identifier>),
+}
+
+/// The three engines' reports for an analyzable world. Each engine's result is
+/// preserved (including its error string) so rendering is byte-stable.
+struct AnalyzedDynamics {
+    /// Per-state Newton search box derived from the trajectory range.
+    search: Vec<(f64, f64)>,
+    /// Fixed-point / linear-stability report, or the engine's error string.
+    stability: Result<StabilityReport, String>,
+    /// Lyapunov initial condition, in `states` order.
+    initial: Vec<f64>,
+    /// Largest-Lyapunov-exponent report, or the engine's error string.
+    lyapunov: Result<LyapunovReport, String>,
+    /// Conserved-quantity report, or the engine's error string.
+    invariants: Result<InvariantReport, String>,
+}
+
+/// The sign verdict for the largest Lyapunov exponent, read against the neutral
+/// band. Shared by both report paths so the two agree exactly.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ChaosVerdict {
+    /// Largest exponent clearly positive: sensitive dependence.
+    Chaotic,
+    /// Largest exponent within the neutral band: conservative / marginal.
+    Neutral,
+    /// Largest exponent clearly negative: trajectories contract.
+    Dissipative,
+}
+
+impl ChaosVerdict {
+    /// Reads a verdict from the largest exponent against [`NEUTRAL_BAND`].
+    fn from_largest(largest: f64) -> Self {
+        if largest > NEUTRAL_BAND {
+            Self::Chaotic
+        } else if largest < -NEUTRAL_BAND {
+            Self::Dissipative
+        } else {
+            Self::Neutral
+        }
+    }
+
+    /// A compact, human-readable label for the comparison view.
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Chaotic => "chaotic",
+            Self::Neutral => "neutral / conservative",
+            Self::Dissipative => "dissipative",
+        }
+    }
+}
+
+/// A compact, render-ready summary of one world's dynamics for the comparison
+/// diff. Every string is already escaped where needed. `None` fields mean "not
+/// analyzable as ẋ = f(x)" — the comparison shows the honest one-liner instead.
+pub(crate) struct DynamicsSummary {
+    /// Fixed-point count phrase (e.g. `1 fixed point`), if analyzed.
+    pub(crate) fixed_points: Option<String>,
+    /// Dominant stability classification label(s), if analyzed.
+    pub(crate) stability_class: Option<String>,
+    /// Stability comparison key (differs iff the classes differ).
+    pub(crate) stability_key: Option<String>,
+    /// Rendered Newton search box, if analyzed.
+    pub(crate) search_box: Option<String>,
+    /// Largest Lyapunov exponent, formatted, if analyzed.
+    pub(crate) lyapunov_value: Option<String>,
+    /// Chaos verdict label, if analyzed and the estimate succeeded.
+    pub(crate) chaos_verdict: Option<String>,
+    /// Chaos comparison key (differs iff the verdicts differ).
+    pub(crate) chaos_key: Option<ChaosVerdict>,
+    /// Conserved-quantity phrase, if analyzed.
+    pub(crate) invariants: Option<String>,
+}
+
+/// Runs the three deterministic dynamics engines over `world`'s autonomous field.
+///
+/// Returns a [`WorldDynamics`] carrying either an honest skip reason (no states,
+/// under-determined, or non-autonomous after parameter substitution) or the
+/// three engines' reports. Reuses the supplied `trajectory` for the stability
+/// search box and the Lyapunov initial condition, so nothing new is simulated
+/// and the output stays byte-stable for a given input.
+pub(crate) fn analyze_world(
+    world: &World,
+    trajectory: &Trajectory,
+    default_initial: f64,
+) -> WorldDynamics {
+    let states: Vec<Identifier> = world.state_ids().cloned().collect();
+    if states.is_empty() {
+        return WorldDynamics { states, outcome: DynamicsOutcome::Skipped(SkipReason::NoStates) };
+    }
+
+    let Some(fields) = autonomous_fields(world, &states) else {
+        return WorldDynamics {
+            states,
+            outcome: DynamicsOutcome::Skipped(SkipReason::UnderDetermined),
+        };
+    };
+
+    let free = free_symbols(&fields, &states);
+    if !free.is_empty() {
+        let symbols: Vec<Identifier> = free.into_iter().collect();
+        return WorldDynamics {
+            states,
+            outcome: DynamicsOutcome::Skipped(SkipReason::NonAutonomous(symbols)),
+        };
+    }
+
+    let search = search_box(trajectory, &states);
+    let stability = analyze_stability(&fields, &states, &StabilityConfig::new(search.clone()))
+        .map_err(|error| error.to_string());
+
+    let initial = initial_condition(trajectory, &states, default_initial);
+    let config = LyapunovConfig::default().with_steps(LYAPUNOV_STEPS);
+    let lyapunov =
+        lyapunov_spectrum(&fields, &states, &initial, &config).map_err(|error| error.to_string());
+
+    let invariants = detect_invariants(&fields, &states, &InvariantConfig::default())
+        .map_err(|error| error.to_string());
+
+    WorldDynamics {
+        states,
+        outcome: DynamicsOutcome::Analyzed(Box::new(AnalyzedDynamics {
+            search,
+            stability,
+            initial,
+            lyapunov,
+            invariants,
+        })),
+    }
+}
+
+impl WorldDynamics {
+    /// Distinct stability classification labels, in first-seen order, joined by
+    /// `; ` — the "dominant classification" phrase for the comparison view.
+    fn stability_classes(report: &StabilityReport) -> Vec<&'static str> {
+        let mut seen: Vec<&'static str> = Vec::new();
+        for point in &report.fixed_points {
+            let label = classification_label(point.classification);
+            if !seen.contains(&label) {
+                seen.push(label);
+            }
+        }
+        seen
+    }
+
+    /// A compact, render-ready summary for the world-comparison Dynamics diff.
+    pub(crate) fn summary(&self) -> DynamicsSummary {
+        let DynamicsOutcome::Analyzed(analyzed) = &self.outcome else {
+            return DynamicsSummary {
+                fixed_points: None,
+                stability_class: None,
+                stability_key: None,
+                search_box: None,
+                lyapunov_value: None,
+                chaos_verdict: None,
+                chaos_key: None,
+                invariants: None,
+            };
+        };
+
+        let (fixed_points, stability_class, stability_key) = match &analyzed.stability {
+            Ok(report) if report.fixed_points.is_empty() => {
+                ("none in box".to_owned(), "none located".to_owned(), "none".to_owned())
+            }
+            Ok(report) => {
+                let classes = Self::stability_classes(report);
+                let joined = classes.join("; ");
+                (format!("{} fixed point(s)", report.fixed_points.len()), joined.clone(), joined)
+            }
+            Err(_) => (
+                "search unavailable".to_owned(),
+                "unavailable".to_owned(),
+                "unavailable".to_owned(),
+            ),
+        };
+
+        let (lyapunov_value, chaos_verdict, chaos_key) = match &analyzed.lyapunov {
+            Ok(report) => {
+                let largest = report.largest();
+                let verdict = ChaosVerdict::from_largest(largest);
+                (format_number(largest), Some(verdict.label().to_owned()), Some(verdict))
+            }
+            Err(_) => ("unavailable".to_owned(), None, None),
+        };
+
+        let invariants = match &analyzed.invariants {
+            Ok(report) if report.invariants.is_empty() => {
+                "none in the degree &le; 2 basis".to_owned()
+            }
+            Ok(report) => report
+                .invariants
+                .iter()
+                .map(|invariant| {
+                    render_invariant_terms(&report.basis_labels, &invariant.coefficients)
+                })
+                .collect::<Vec<_>>()
+                .join("; "),
+            Err(_) => "unavailable".to_owned(),
+        };
+
+        DynamicsSummary {
+            fixed_points: Some(fixed_points),
+            stability_class: Some(stability_class),
+            stability_key: Some(stability_key),
+            search_box: Some(render_box(&self.states, &analyzed.search)),
+            lyapunov_value: Some(lyapunov_value),
+            chaos_verdict,
+            chaos_key,
+            invariants: Some(invariants),
+        }
+    }
+}
+
 /// Renders the "Dynamics analysis" section into `body`.
 ///
 /// Skips (with an honest one-line note) when the world has no states, a state
@@ -255,68 +502,70 @@ pub(crate) fn dynamics_analysis_section(
     default_initial: f64,
     _theme: &Theme,
 ) {
+    let dynamics = analyze_world(world, trajectory, default_initial);
     body.push_str("  <section>\n    <h2>Dynamics analysis</h2>\n");
 
-    let states: Vec<Identifier> = world.state_ids().cloned().collect();
-    if states.is_empty() {
-        body.push_str(
-            "    <p class=\"muted\">Skipped: this world declares no state variables, so it has no autonomous flow to analyze.</p>\n  </section>\n",
-        );
-        return;
-    }
-
-    let Some(fields) = autonomous_fields(world, &states) else {
-        body.push_str(
-            "    <p class=\"muted\">Skipped: at least one state has no law, so the field is under-determined.</p>\n  </section>\n",
-        );
-        return;
+    let analyzed = match &dynamics.outcome {
+        DynamicsOutcome::Skipped(reason) => {
+            render_skip_note(body, reason);
+            return;
+        }
+        DynamicsOutcome::Analyzed(analyzed) => analyzed,
     };
-
-    let free = free_symbols(&fields, &states);
-    if !free.is_empty() {
-        let names: Vec<String> = free.iter().map(|symbol| escape(symbol.as_str())).collect();
-        let _ = writeln!(
-            body,
-            "    <p class=\"muted\">Skipped: after substituting declared parameters the field still references undeclared symbol(s) [{}], so it is non-autonomous and cannot be analyzed as &#7819; = f(x).</p>\n  </section>",
-            names.join(", ")
-        );
-        return;
-    }
 
     body.push_str(
         "    <p class=\"muted\">Qualitative verdicts over the autonomous field &#7819; = f(x) (declared parameters pinned to their values). All three engines are deterministic and offline.</p>\n",
     );
 
-    fixed_points_part(body, &fields, &states, trajectory);
-    lyapunov_part(body, &fields, &states, trajectory, default_initial);
-    invariants_part(body, &fields, &states);
+    fixed_points_part(body, &dynamics.states, &analyzed.search, &analyzed.stability);
+    lyapunov_part(body, &dynamics.states, &analyzed.initial, &analyzed.lyapunov);
+    invariants_part(body, &analyzed.invariants);
 
     body.push_str("  </section>\n");
+}
+
+/// Renders one honest skip note (including the section's closing tag), byte-for
+/// byte identical to the pre-extraction inline branches.
+fn render_skip_note(body: &mut String, reason: &SkipReason) {
+    match reason {
+        SkipReason::NoStates => body.push_str(
+            "    <p class=\"muted\">Skipped: this world declares no state variables, so it has no autonomous flow to analyze.</p>\n  </section>\n",
+        ),
+        SkipReason::UnderDetermined => body.push_str(
+            "    <p class=\"muted\">Skipped: at least one state has no law, so the field is under-determined.</p>\n  </section>\n",
+        ),
+        SkipReason::NonAutonomous(symbols) => {
+            let names: Vec<String> = symbols.iter().map(|symbol| escape(symbol.as_str())).collect();
+            let _ = writeln!(
+                body,
+                "    <p class=\"muted\">Skipped: after substituting declared parameters the field still references undeclared symbol(s) [{}], so it is non-autonomous and cannot be analyzed as &#7819; = f(x).</p>\n  </section>",
+                names.join(", ")
+            );
+        }
+    }
 }
 
 /// Fixed points & stability sub-part.
 fn fixed_points_part(
     body: &mut String,
-    fields: &[(Identifier, Expr)],
     states: &[Identifier],
-    trajectory: &Trajectory,
+    search: &[(f64, f64)],
+    stability: &Result<StabilityReport, String>,
 ) {
     body.push_str("    <h3>Fixed points &amp; stability</h3>\n");
-    let search = search_box(trajectory, states);
     let _ = writeln!(
         body,
         "    <p class=\"muted\">Newton search over a box derived from the trajectory range: {}.</p>",
-        render_box(states, &search)
+        render_box(states, search)
     );
 
-    let config = StabilityConfig::new(search);
-    let report = match analyze_stability(fields, states, &config) {
+    let report = match stability {
         Ok(report) => report,
         Err(error) => {
             let _ = writeln!(
                 body,
                 "    <p class=\"muted\">Fixed-point search unavailable: {}.</p>",
-                escape(&error.to_string())
+                escape(error)
             );
             return;
         }
@@ -356,21 +605,18 @@ fn fixed_points_part(
 /// Chaos (largest Lyapunov exponent) sub-part.
 fn lyapunov_part(
     body: &mut String,
-    fields: &[(Identifier, Expr)],
     states: &[Identifier],
-    trajectory: &Trajectory,
-    default_initial: f64,
+    initial: &[f64],
+    lyapunov: &Result<LyapunovReport, String>,
 ) {
     body.push_str("    <h3>Chaos &mdash; largest Lyapunov exponent</h3>\n");
-    let initial = initial_condition(trajectory, states, default_initial);
-    let config = LyapunovConfig::default().with_steps(LYAPUNOV_STEPS);
-    let report = match lyapunov_spectrum(fields, states, &initial, &config) {
+    let report = match lyapunov {
         Ok(report) => report,
         Err(error) => {
             let _ = writeln!(
                 body,
                 "    <p class=\"muted\">Lyapunov estimate unavailable: {}.</p>",
-                escape(&error.to_string())
+                escape(error)
             );
             return;
         }
@@ -388,7 +634,7 @@ fn lyapunov_part(
     let _ = writeln!(
         body,
         "    <p class=\"muted\">From initial condition {}, integrated {} steps.</p>",
-        escape(&render_coordinates(states, &initial)),
+        escape(&render_coordinates(states, initial)),
         LYAPUNOV_STEPS
     );
     body.push_str("    <table>\n      <thead><tr><th>Quantity</th><th>Value</th></tr></thead>\n      <tbody>\n");
@@ -416,16 +662,15 @@ fn lyapunov_part(
 }
 
 /// Conserved quantities sub-part.
-fn invariants_part(body: &mut String, fields: &[(Identifier, Expr)], states: &[Identifier]) {
+fn invariants_part(body: &mut String, invariants: &Result<InvariantReport, String>) {
     body.push_str("    <h3>Conserved quantities</h3>\n");
-    let config = InvariantConfig::default();
-    let report = match detect_invariants(fields, states, &config) {
+    let report = match invariants {
         Ok(report) => report,
         Err(error) => {
             let _ = writeln!(
                 body,
                 "    <p class=\"muted\">Invariant search unavailable: {}.</p>",
-                escape(&error.to_string())
+                escape(error)
             );
             return;
         }
