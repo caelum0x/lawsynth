@@ -9,6 +9,8 @@ use lawsynth_stats::BootstrapConfig;
 use lawsynth_symbolic::SymbolicConfig;
 use lawsynth_units::Dimension;
 
+use crate::TemplatePrior;
+
 /// Sparse solver used for feature-library coefficient fitting.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SparseMethod {
@@ -145,6 +147,12 @@ pub struct DiscoveryConfig {
     /// (`specs/dimensional-search/`). Default `None` leaves the fast path and its
     /// results byte-identical; enable via [`DiscoveryConfig::enable_units`].
     pub units: Option<DimensionalUnits>,
+    /// Opt-in grammar-constrained candidate library (`specs/template-priors/`).
+    /// A [`TemplatePrior`] is a deterministic hard filter over candidate terms,
+    /// applied to the materialised feature library before the sparse solve.
+    /// Default `None` admits every candidate term, leaving discovery
+    /// byte-identical; enable via [`DiscoveryConfig::with_template_prior`].
+    pub template_prior: Option<TemplatePrior>,
     /// Hard bounds enforced before data profiling and feature expansion.
     pub resource_limits: ResourceLimits,
 }
@@ -167,6 +175,7 @@ impl DiscoveryConfig {
             refine: None,
             causal: None,
             units: None,
+            template_prior: None,
             resource_limits: ResourceLimits::default(),
         }
     }
@@ -193,5 +202,12 @@ impl DiscoveryConfig {
     /// derivative's dimension are rejected before scoring.
     pub fn enable_units(&mut self, units: DimensionalUnits) {
         self.units = Some(units);
+    }
+
+    /// Constrains discovery with a grammar template prior
+    /// (`specs/template-priors/`). The prior is a deterministic hard filter over
+    /// candidate terms, applied to the feature library before the sparse solve.
+    pub fn with_template_prior(&mut self, prior: TemplatePrior) {
+        self.template_prior = Some(prior);
     }
 }

@@ -131,6 +131,20 @@ pub(crate) fn run_discovery(
         crate::distributed::evaluate_library(&library, &working_dataset, feature_partitions)
             .map_err(|error| DiscoveryError::Features(error.to_string()))?;
     ensure_active(cancellation)?;
+    // Apply the grammar template prior once to the materialised candidate library.
+    // `None` (no prior) admits every column, so the fit below is byte-identical to
+    // the pre-template path. The admitted indices are intersected with each state's
+    // dimensional admissibility inside the loop.
+    let template_selection = match config.template_prior.as_ref() {
+        Some(prior) => Some(
+            prior
+                .admissible(&matrix.terms)
+                .map_err(|error| DiscoveryError::Template(error.to_string()))?,
+        ),
+        None => None,
+    };
+    let template_columns: Option<&[usize]> =
+        template_selection.as_ref().map(|selection| selection.admitted.as_slice());
     let rows = matrix.rows[1..matrix.rows.len() - 1].to_vec();
     let mut laws = Vec::new();
     let mut total_rss = 0.0;
@@ -155,8 +169,12 @@ pub(crate) fn run_discovery(
         // target derivative dimension. `None` (units disabled, or this state has
         // no declared unit) keeps every column, so the fit is byte-identical to
         // the pre-units path.
-        let admissible =
+        let dimensional =
             admissible_columns(&matrix.terms, config.units.as_ref(), state, &mut pruning);
+        // Combine the (global) template admissibility with this state's (per-state)
+        // dimensional admissibility. `None` on both keeps every column, unchanged.
+        let admissible =
+            combine_columns(template_columns, dimensional.as_deref(), matrix.terms.len());
         let (problem_rows, fit_terms) = match &admissible {
             Some(indices) => (
                 rows.iter()
@@ -166,6 +184,19 @@ pub(crate) fn run_discovery(
             ),
             None => (rows.clone(), matrix.terms.iter().collect::<Vec<_>>()),
         };
+        // The prior (or dimensional prune) admitted no candidate column for this
+        // state: emit an honest zero law rather than fabricating structure. The
+        // residual is the target's own sum of squares (the zero model's error).
+        if fit_terms.is_empty() {
+            let residual_sum_squares = target.iter().map(|value| value * value).sum::<f64>();
+            total_rss += residual_sum_squares;
+            let expression = Expr::constant(0.0);
+            complexity += expression_complexity(&expression);
+            let checkpoint_expression = print(&expression);
+            laws.push(ContinuousLaw::new(state.clone(), expression));
+            checkpoint.record_law(state.clone(), checkpoint_expression, residual_sum_squares);
+            continue;
+        }
         // The trapping solver damps the state's own linear self-feedback term; its
         // column is the fit term named exactly after the state. Other solvers
         // ignore this index, so the default (STLSQ) path is unaffected.
@@ -267,7 +298,33 @@ pub(crate) fn run_discovery(
         dependency_hypothesis,
         dependency_assumptions,
         dimensional_pruning: config.units.as_ref().map(|_| pruning),
+        template_filter: template_selection.map(|selection| selection.report),
     })
+}
+
+/// Intersects the global template-admissible columns with a state's dimensional
+/// columns, preserving ascending order. Both inputs (when present) are already
+/// ascending index slices over the same `len` columns.
+///
+/// Returns `None` — "keep every column, unchanged" — only when *both* filters are
+/// absent, so the default (no prior, no units) path stays byte-identical.
+fn combine_columns(
+    template: Option<&[usize]>,
+    dimensional: Option<&[usize]>,
+    len: usize,
+) -> Option<Vec<usize>> {
+    match (template, dimensional) {
+        (None, None) => None,
+        (Some(indices), None) | (None, Some(indices)) => Some(indices.to_vec()),
+        (Some(left), Some(right)) => {
+            // Intersect two ascending index lists via a membership mask.
+            let mut keep = vec![false; len];
+            for &index in right {
+                keep[index] = true;
+            }
+            Some(left.iter().copied().filter(|&index| keep[index]).collect())
+        }
+    }
 }
 
 /// Selects the feature columns that are dimensionally admissible for one state's
@@ -728,6 +785,7 @@ mod tests {
                 refine: None,
                 causal: None,
                 units: None,
+                template_prior: None,
                 resource_limits: Default::default(),
             },
         )
@@ -785,6 +843,7 @@ mod tests {
                 refine: None,
                 causal: None,
                 units: None,
+                template_prior: None,
                 resource_limits: Default::default(),
             },
         )

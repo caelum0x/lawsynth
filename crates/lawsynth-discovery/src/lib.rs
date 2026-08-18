@@ -15,6 +15,7 @@ mod pareto;
 mod plan;
 mod refine;
 mod stage;
+mod template;
 
 pub use assumptions::{DependencyAssumptions, EdgeConstraint};
 pub use branch::DiscoveryBranch;
@@ -33,6 +34,10 @@ pub use graph::{DependencyEdge, DependencyGraph, infer_lagged_dependencies};
 pub use pareto::{CandidateScore, frontier_of, pareto_frontier};
 pub use plan::DiscoveryPlan;
 pub use stage::DiscoveryStage;
+pub use template::{
+    DropReason, DroppedTerm, TemplateError, TemplateFilterReport, TemplatePrior, TemplateSelection,
+    TermKind,
+};
 
 // Re-exported from `lawsynth-causal` so callers can inspect the §8.6 dependency
 // hypothesis (and the assumptions it rests on) without a direct dependency.

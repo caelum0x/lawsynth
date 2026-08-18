@@ -151,6 +151,10 @@ def __getattr__(name):
         from . import export as _export
 
         return getattr(_export, name)
+    if name in {"run_record", "log_to_mlflow", "log_to_wandb", "RunRecord", "RunArtifact", "TrackingError"}:
+        from . import tracking as _tracking
+
+        return getattr(_tracking, name)
     raise AttributeError(name)
 
 
@@ -172,5 +176,6 @@ __all__ = [
     "model_card", "ModelCard", "Lineage", "LineageLink", "AuditLog", "AuditEntry",
     "to_sympy", "to_torch", "to_jax", "numeric_derivatives",
     "ExportError", "MissingDependencyError", "JaxDynamics",
+    "run_record", "log_to_mlflow", "log_to_wandb", "RunRecord", "RunArtifact", "TrackingError",
     "__version__",
 ]

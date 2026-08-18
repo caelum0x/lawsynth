@@ -124,6 +124,12 @@ pub struct DiscoveryResult {
     /// Tally of in-loop dimensional pruning, present only when units are supplied
     /// in the [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on the default path.
     pub dimensional_pruning: Option<DimensionalPruningReport>,
+    /// Auditable drop report for the grammar template prior
+    /// (`specs/template-priors/`), present only when a
+    /// [`TemplatePrior`](crate::TemplatePrior) is supplied in the
+    /// [`DiscoveryConfig`](crate::DiscoveryConfig); `None` on the default path.
+    /// Records every candidate term the prior dropped and why.
+    pub template_filter: Option<crate::TemplateFilterReport>,
 }
 
 impl DiscoveryResult {

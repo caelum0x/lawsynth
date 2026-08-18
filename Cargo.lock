@@ -60,6 +60,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-control"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-differentiate",
+ "lawsynth-features",
+ "lawsynth-sparse",
+]
+
+[[package]]
 name = "lawsynth-core"
 version = "0.1.0"
 
@@ -148,6 +159,15 @@ dependencies = [
  "lawsynth-data",
  "lawsynth-differentiate",
  "lawsynth-sparse",
+]
+
+[[package]]
+name = "lawsynth-jacobian"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-differentiate",
+ "lawsynth-expr",
 ]
 
 [[package]]

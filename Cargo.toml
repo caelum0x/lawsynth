@@ -25,6 +25,8 @@ members = [
   "crates/lawsynth-weakform",
   "crates/lawsynth-reduce",
   "crates/lawsynth-implicit",
+  "crates/lawsynth-jacobian",
+  "crates/lawsynth-control",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",

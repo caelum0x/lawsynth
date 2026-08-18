@@ -19,6 +19,7 @@ pub enum DiscoveryError {
     Regime(String),
     Refine(String),
     Resource(String),
+    Template(String),
 }
 
 impl fmt::Display for DiscoveryError {
@@ -41,6 +42,7 @@ impl fmt::Display for DiscoveryError {
             Self::Regime(error) => write!(formatter, "regime segmentation error: {error}"),
             Self::Refine(error) => write!(formatter, "parameter refinement error: {error}"),
             Self::Resource(error) => write!(formatter, "resource limit: {error}"),
+            Self::Template(error) => write!(formatter, "template prior error: {error}"),
         }
     }
 }

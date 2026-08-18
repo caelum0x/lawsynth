@@ -1,0 +1,19 @@
+[package]
+name = "lawsynth-jacobian"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic analytic Jacobian codegen from LawSynth expression trees."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+
+[dev-dependencies]
+# Used only in tests to cross-check the symbolic Jacobian against numerical
+# finite differences of the field.
+lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+
+[lib]
+path = "src/lib.rs"
