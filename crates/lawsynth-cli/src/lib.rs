@@ -21,12 +21,14 @@ mod forecast;
 mod inspect;
 mod intervene;
 mod invariants;
+mod koopman;
 mod library;
 mod lyapunov;
 mod monitor;
 mod mpc;
 mod network;
 mod output;
+mod pde;
 mod pipeline;
 mod plugin;
 mod prep;
@@ -36,6 +38,7 @@ mod reduce;
 mod report;
 mod runs;
 mod scenarios;
+mod sde;
 mod select;
 mod sensitivity;
 mod serve;
@@ -45,6 +48,7 @@ mod stability;
 mod stream;
 mod templates;
 mod validate;
+mod weakform;
 mod workspace;
 mod worldops;
 
@@ -92,6 +96,9 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
         "lyapunov" => lyapunov::run(&arguments[1..]),
         "basins" => basins::run(&arguments[1..]),
         "network" => network::run(&arguments[1..]),
+        "koopman" => koopman::run(&arguments[1..]),
+        "sde" => sde::run(&arguments[1..]),
+        "pde" => pde::run(&arguments[1..]),
         "mpc" => mpc::run(&arguments[1..]),
         "select" => select::run(&arguments[1..]),
         "sensitivity" => sensitivity::run(&arguments[1..]),
@@ -125,7 +132,50 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
     }
 }
 
+/// Dispatches `discover` on the `--method` flag.
+///
+/// The default (`sindy`, or no `--method` at all) runs the strong-form path
+/// unchanged and byte-identically. `weak-form` routes to the noise-robust
+/// weak/integral-form engine. Koopman/DMD is a linear-operator method whose
+/// output cannot be a `.lsworld` bundle, so it lives in its own `lawsynth
+/// koopman` command rather than a `discover` method.
 fn discover_command(arguments: &[String]) -> Result<String, String> {
+    let (method, filtered) = extract_method(arguments)?;
+    match method.as_str() {
+        "sindy" => discover_sindy(&filtered),
+        "weak-form" | "weak" => weakform::run(&filtered),
+        "koopman" | "dmd" => Err("koopman/DMD discovery yields a linear operator, not a \
+world bundle; run `lawsynth koopman DATASET --state NAME[,NAME...] [--time COLUMN]` instead"
+            .to_owned()),
+        other => Err(format!(
+            "unknown --method '{other}'; expected 'sindy' or 'weak-form' \
+(Koopman/DMD has its own `lawsynth koopman` command)"
+        )),
+    }
+}
+
+/// Extracts an optional `--method VALUE` flag, returning the method (default
+/// `sindy`) and the remaining arguments with the flag removed. Removing nothing
+/// when `--method` is absent keeps the default `discover` path byte-identical.
+fn extract_method(arguments: &[String]) -> Result<(String, Vec<String>), String> {
+    let mut method = "sindy".to_owned();
+    let mut filtered = Vec::with_capacity(arguments.len());
+    let mut index = 0;
+    while index < arguments.len() {
+        if arguments[index] == "--method" {
+            let value =
+                arguments.get(index + 1).ok_or_else(|| "missing value for --method".to_owned())?;
+            method = value.clone();
+            index += 2;
+        } else {
+            filtered.push(arguments[index].clone());
+            index += 1;
+        }
+    }
+    Ok((method, filtered))
+}
+
+fn discover_sindy(arguments: &[String]) -> Result<String, String> {
     // A `--preset <name>` seeds the discovery defaults for this run; explicit
     // flags below override those seeds because they are parsed afterwards.
     // Capture the preset name before `extract` consumes the flag, so run
@@ -744,5 +794,5 @@ fn solver_label(method: SparseMethod) -> &'static str {
 }
 
 fn usage() -> String {
-    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--preset NAME] [--degree N] [--threshold VALUE] [--solver stlsq|sr3|frols|ssr|trapping] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--units NAME=UNIT[,NAME=UNIT...]] [--bootstrap REPLICATES [--confidence C]] [--json] [--symbolic-depth N] [--max-degree N] [--allow-vars NAME[,NAME...]] [--allow-kinds KIND[,KIND...]] [--forbid-interactions] [--max-active N] [--require-kind KIND] [--regimes] [--pareto] [--refine] [--causal] [--track [--label TEXT] [--runs-dir DIR]]\n  lawsynth prep OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] --output CLEAN.csv [--trim START:END] [--drop-constant] [--detrend] [--smooth-window N] [--resample DT]\n  lawsynth monitor WORLD.lsworld --data NEW.{csv,tsv,parquet} [--time COLUMN] [--threshold K]\n  lawsynth stream OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] [--window N] [--step M] [--threshold K] [--sustain W] [--degree D] [--growing] [--output HISTORY.jsonl]\n  lawsynth profile OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] [--json]\n  lawsynth runs <list|show|compare> [--dir DIR] ...\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth stability WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] [--grid N] [--tolerance V] [--dedup V] [--marginal-band V] [--max-iterations N] [--divergence V] [--json]\n  lawsynth bifurcation WORLD.lsworld --parameter NAME --range MIN:MAX --box LOW:HIGH[,LOW:HIGH...] [--steps N] [--grid N] [--json]\n  lawsynth invariants WORLD.lsworld [--degree D] [--trig] [--box LO:HI] [--resolution N] [--tolerance T] [--json]\n  lawsynth lyapunov WORLD.lsworld --initial NAME=VALUE[,NAME=VALUE...] [--dt DT] [--steps N] [--reorth K] [--transient F] [--json]\n  lawsynth basins WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] [--resolution N] [--dt DT] [--max-time T] [--tolerance V] [--json]\n  lawsynth network OBSERVATIONS.{csv,tsv,parquet} --state NAME[,NAME...] [--degree D] [--threshold T] [--edge-threshold E] [--time COLUMN] [--json]\n  lawsynth mpc WORLD.lsworld --control NAME[,NAME...] --setpoint NAME=VALUE[,NAME=VALUE...] --initial NAME=VALUE[,NAME=VALUE...] [--dt DT] [--steps N] [--q W] [--r W] [--u-min V] [--u-max V] [--json]\n  lawsynth select OBSERVATIONS.{csv,tsv,parquet} --state NAME[,NAME...] --degrees D[,D...] [--thresholds T[,T...]] [--folds K] [--scheme forward|rolling] [--metric r2|rmse] [--time COLUMN] [--solver stlsq|sr3|frols|ssr|trapping] [--trig] [--rational] [--json]\n  lawsynth sensitivity WORLD.lsworld --parameters NAME[,NAME...] [--initial NAME=VALUE]... [--start T] [--dt DT] [--steps N] [--json]\n  lawsynth estimate WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] --measure NAME[,NAME...] [--poles P[,P...] | --kalman [--process-var V] [--measurement-var V]] [--grid N] [--json]\n  lawsynth reduce WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] (--order K | --tolerance T) [--measure NAME[,NAME...]] [--grid N] [--json]\n  lawsynth control OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --control NAME[,NAME...] [--degree N] [--threshold V] [--validate] [--json]\n  lawsynth domains [show NAME | run NAME [--json]]\n  lawsynth simplify WORLD.lsworld [--output SIMPLIFIED.lsworld]\n  lawsynth compose WORLD-A.lsworld WORLD-B.lsworld --output COMBINED.lsworld [--prefix-a A_] [--prefix-b B_]\n  lawsynth edit WORLD.lsworld --output EDITED.lsworld [--rename OLD:NEW] [--set-param NAME=VALUE] [--drop-law TARGET] [--scale-law TARGET=FACTOR]\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv] [--confidence --data OBS.{csv,tsv,parquet} [--time COLUMN] [--level L] [--replicates N] [--seed N] [--html BANDS.html]]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|search|compare|remove> [--dir DIR] ...\n  lawsynth presets\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|c|onnx|matlab|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n  lawsynth backtest WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--origins N] [--horizon H] [--html REPORT.html]\n  lawsynth workspace <export|import> ARCHIVE.lsworkspace [--dir DIR] [--force]\n  lawsynth plugin <pack|install|list|verify|remove|registry> ...\n\nRun any command with --help for details.".to_owned()
+    "usage:\n  lawsynth inspect WORLD.lsworld\n  lawsynth discover OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --output WORLD.lsworld [--method sindy|weak-form] [--preset NAME] [--degree N] [--threshold VALUE] [--solver stlsq|sr3|frols|ssr|trapping] [--trigonometric] [--rational] [--savgol-window ODD_N | --spline | --spectral | --tvreg-lambda VALUE [--tvreg-iterations N]] [--smooth-radius N] [--units NAME=UNIT[,NAME=UNIT...]] [--bootstrap REPLICATES [--confidence C]] [--json] [--symbolic-depth N] [--max-degree N] [--allow-vars NAME[,NAME...]] [--allow-kinds KIND[,KIND...]] [--forbid-interactions] [--max-active N] [--require-kind KIND] [--regimes] [--pareto] [--refine] [--causal] [--track [--label TEXT] [--runs-dir DIR]]\n  (--method weak-form runs noise-robust weak/integral-form discovery: renders coefficient laws, no --output world)\n  lawsynth prep OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] --output CLEAN.csv [--trim START:END] [--drop-constant] [--detrend] [--smooth-window N] [--resample DT]\n  lawsynth monitor WORLD.lsworld --data NEW.{csv,tsv,parquet} [--time COLUMN] [--threshold K]\n  lawsynth stream OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] [--window N] [--step M] [--threshold K] [--sustain W] [--degree D] [--growing] [--output HISTORY.jsonl]\n  lawsynth profile OBSERVATIONS.{csv,tsv,parquet} [--time COLUMN] [--json]\n  lawsynth runs <list|show|compare> [--dir DIR] ...\n  lawsynth simulate WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --start T --end T --step DT [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth simulate-discrete WORLD.lsworld --initial NAME=VALUE [--initial NAME=VALUE] --steps N [--start T] [--parameter NAME=VALUE] [--input NAME=VALUE] [--parameter-at TIME:NAME=VALUE] [--input-at TIME:NAME=VALUE]\n  lawsynth report WORLD.lsworld [--output REPORT.html] [--title TEXT] [--start T] [--end T] [--step DT] [--initial NAME=VALUE]... [--data OBS.{csv,tsv,parquet}] [--time COLUMN]\n  lawsynth pipeline PIPELINE.toml | lawsynth pipeline --example\n  lawsynth explain WORLD.lsworld\n  lawsynth stability WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] [--grid N] [--tolerance V] [--dedup V] [--marginal-band V] [--max-iterations N] [--divergence V] [--json]\n  lawsynth bifurcation WORLD.lsworld --parameter NAME --range MIN:MAX --box LOW:HIGH[,LOW:HIGH...] [--steps N] [--grid N] [--json]\n  lawsynth invariants WORLD.lsworld [--degree D] [--trig] [--box LO:HI] [--resolution N] [--tolerance T] [--json]\n  lawsynth lyapunov WORLD.lsworld --initial NAME=VALUE[,NAME=VALUE...] [--dt DT] [--steps N] [--reorth K] [--transient F] [--json]\n  lawsynth basins WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] [--resolution N] [--dt DT] [--max-time T] [--tolerance V] [--json]\n  lawsynth network OBSERVATIONS.{csv,tsv,parquet} --state NAME[,NAME...] [--degree D] [--threshold T] [--edge-threshold E] [--time COLUMN] [--json]\n  lawsynth koopman OBSERVATIONS.{csv,tsv,parquet} --state NAME[,NAME...] [--time COLUMN] [--rank R] [--json]\n  lawsynth sde OBSERVATIONS.{csv,tsv,parquet} --state NAME[,NAME...] [--time COLUMN] [--bins N] [--min-bin K] [--degree D] [--threshold T] [--json]\n  lawsynth pde FIELD.csv --dx DX --dt DT [--degree D] [--order M] [--threshold T] [--json]\n  lawsynth mpc WORLD.lsworld --control NAME[,NAME...] --setpoint NAME=VALUE[,NAME=VALUE...] --initial NAME=VALUE[,NAME=VALUE...] [--dt DT] [--steps N] [--q W] [--r W] [--u-min V] [--u-max V] [--json]\n  lawsynth select OBSERVATIONS.{csv,tsv,parquet} --state NAME[,NAME...] --degrees D[,D...] [--thresholds T[,T...]] [--folds K] [--scheme forward|rolling] [--metric r2|rmse] [--time COLUMN] [--solver stlsq|sr3|frols|ssr|trapping] [--trig] [--rational] [--json]\n  lawsynth sensitivity WORLD.lsworld --parameters NAME[,NAME...] [--initial NAME=VALUE]... [--start T] [--dt DT] [--steps N] [--json]\n  lawsynth estimate WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] --measure NAME[,NAME...] [--poles P[,P...] | --kalman [--process-var V] [--measurement-var V]] [--grid N] [--json]\n  lawsynth reduce WORLD.lsworld --box LOW:HIGH[,LOW:HIGH...] (--order K | --tolerance T) [--measure NAME[,NAME...]] [--grid N] [--json]\n  lawsynth control OBSERVATIONS.{csv,tsv,parquet} --time COLUMN --state NAME[,NAME...] --control NAME[,NAME...] [--degree N] [--threshold V] [--validate] [--json]\n  lawsynth domains [show NAME | run NAME [--json]]\n  lawsynth simplify WORLD.lsworld [--output SIMPLIFIED.lsworld]\n  lawsynth compose WORLD-A.lsworld WORLD-B.lsworld --output COMBINED.lsworld [--prefix-a A_] [--prefix-b B_]\n  lawsynth edit WORLD.lsworld --output EDITED.lsworld [--rename OLD:NEW] [--set-param NAME=VALUE] [--drop-law TARGET] [--scale-law TARGET=FACTOR]\n  lawsynth compare WORLD-A.lsworld WORLD-B.lsworld [--json] [--html FILE]\n  lawsynth forecast WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... [--parameter NAME=VALUE]... [--intervene NAME=VALUE@TIME]... [--output FORECAST.csv] [--confidence --data OBS.{csv,tsv,parquet} [--time COLUMN] [--level L] [--replicates N] [--seed N] [--html BANDS.html]]\n  lawsynth scenarios WORLD.lsworld [--horizon T] [--start T] [--step DT] [--initial NAME=VALUE]... --scenario NAME[:k=v@t,...] [--scenario ...] [--html FILE]\n  lawsynth doctor\n  lawsynth library <add|list|show|search|compare|remove> [--dir DIR] ...\n  lawsynth presets\n  lawsynth templates\n  lawsynth new TEMPLATE [--output WORLD.lsworld] [--data OBS.csv] [--samples N]\n  lawsynth export WORLD.lsworld --format <python|c|onnx|matlab|latex|json> [--output FILE]\n  lawsynth validate WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--holdout FRACTION]\n  lawsynth backtest WORLD.lsworld --data OBS.{csv,tsv,parquet} [--time COLUMN] [--origins N] [--horizon H] [--html REPORT.html]\n  lawsynth workspace <export|import> ARCHIVE.lsworkspace [--dir DIR] [--force]\n  lawsynth plugin <pack|install|list|verify|remove|registry> ...\n\nRun any command with --help for details.".to_owned()
 }

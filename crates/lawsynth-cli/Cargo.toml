@@ -46,14 +46,17 @@ lawsynth-modelreduce = { path = "../lawsynth-modelreduce" }
 lawsynth-modelselect = { path = "../lawsynth-modelselect" }
 lawsynth-mpc = { path = "../lawsynth-mpc" }
 lawsynth-network = { path = "../lawsynth-network" }
+lawsynth-pde = { path = "../lawsynth-pde" }
 lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
 lawsynth-plugin-host = { path = "../lawsynth-plugin-host" }
 lawsynth-preprocess = { path = "../lawsynth-preprocess" }
 lawsynth-profile = { path = "../lawsynth-profile" }
 lawsynth-report = { path = "../lawsynth-report" }
+lawsynth-sde = { path = "../lawsynth-sde" }
 lawsynth-sensitivity = { path = "../lawsynth-sensitivity" }
 lawsynth-sim = { path = "../lawsynth-sim" }
 lawsynth-stability = { path = "../lawsynth-stability" }
+lawsynth-weakform = { path = "../lawsynth-weakform" }
 lawsynth-uncertainty = { path = "../lawsynth-uncertainty" }
 lawsynth-stats = { path = "../lawsynth-stats" }
 lawsynth-symbolic = { path = "../lawsynth-symbolic" }

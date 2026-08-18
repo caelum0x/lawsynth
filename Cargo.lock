@@ -80,11 +80,13 @@ dependencies = [
  "lawsynth-modelselect",
  "lawsynth-mpc",
  "lawsynth-network",
+ "lawsynth-pde",
  "lawsynth-plugin-api",
  "lawsynth-plugin-host",
  "lawsynth-preprocess",
  "lawsynth-profile",
  "lawsynth-report",
+ "lawsynth-sde",
  "lawsynth-sensitivity",
  "lawsynth-sim",
  "lawsynth-stability",
@@ -92,6 +94,7 @@ dependencies = [
  "lawsynth-symbolic",
  "lawsynth-uncertainty",
  "lawsynth-units",
+ "lawsynth-weakform",
  "lawsynth-world",
 ]
 
