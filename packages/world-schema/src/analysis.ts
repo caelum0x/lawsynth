@@ -730,3 +730,240 @@ export function parseReductionReport(input: unknown): ReductionReport {
   if (!checked.ok) throw new SchemaValidationError(checked.issues);
   return checked.value;
 }
+
+// --- global dynamics: lyapunov / basins / network / mpc --------------------
+// These mirror the `lawsynth {lyapunov,basins,network,mpc} --json` render
+// functions in `crates/lawsynth-cli/src/*.rs` (keys confirmed against source).
+
+/** The parsed `lawsynth lyapunov --json` report (a time-averaged spectrum estimate). */
+export interface LyapunovReport {
+  readonly world: string;
+  readonly states: readonly string[];
+  /** The spectrum sorted descending. */
+  readonly exponents: readonly number[];
+  readonly largest: number;
+  /** The exponent sum — the mean divergence, the tightest quantity. */
+  readonly sum: number;
+  readonly kaplan_yorke_dimension: number;
+  readonly integration_time: number;
+  /** Exactly `largest > 0` — the signature of chaos. */
+  readonly chaotic: boolean;
+}
+
+/** One stable fixed-point attractor located by a basin mapping. */
+export interface Attractor {
+  readonly coordinates: readonly number[];
+  readonly classification: Classification;
+  /** This attractor's share of the settled initial conditions. */
+  readonly basin_fraction: number;
+}
+
+/**
+ * A per-cell basin label: `a{index}` for attractor `index`, or the honest
+ * outcomes `"escaped"` / `"undetermined"` (only fixed-point attractors are
+ * recognized — a limit cycle reads as `undetermined`).
+ */
+export type BasinLabel = `a${number}` | "escaped" | "undetermined";
+
+/** The parsed `lawsynth basins --json` report. */
+export interface BasinReport {
+  readonly world: string;
+  readonly states: readonly string[];
+  readonly resolution: number;
+  readonly total: number;
+  readonly settled: number;
+  readonly escaped: number;
+  readonly undetermined: number;
+  readonly attractors: readonly Attractor[];
+  /** The flattened per-cell fate over the deterministic grid. */
+  readonly grid_labels: readonly BasinLabel[];
+}
+
+/** One directed coupling edge `driver -> target` with its aggregate strength. */
+export interface NetworkEdge {
+  readonly driver: string;
+  readonly target: string;
+  readonly strength: number;
+}
+
+/**
+ * The parsed `lawsynth network --json` model. The graph is correlational, not
+ * causal. `adjacency[target][driver]` is true when `driver -> target`;
+ * `strength` uses the same `[target][driver]` indexing.
+ */
+export interface NetworkModel {
+  readonly source: string;
+  readonly nodes: readonly string[];
+  readonly adjacency: readonly (readonly boolean[])[];
+  readonly strength: Matrix;
+  readonly edges: readonly NetworkEdge[];
+}
+
+/** The parsed `lawsynth mpc --json` result (successive-linearization LQR-MPC). */
+export interface MpcResult {
+  readonly world: string;
+  readonly states: readonly string[];
+  readonly controls: readonly string[];
+  readonly setpoint: readonly number[];
+  readonly final_state: readonly number[];
+  /** The Euclidean state error at the final step, or `null` if unavailable. */
+  readonly final_error_norm: number | null;
+  readonly state_trajectory: Matrix;
+  readonly control_trajectory: Matrix;
+}
+
+function boolArray(value: unknown, path: string, issues: ValidationIssue[]): boolean[] {
+  if (!Array.isArray(value)) {
+    issue(issues, path, "type", "must be an array");
+    return [];
+  }
+  return value.map((item, index) => bool(item, `${path}/${index}`, issues));
+}
+
+function boolMatrix(value: unknown, path: string, issues: ValidationIssue[]): boolean[][] {
+  if (!Array.isArray(value)) {
+    issue(issues, path, "type", "matrix must be an array of rows");
+    return [];
+  }
+  return value.map((row, index) => boolArray(row, `${path}/${index}`, issues));
+}
+
+/** Validates a `lawsynth lyapunov --json` report without throwing. */
+export function validateLyapunovReport(input: unknown): ValidationResult<LyapunovReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "lyapunov report must be an object");
+    return result(input, issues);
+  }
+  const report: LyapunovReport = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    exponents: numberArray(input.exponents, "/exponents", issues),
+    largest: num(input.largest, "/largest", issues),
+    sum: num(input.sum, "/sum", issues),
+    kaplan_yorke_dimension: num(input.kaplan_yorke_dimension, "/kaplan_yorke_dimension", issues),
+    integration_time: num(input.integration_time, "/integration_time", issues),
+    chaotic: bool(input.chaotic, "/chaotic", issues),
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth lyapunov --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseLyapunovReport(input: unknown): LyapunovReport {
+  const checked = validateLyapunovReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+function readAttractor(value: unknown, path: string, issues: ValidationIssue[]): Attractor {
+  if (!record(value)) {
+    issue(issues, path, "type", "attractor must be an object");
+    return { coordinates: [], classification: "marginal (inconclusive)", basin_fraction: Number.NaN };
+  }
+  return {
+    coordinates: numberArray(value.coordinates, `${path}/coordinates`, issues),
+    classification: readClassification(value.classification, `${path}/classification`, issues),
+    basin_fraction: num(value.basin_fraction, `${path}/basin_fraction`, issues),
+  };
+}
+
+/** Validates a `lawsynth basins --json` report without throwing. */
+export function validateBasinReport(input: unknown): ValidationResult<BasinReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "basin report must be an object");
+    return result(input, issues);
+  }
+  const attractors = Array.isArray(input.attractors)
+    ? input.attractors.map((item, index) => readAttractor(item, `/attractors/${index}`, issues))
+    : (issue(issues, "/attractors", "type", "must be an array"), [] as Attractor[]);
+  const report: BasinReport = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    resolution: count(input.resolution, "/resolution", issues),
+    total: count(input.total, "/total", issues),
+    settled: count(input.settled, "/settled", issues),
+    escaped: count(input.escaped, "/escaped", issues),
+    undetermined: count(input.undetermined, "/undetermined", issues),
+    attractors,
+    grid_labels: stringArray(input.grid_labels, "/grid_labels", issues) as BasinLabel[],
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth basins --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseBasinReport(input: unknown): BasinReport {
+  const checked = validateBasinReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+function readNetworkEdge(value: unknown, path: string, issues: ValidationIssue[]): NetworkEdge {
+  if (!record(value)) {
+    issue(issues, path, "type", "edge must be an object");
+    return { driver: "", target: "", strength: Number.NaN };
+  }
+  return {
+    driver: str(value.driver, `${path}/driver`, issues),
+    target: str(value.target, `${path}/target`, issues),
+    strength: num(value.strength, `${path}/strength`, issues),
+  };
+}
+
+/** Validates a `lawsynth network --json` model without throwing. */
+export function validateNetworkModel(input: unknown): ValidationResult<NetworkModel> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "network model must be an object");
+    return result(input, issues);
+  }
+  const edges = Array.isArray(input.edges)
+    ? input.edges.map((item, index) => readNetworkEdge(item, `/edges/${index}`, issues))
+    : (issue(issues, "/edges", "type", "must be an array"), [] as NetworkEdge[]);
+  const model: NetworkModel = {
+    source: str(input.source, "/source", issues),
+    nodes: stringArray(input.nodes, "/nodes", issues),
+    adjacency: boolMatrix(input.adjacency, "/adjacency", issues),
+    strength: readMatrix(input.strength, "/strength", issues),
+    edges,
+  };
+  return issues.length === 0 ? { ok: true, value: model, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth network --json` model, throwing {@link SchemaValidationError} on any issue. */
+export function parseNetworkModel(input: unknown): NetworkModel {
+  const checked = validateNetworkModel(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+/** Validates a `lawsynth mpc --json` result without throwing. */
+export function validateMpcResult(input: unknown): ValidationResult<MpcResult> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "mpc result must be an object");
+    return result(input, issues);
+  }
+  const errorNorm =
+    input.final_error_norm === null
+      ? null
+      : num(input.final_error_norm, "/final_error_norm", issues);
+  const result_: MpcResult = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    controls: stringArray(input.controls, "/controls", issues),
+    setpoint: numberArray(input.setpoint, "/setpoint", issues),
+    final_state: numberArray(input.final_state, "/final_state", issues),
+    final_error_norm: errorNorm,
+    state_trajectory: readMatrix(input.state_trajectory, "/state_trajectory", issues),
+    control_trajectory: readMatrix(input.control_trajectory, "/control_trajectory", issues),
+  };
+  return issues.length === 0 ? { ok: true, value: result_, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth mpc --json` result, throwing {@link SchemaValidationError} on any issue. */
+export function parseMpcResult(input: unknown): MpcResult {
+  const checked = validateMpcResult(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}

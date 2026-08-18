@@ -8,6 +8,10 @@ import {
   parseSensitivityReport,
   parseEstimateReport,
   parseReductionReport,
+  parseLyapunovReport,
+  parseBasinReport,
+  parseNetworkModel,
+  parseMpcResult,
 } from "../dist/index.js";
 
 // Verbatim `lawsynth ... --json` fixtures (see world-schema analysis tests for
@@ -198,4 +202,42 @@ test("parsers reject malformed engine JSON", () => {
   assert.throws(() => parseSensitivityReport({ world: "w", states: [], parameters: [] }));
   assert.throws(() => parseEstimateReport({ ...ESTIMATE, method: "luenberger" }));
   assert.throws(() => parseReductionReport({ world: "w", states: [], fixed_point: [], measured: null, hankel_singular_values: [], order: 1, error_bound: 0 }));
+});
+
+test("global-dynamics parsers are reachable from the client package", () => {
+  const lyap = parseLyapunovReport({
+    world: "w", states: ["x", "y"], exponents: [4e-4, -4e-4], largest: 4e-4,
+    sum: 0, kaplan_yorke_dimension: 2, integration_time: 90, chaotic: false,
+  });
+  assert.equal(lyap.chaotic, false);
+  assert.equal(lyap.exponents.length, 2);
+
+  const basins = parseBasinReport({
+    world: "w", states: ["x"], resolution: 3, total: 3, settled: 2, escaped: 0, undetermined: 1,
+    attractors: [{ coordinates: [-1], classification: "stable node", basin_fraction: 1 }],
+    grid_labels: ["a0", "undetermined", "a0"],
+  });
+  assert.equal(basins.attractors.length, 1);
+  assert.equal(basins.grid_labels[1], "undetermined");
+
+  const net = parseNetworkModel({
+    source: "s", nodes: ["x1", "x2"], adjacency: [[true, false], [true, true]],
+    strength: [[1, 0], [0.5, 1]], edges: [{ driver: "x1", target: "x2", strength: 0.5 }],
+  });
+  assert.equal(net.adjacency[1][0], true);
+  assert.equal(net.edges[0].strength, 0.5);
+
+  const mpc = parseMpcResult({
+    world: "w", states: ["x"], controls: ["u"], setpoint: [0], final_state: [1e-3],
+    final_error_norm: 1e-3, state_trajectory: [[1], [1e-3]], control_trajectory: [[-1], [0]],
+  });
+  assert.equal(mpc.controls[0], "u");
+  assert.ok(mpc.final_error_norm !== null && mpc.final_error_norm < 1e-2);
+});
+
+test("global-dynamics parsers reject malformed input", () => {
+  assert.throws(() => parseLyapunovReport({ states: ["x"] }));
+  assert.throws(() => parseBasinReport({ world: "w", states: ["x"] }));
+  assert.throws(() => parseNetworkModel({ nodes: ["x"] }));
+  assert.throws(() => parseMpcResult({ states: ["x"] }));
 });

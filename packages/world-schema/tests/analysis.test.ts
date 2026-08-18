@@ -1,8 +1,12 @@
 import {
+  parseBasinReport,
   parseBifurcationReport,
   parseControlledModel,
   parseDomainRun,
   parseEstimateReport,
+  parseLyapunovReport,
+  parseMpcResult,
+  parseNetworkModel,
   parseReductionReport,
   parseSensitivityReport,
   parseStabilityReport,
@@ -403,6 +407,79 @@ export function runAnalysisTests(): void {
     () => parseReductionReport({ world: "w", states: [], fixed_point: [], measured: null, hankel_singular_values: [], order: 1.5, error_bound: 0, reduced: { a: [[1]], b: [[1]], c: [[1]] } }),
     "fractional reduced order is rejected",
   );
+
+  // --- global dynamics: lyapunov / basins / network / mpc ---
+  // Fixtures are shaped exactly like the `lawsynth {lyapunov,basins,network,mpc}
+  // --json` render fns in crates/lawsynth-cli/src/*.rs.
+  const lyap = parseLyapunovReport(
+    JSON.parse(`{
+      "world": "oscillator.lsworld", "states": ["x", "y"],
+      "exponents": [4.0e-4, -4.0e-4], "largest": 4.0e-4, "sum": 0.0,
+      "kaplan_yorke_dimension": 2.0, "integration_time": 90.0, "chaotic": false
+    }`),
+  );
+  equal(lyap.exponents.length, 2);
+  equal(lyap.largest, 4.0e-4);
+  equal(lyap.sum, 0.0);
+  equal(lyap.chaotic, false);
+
+  const basins = parseBasinReport(
+    JSON.parse(`{
+      "world": "bistable.lsworld", "states": ["x"],
+      "resolution": 5, "total": 5, "settled": 4, "escaped": 0, "undetermined": 1,
+      "attractors": [
+        {"coordinates": [-1.0], "classification": "stable node", "basin_fraction": 0.5},
+        {"coordinates": [1.0], "classification": "stable node", "basin_fraction": 0.5}
+      ],
+      "grid_labels": ["a0", "a0", "undetermined", "a1", "a1"]
+    }`),
+  );
+  equal(basins.attractors.length, 2);
+  equal(basins.attractors[0]?.classification, "stable node");
+  equal(basins.grid_labels[2], "undetermined");
+  equal(basins.settled, 4);
+
+  const net = parseNetworkModel(
+    JSON.parse(`{
+      "source": "chain.csv", "nodes": ["x1", "x2", "x3"],
+      "adjacency": [[true, false, false], [true, true, false], [false, true, true]],
+      "strength": [[1.0, 0.0, 0.0], [0.5, 1.0, 0.0], [0.0, 0.5, 1.0]],
+      "edges": [
+        {"driver": "x1", "target": "x2", "strength": 0.5},
+        {"driver": "x2", "target": "x3", "strength": 0.5}
+      ]
+    }`),
+  );
+  equal(net.nodes.length, 3);
+  equal(net.adjacency[1]?.[0], true); // x1 -> x2
+  equal(net.adjacency[2]?.[0], false); // no x1 -> x3
+  equal(net.edges[0]?.driver, "x1");
+
+  const mpc = parseMpcResult(
+    JSON.parse(`{
+      "world": "double-integrator.lsworld", "states": ["x", "v"], "controls": ["u"],
+      "setpoint": [0.0, 0.0], "final_state": [8.0e-4, -3.0e-4], "final_error_norm": 8.5e-4,
+      "state_trajectory": [[1.0, 0.0], [8.0e-4, -3.0e-4]], "control_trajectory": [[-1.2], [-0.01]]
+    }`),
+  );
+  equal(mpc.controls[0], "u");
+  ok(mpc.final_error_norm !== null && mpc.final_error_norm < 1e-2, "mpc regulated");
+  equal(mpc.state_trajectory.length, 2);
+  // final_error_norm may be null when unavailable.
+  const mpcNull = parseMpcResult(
+    JSON.parse(`{
+      "world": "w", "states": ["x"], "controls": ["u"], "setpoint": [0.0],
+      "final_state": [0.1], "final_error_norm": null,
+      "state_trajectory": [[0.1]], "control_trajectory": [[0.0]]
+    }`),
+  );
+  equal(mpcNull.final_error_norm, null);
+
+  // malformed inputs are rejected
+  throws(() => parseLyapunovReport({ states: ["x"] }), "lyapunov missing exponents");
+  throws(() => parseBasinReport({ world: "w", states: ["x"] }), "basins missing attractors");
+  throws(() => parseNetworkModel({ nodes: ["x"] }), "network missing edges");
+  throws(() => parseMpcResult({ states: ["x"] }), "mpc missing controls");
 
   // --- validate* returns issues instead of throwing ---
   const bad = validateStabilityReport({ world: 5 });
