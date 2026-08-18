@@ -22,8 +22,5 @@ fn constrained_extended_library_builds_a_design_matrix_from_dataset_rows() {
     ]);
     let matrix = constrained.evaluate(&data).unwrap();
     assert_eq!(matrix.terms.len(), 3);
-    assert_eq!(
-        matrix.rows,
-        vec![vec![5.0, 2.0, 10.0], vec![7.0, 3.0, 21.0]]
-    );
+    assert_eq!(matrix.rows, vec![vec![5.0, 2.0, 10.0], vec![7.0, 3.0, 21.0]]);
 }

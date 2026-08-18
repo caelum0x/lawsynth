@@ -155,6 +155,15 @@ def __getattr__(name):
         from . import tracking as _tracking
 
         return getattr(_tracking, name)
+    if name in {
+        "stability", "discover_controlled", "domains", "domain_show", "domain_run",
+        "StabilityReport", "FixedPoint", "Eigenvalue",
+        "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
+        "AnalysisError", "CliError", "MissingBinaryError",
+    }:
+        from . import analysis as _analysis
+
+        return getattr(_analysis, name)
     raise AttributeError(name)
 
 
@@ -177,5 +186,9 @@ __all__ = [
     "to_sympy", "to_torch", "to_jax", "numeric_derivatives",
     "ExportError", "MissingDependencyError", "JaxDynamics",
     "run_record", "log_to_mlflow", "log_to_wandb", "RunRecord", "RunArtifact", "TrackingError",
+    "stability", "discover_controlled", "domains", "domain_show", "domain_run",
+    "StabilityReport", "FixedPoint", "Eigenvalue",
+    "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
+    "AnalysisError", "CliError", "MissingBinaryError",
     "__version__",
 ]

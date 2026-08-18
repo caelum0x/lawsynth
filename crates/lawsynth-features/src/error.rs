@@ -20,10 +20,9 @@ impl fmt::Display for FeatureError {
                 write!(formatter, "feature library repeats variable '{variable}'")
             }
             Self::EmptySeries => write!(formatter, "delayed features require a non-empty series"),
-            Self::InvalidDelay { lag, length } => write!(
-                formatter,
-                "delay {lag} is invalid for a series with {length} observations"
-            ),
+            Self::InvalidDelay { lag, length } => {
+                write!(formatter, "delay {lag} is invalid for a series with {length} observations")
+            }
             Self::MissingValue(variable) => {
                 write!(formatter, "dataset has no '{variable}' feature column")
             }

@@ -21,10 +21,7 @@ pub(crate) fn terms(variables: &[Identifier]) -> Result<Vec<FeatureTerm>, Featur
             variables[left_index + 1..].iter().map(move |right| {
                 let expression =
                     Expr::product(Expr::symbol(left.clone()), Expr::symbol(right.clone()));
-                FeatureTerm {
-                    name: print(&expression),
-                    expression,
-                }
+                FeatureTerm { name: print(&expression), expression }
             })
         })
         .collect())
@@ -39,9 +36,6 @@ mod tests {
     #[test]
     fn rejects_repeated_variables_instead_of_emitting_duplicate_features() {
         let x = Identifier::new("x").unwrap();
-        assert_eq!(
-            terms(&[x.clone(), x]),
-            Err(FeatureError::DuplicateVariable("x".into()))
-        );
+        assert_eq!(terms(&[x.clone(), x]), Err(FeatureError::DuplicateVariable("x".into())));
     }
 }

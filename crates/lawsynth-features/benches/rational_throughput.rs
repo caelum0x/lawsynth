@@ -7,10 +7,7 @@ fn main() {
     let x = Identifier::new("x").unwrap();
     let data = Dataset::new(
         TimeAxis::new((0..2_000).map(|i| i as f64).collect()).unwrap(),
-        [NumericColumn::new(
-            x.clone(),
-            (0..2_000).map(|i| 1.0 + i as f64 / 100.0).collect(),
-        )],
+        [NumericColumn::new(x.clone(), (0..2_000).map(|i| 1.0 + i as f64 / 100.0).collect())],
     )
     .unwrap();
     let library = FeatureLibrary::bounded_rational([x]).unwrap();
@@ -19,8 +16,5 @@ fn main() {
     for _ in 0..100 {
         rows += black_box(library.evaluate(&data).unwrap()).rows.len();
     }
-    println!(
-        "evaluated {rows} rational feature rows in {:?}",
-        started.elapsed()
-    );
+    println!("evaluated {rows} rational feature rows in {:?}", started.elapsed());
 }

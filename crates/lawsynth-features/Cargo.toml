@@ -21,6 +21,11 @@ name = "rational_throughput"
 path = "benches/rational_throughput.rs"
 harness = false
 
+[[bench]]
+name = "parallel_eval"
+path = "benches/parallel_eval.rs"
+harness = false
+
 [dependencies]
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }

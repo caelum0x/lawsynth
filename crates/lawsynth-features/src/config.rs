@@ -6,9 +6,6 @@ pub struct FeatureConfig {
 
 impl Default for FeatureConfig {
     fn default() -> Self {
-        Self {
-            polynomial_degree: 2,
-            include_constant: true,
-        }
+        Self { polynomial_degree: 2, include_constant: true }
     }
 }

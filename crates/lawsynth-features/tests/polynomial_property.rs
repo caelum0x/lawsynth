@@ -8,11 +8,5 @@ fn polynomial_term_counts_follow_the_multiset_combinatorics() {
         let library = FeatureLibrary::polynomial(variables.clone(), degree, true).unwrap();
         assert_eq!(library.terms().len(), expected);
     }
-    assert_eq!(
-        FeatureLibrary::polynomial(variables, 3, false)
-            .unwrap()
-            .terms()
-            .len(),
-        9
-    );
+    assert_eq!(FeatureLibrary::polynomial(variables, 3, false).unwrap().terms().len(), 9);
 }

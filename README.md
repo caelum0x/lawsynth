@@ -225,6 +225,7 @@ segmentation, parameter refinement, bootstrap uncertainty, and causal hypotheses
 ## Documentation
 
 - **[Getting started](docs/getting-started/README.md)** — [installation](docs/getting-started/installation.md) · [quickstart](docs/getting-started/quickstart.md) · [your first world](docs/getting-started/first-world.md) · [CLI](docs/getting-started/cli.md) · [Python](docs/getting-started/python.md) · [Studio](docs/getting-started/studio.md)
+- **[Guide](docs/guide/README.md)** — verified end-to-end CLI walkthrough (discover → simplify → stability → control → export) with a determinism demo
 - **[Product overview](PRODUCT.md)** — what a user actually does with LawSynth
 - **[Reference](docs/reference/README.md)** — CLI, Python, and Rust API references
 - **[Methods](docs/methods/differentiation/README.md)** — differentiation, simulation, and causal method notes

@@ -11,16 +11,10 @@ pub(crate) fn bounded_terms(variables: &[Identifier]) -> Vec<FeatureTerm> {
             let numerator = Expr::symbol(variable.clone());
             let denominator = Expr::sum(
                 Expr::constant(1.0),
-                Expr::product(
-                    Expr::symbol(variable.clone()),
-                    Expr::symbol(variable.clone()),
-                ),
+                Expr::product(Expr::symbol(variable.clone()), Expr::symbol(variable.clone())),
             );
             let expression = Expr::quotient(numerator, denominator).simplify();
-            FeatureTerm {
-                name: print(&expression),
-                expression,
-            }
+            FeatureTerm { name: print(&expression), expression }
         })
         .collect()
 }

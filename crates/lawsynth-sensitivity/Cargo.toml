@@ -1,0 +1,15 @@
+[package]
+name = "lawsynth-sensitivity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic forward sensitivity analysis of discovered LawSynth models via the variational equations."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+
+[lib]
+path = "src/lib.rs"

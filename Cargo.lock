@@ -314,6 +314,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-sensitivity"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-expr",
+ "lawsynth-jacobian",
+]
+
+[[package]]
 name = "lawsynth-sim"
 version = "0.1.0"
 dependencies = [

@@ -21,26 +21,15 @@ pub fn delayed_columns(values: &[f64], delays: &[usize]) -> Result<DelayEmbeddin
     if values.is_empty() {
         return Err(FeatureError::EmptySeries);
     }
-    let max_delay = delays
-        .iter()
-        .copied()
-        .max()
-        .ok_or(FeatureError::EmptyVariables)?;
+    let max_delay = delays.iter().copied().max().ok_or(FeatureError::EmptyVariables)?;
     if max_delay >= values.len() {
-        return Err(FeatureError::InvalidDelay {
-            lag: max_delay,
-            length: values.len(),
-        });
+        return Err(FeatureError::InvalidDelay { lag: max_delay, length: values.len() });
     }
 
     let rows = (max_delay..values.len())
         .map(|index| delays.iter().map(|delay| values[index - delay]).collect())
         .collect();
-    Ok(DelayEmbedding {
-        start_index: max_delay,
-        delays: delays.to_vec(),
-        rows,
-    })
+    Ok(DelayEmbedding { start_index: max_delay, delays: delays.to_vec(), rows })
 }
 
 #[cfg(test)]

@@ -35,10 +35,7 @@ fn collect_exponents(
         exponents[index] = remaining;
         if include_constant || exponents.iter().any(|exponent| *exponent != 0) {
             let expression = monomial(variables, exponents);
-            result.push(FeatureTerm {
-                name: print(&expression),
-                expression,
-            });
+            result.push(FeatureTerm { name: print(&expression), expression });
         }
         return;
     }
@@ -59,11 +56,8 @@ fn monomial(variables: &[Identifier], exponents: &[usize]) -> Expr {
     let mut expression = Expr::constant(1.0);
     for (variable, exponent) in variables.iter().zip(exponents) {
         for _ in 0..*exponent {
-            expression = Expr::binary(
-                BinaryOperator::Multiply,
-                expression,
-                Expr::symbol(variable.clone()),
-            );
+            expression =
+                Expr::binary(BinaryOperator::Multiply, expression, Expr::symbol(variable.clone()));
         }
     }
     expression.simplify()

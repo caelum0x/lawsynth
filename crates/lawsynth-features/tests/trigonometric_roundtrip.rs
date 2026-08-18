@@ -13,10 +13,7 @@ fn trigonometric_columns_satisfy_the_pythagorean_identity_per_sample() {
         )],
     )
     .unwrap();
-    let matrix = FeatureLibrary::trigonometric([angle])
-        .unwrap()
-        .evaluate(&data)
-        .unwrap();
+    let matrix = FeatureLibrary::trigonometric([angle]).unwrap().evaluate(&data).unwrap();
     for row in matrix.rows {
         assert!((row[0].powi(2) + row[1].powi(2) - 1.0).abs() < 1e-12);
     }

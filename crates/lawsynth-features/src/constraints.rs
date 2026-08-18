@@ -66,15 +66,9 @@ mod tests {
         let x = Identifier::new("x").unwrap();
         let y = Identifier::new("y").unwrap();
         let expression = Expr::product(Expr::symbol(x.clone()), Expr::symbol(y.clone()));
-        let term = FeatureTerm {
-            name: "x * y".into(),
-            expression,
-        };
+        let term = FeatureTerm { name: "x * y".into(), expression };
         assert!(allows(&FeatureConstraint::MaximumNodes(3), &term));
-        assert!(!allows(
-            &FeatureConstraint::AllowedSymbols([x].into_iter().collect()),
-            &term
-        ));
+        assert!(!allows(&FeatureConstraint::AllowedSymbols([x].into_iter().collect()), &term));
         assert!(allows(&FeatureConstraint::RequireSymbol, &term));
     }
 }

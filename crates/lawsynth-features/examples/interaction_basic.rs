@@ -13,12 +13,6 @@ fn main() {
         ],
     )
     .unwrap();
-    let matrix = FeatureLibrary::interactions([x, y])
-        .unwrap()
-        .evaluate(&data)
-        .unwrap();
-    println!(
-        "interaction terms: {:?}; rows: {:?}",
-        matrix.terms, matrix.rows
-    );
+    let matrix = FeatureLibrary::interactions([x, y]).unwrap().evaluate(&data).unwrap();
+    println!("interaction terms: {:?}; rows: {:?}", matrix.terms, matrix.rows);
 }

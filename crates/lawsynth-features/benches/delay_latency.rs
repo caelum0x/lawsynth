@@ -6,9 +6,7 @@ fn main() {
     let started = Instant::now();
     let mut rows = 0;
     for _ in 0..100 {
-        rows += black_box(delayed_columns(&values, &[0, 1, 8]).unwrap())
-            .rows
-            .len();
+        rows += black_box(delayed_columns(&values, &[0, 1, 8]).unwrap()).rows.len();
     }
     println!("embedded {rows} delayed rows in {:?}", started.elapsed());
 }
