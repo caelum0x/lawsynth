@@ -18,12 +18,7 @@ impl RegressionProblem {
         if rows.iter().any(|row| row.len() != first.len()) {
             return Err(SparseError::RowLengthMismatch);
         }
-        if rows
-            .iter()
-            .flatten()
-            .chain(&target)
-            .any(|value| !value.is_finite())
-        {
+        if rows.iter().flatten().chain(&target).any(|value| !value.is_finite()) {
             return Err(SparseError::NonFiniteValue);
         }
         Ok(Self { rows, target })

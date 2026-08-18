@@ -8,14 +8,8 @@ fn stlsq_recovers_scale_invariant_single_feature_linear_laws() {
             (0..6).map(|value| 3.0 * scale * value as f64).collect(),
         )
         .unwrap();
-        let solution = stlsq(
-            &problem,
-            &SparseConfig {
-                threshold: 0.01,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let solution =
+            stlsq(&problem, &SparseConfig { threshold: 0.01, ..Default::default() }).unwrap();
         assert!((solution.coefficients[0] - 3.0).abs() < 1e-8);
         assert!(solution.residual_sum_squares < 1e-14);
     }

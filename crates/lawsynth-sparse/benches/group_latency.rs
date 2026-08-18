@@ -20,8 +20,5 @@ fn main() {
             .coefficients
             .len();
     }
-    println!(
-        "fit {terms} grouped coefficients in {:?}",
-        started.elapsed()
-    );
+    println!("fit {terms} grouped coefficients in {:?}", started.elapsed());
 }

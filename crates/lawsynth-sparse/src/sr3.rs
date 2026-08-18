@@ -16,11 +16,7 @@ pub fn sr3(
         let next = solve_active(problem, &active, config.ridge, Some((&relaxed, penalty)))?;
         let mut changed = false;
         for (index, value) in next.into_iter().enumerate() {
-            let thresholded = if value.abs() >= config.threshold {
-                value
-            } else {
-                0.0
-            };
+            let thresholded = if value.abs() >= config.threshold { value } else { 0.0 };
             changed |= (relaxed[index] - thresholded).abs() > 1e-12;
             relaxed[index] = thresholded;
         }
@@ -47,14 +43,7 @@ mod tests {
             vec![0.0, 3.0, 6.0],
         )
         .unwrap();
-        let result = sr3(
-            &problem,
-            &SparseConfig {
-                threshold: 0.1,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let result = sr3(&problem, &SparseConfig { threshold: 0.1, ..Default::default() }).unwrap();
         assert!((result.coefficients[0] - 3.0).abs() < 1e-4);
     }
 }

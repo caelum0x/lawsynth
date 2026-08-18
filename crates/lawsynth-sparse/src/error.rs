@@ -20,10 +20,9 @@ impl fmt::Display for SparseError {
             Self::NonFiniteValue => write!(formatter, "regression values must be finite"),
             Self::SingularSystem => write!(formatter, "least-squares system is singular"),
             Self::InvalidConfig => write!(formatter, "sparse regression configuration is invalid"),
-            Self::InvalidGroups => write!(
-                formatter,
-                "feature groups must partition every feature exactly once"
-            ),
+            Self::InvalidGroups => {
+                write!(formatter, "feature groups must partition every feature exactly once")
+            }
         }
     }
 }

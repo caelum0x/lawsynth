@@ -141,6 +141,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-implicit"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-differentiate",
+ "lawsynth-sparse",
+]
+
+[[package]]
 name = "lawsynth-koopman"
 version = "0.1.0"
 dependencies = [
@@ -288,6 +298,15 @@ dependencies = [
 [[package]]
 name = "lawsynth-wasm"
 version = "0.1.0"
+
+[[package]]
+name = "lawsynth-weakform"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-features",
+]
 
 [[package]]
 name = "lawsynth-worker"

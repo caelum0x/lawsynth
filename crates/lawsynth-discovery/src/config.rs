@@ -15,6 +15,15 @@ pub enum SparseMethod {
     #[default]
     Stlsq,
     Sr3,
+    /// Forward Regression with Orthogonal Least Squares: greedy error-reduction
+    /// ratio (ERR) selection with a Gram-Schmidt orthogonalisation, deterministic.
+    Frols,
+    /// Stepwise Sparse Regression: prune the full fit one term at a time and pick
+    /// the support minimising the Akaike information criterion, deterministic.
+    Ssr,
+    /// Stability-biased SR3 ("trapping"): damps a positive linear self-feedback
+    /// term toward the bounded regime. A stability *bias*, not a boundedness proof.
+    Trapping,
 }
 
 /// Opt-in joint parameter refinement of a candidate's numeric constants (§8.5).

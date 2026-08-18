@@ -109,6 +109,13 @@ def run_case(
     identifier = case_id(benchmarks_dir, case_dir)
     family = identifier.split("/", 1)[0]
 
+    if config.get("suite") == "srbench":
+        from _srbench import run_srbench_case
+
+        declared = str(config["capability"]["status"])
+        result = run_srbench_case(case_dir, workdir, binary, check_determinism=False)
+        return CaseOutcome(identifier, family, declared, result)
+
     if is_family_executed(config):
         if binary is None:
             return CaseOutcome(

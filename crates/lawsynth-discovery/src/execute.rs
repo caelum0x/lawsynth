@@ -9,7 +9,10 @@ use lawsynth_preprocess::{AppliedTransform, moving_average};
 use lawsynth_profile::profile;
 use lawsynth_regime::{Segmentation, pelt};
 use lawsynth_score::{CandidateMetrics, expression_complexity, selection_stability};
-use lawsynth_sparse::{RegressionProblem, SparseSolution, sr3_standardized, stlsq_standardized};
+use lawsynth_sparse::{
+    RegressionProblem, SparseSolution, TrappingConfig, frols_standardized, sr3_standardized,
+    ssr_standardized, stlsq_standardized, trapping_standardized,
+};
 use lawsynth_stats::{BootstrapConfig, PercentileInterval, bootstrap_indices, percentile_interval};
 use lawsynth_symbolic::{Grammar, calibrate_affine, enumerate};
 use lawsynth_units::admits_scaled_dimension;
@@ -163,11 +166,16 @@ pub(crate) fn run_discovery(
             ),
             None => (rows.clone(), matrix.terms.iter().collect::<Vec<_>>()),
         };
+        // The trapping solver damps the state's own linear self-feedback term; its
+        // column is the fit term named exactly after the state. Other solvers
+        // ignore this index, so the default (STLSQ) path is unaffected.
+        let diagonal = fit_terms.iter().position(|term| term.name == state.as_str());
         let solution = fit_sparse(
             &RegressionProblem::new(problem_rows, target)
                 .map_err(|error| DiscoveryError::Sparse(error.to_string()))?,
             &config.sparse,
             config.sparse_method,
+            diagonal,
         )
         .map_err(|error| DiscoveryError::Sparse(error.to_string()))?;
         let residual_sum_squares = solution.residual_sum_squares;
@@ -431,6 +439,7 @@ fn bootstrap_summary(
                     .map_err(|error| DiscoveryError::Sparse(error.to_string()))?,
                 sparse,
                 method,
+                None,
             )
             .map_err(|error| DiscoveryError::Sparse(error.to_string()))?;
             rss += solution.residual_sum_squares;
@@ -467,14 +476,29 @@ fn selection_stability_summary(selections: &[Vec<Vec<bool>>]) -> Result<f64, Dis
     Ok(if counted == 0 { 1.0 } else { total / counted as f64 })
 }
 
+/// One-sided damping strength applied by the trapping solver to a positive linear
+/// self-feedback coefficient. Fixed here so the discovery path stays deterministic.
+const TRAPPING_STABILITY_WEIGHT: f64 = 1.0;
+
 fn fit_sparse(
     problem: &RegressionProblem,
     config: &lawsynth_sparse::SparseConfig,
     method: SparseMethod,
+    diagonal: Option<usize>,
 ) -> Result<SparseSolution, lawsynth_sparse::SparseError> {
     match method {
         SparseMethod::Stlsq => stlsq_standardized(problem, config),
         SparseMethod::Sr3 => sr3_standardized(problem, config),
+        SparseMethod::Frols => frols_standardized(problem, config),
+        SparseMethod::Ssr => ssr_standardized(problem, config),
+        SparseMethod::Trapping => trapping_standardized(
+            problem,
+            &TrappingConfig {
+                sparse: config.clone(),
+                diagonal,
+                stability_weight: TRAPPING_STABILITY_WEIGHT,
+            },
+        ),
     }
 }
 

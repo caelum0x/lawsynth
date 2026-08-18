@@ -13,10 +13,7 @@ pub struct GroupConfig {
 
 impl Default for GroupConfig {
     fn default() -> Self {
-        Self {
-            sparse: SparseConfig::default(),
-            group_threshold: 0.1,
-        }
+        Self { sparse: SparseConfig::default(), group_threshold: 0.1 }
     }
 }
 
@@ -85,11 +82,7 @@ fn validate_groups(features: usize, groups: &[Vec<usize>]) -> Result<(), SparseE
             }
         }
     }
-    if seen.iter().all(|feature| *feature) {
-        Ok(())
-    } else {
-        Err(SparseError::InvalidGroups)
-    }
+    if seen.iter().all(|feature| *feature) { Ok(()) } else { Err(SparseError::InvalidGroups) }
 }
 
 #[cfg(test)]
@@ -112,10 +105,7 @@ mod tests {
             &problem,
             &[vec![0, 1], vec![2]],
             &GroupConfig {
-                sparse: SparseConfig {
-                    ridge: 1e-3,
-                    ..Default::default()
-                },
+                sparse: SparseConfig { ridge: 1e-3, ..Default::default() },
                 group_threshold: 0.1,
             },
         )

@@ -12,11 +12,7 @@ pub struct StabilityConfig {
 
 impl Default for StabilityConfig {
     fn default() -> Self {
-        Self {
-            replicates: 100,
-            sample_fraction: 0.75,
-            seed: Seed::default(),
-        }
+        Self { replicates: 100, sample_fraction: 0.75, seed: Seed::default() }
     }
 }
 
@@ -47,10 +43,7 @@ pub fn stability_selection(
             .map(|_| sample_index(&mut rng, problem.rows.len()))
             .collect::<Vec<_>>();
         let sampled = RegressionProblem::new(
-            indices
-                .iter()
-                .map(|index| problem.rows[*index].clone())
-                .collect(),
+            indices.iter().map(|index| problem.rows[*index].clone()).collect(),
             indices.iter().map(|index| problem.target[*index]).collect(),
         )?;
         let solution = stlsq(&sampled, sparse)?;
@@ -98,16 +91,8 @@ mod tests {
             vec![0.0, 2.0, 4.0, 6.0, 8.0, 10.0],
         )
         .unwrap();
-        let sparse = SparseConfig {
-            threshold: 0.1,
-            ridge: 1e-3,
-            ..Default::default()
-        };
-        let config = StabilityConfig {
-            replicates: 20,
-            sample_fraction: 1.0,
-            seed: Seed::new(44),
-        };
+        let sparse = SparseConfig { threshold: 0.1, ridge: 1e-3, ..Default::default() };
+        let config = StabilityConfig { replicates: 20, sample_fraction: 1.0, seed: Seed::new(44) };
         let first = stability_selection(&problem, &sparse, &config).unwrap();
         let second = stability_selection(&problem, &sparse, &config).unwrap();
         assert_eq!(first, second);

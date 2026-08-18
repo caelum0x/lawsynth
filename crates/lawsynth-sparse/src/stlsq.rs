@@ -87,12 +87,7 @@ pub(crate) fn residual_sum_squares(problem: &RegressionProblem, coefficients: &[
         .iter()
         .zip(&problem.target)
         .map(|(row, target)| {
-            let residual = row
-                .iter()
-                .zip(coefficients)
-                .map(|(x, w)| x * w)
-                .sum::<f64>()
-                - target;
+            let residual = row.iter().zip(coefficients).map(|(x, w)| x * w).sum::<f64>() - target;
             residual * residual
         })
         .sum()
@@ -105,9 +100,7 @@ fn solve_linear_system(
     for pivot in 0..target.len() {
         let best = (pivot..target.len())
             .max_by(|left, right| {
-                matrix[*left][pivot]
-                    .abs()
-                    .total_cmp(&matrix[*right][pivot].abs())
+                matrix[*left][pivot].abs().total_cmp(&matrix[*right][pivot].abs())
             })
             .expect("non-empty pivot range");
         if matrix[best][pivot].abs() < 1e-14 {
@@ -142,23 +135,12 @@ mod tests {
     #[test]
     fn recovers_a_sparse_linear_law() {
         let problem = RegressionProblem::new(
-            vec![
-                vec![1.0, 0.0],
-                vec![1.0, 1.0],
-                vec![1.0, 2.0],
-                vec![1.0, 3.0],
-            ],
+            vec![vec![1.0, 0.0], vec![1.0, 1.0], vec![1.0, 2.0], vec![1.0, 3.0]],
             vec![0.0, 2.0, 4.0, 6.0],
         )
         .unwrap();
-        let result = stlsq(
-            &problem,
-            &SparseConfig {
-                threshold: 0.1,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let result =
+            stlsq(&problem, &SparseConfig { threshold: 0.1, ..Default::default() }).unwrap();
         assert!(result.coefficients[0].abs() < 1e-8);
         assert!((result.coefficients[1] - 2.0).abs() < 1e-8);
     }

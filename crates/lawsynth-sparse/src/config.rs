@@ -7,10 +7,6 @@ pub struct SparseConfig {
 
 impl Default for SparseConfig {
     fn default() -> Self {
-        Self {
-            threshold: 0.05,
-            max_iterations: 20,
-            ridge: 1e-10,
-        }
+        Self { threshold: 0.05, max_iterations: 20, ridge: 1e-10 }
     }
 }

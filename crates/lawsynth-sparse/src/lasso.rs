@@ -10,11 +10,7 @@ pub struct LassoConfig {
 
 impl Default for LassoConfig {
     fn default() -> Self {
-        Self {
-            lambda: 0.05,
-            max_iterations: 1_000,
-            tolerance: 1e-9,
-        }
+        Self { lambda: 0.05, max_iterations: 1_000, tolerance: 1e-9 }
     }
 }
 
@@ -35,13 +31,7 @@ pub fn lasso(
     let mut coefficients = vec![0.0; features];
     let mut residual = problem.target.clone();
     let squared_norms = (0..features)
-        .map(|feature| {
-            problem
-                .rows
-                .iter()
-                .map(|row| row[feature] * row[feature])
-                .sum::<f64>()
-        })
+        .map(|feature| problem.rows.iter().map(|row| row[feature] * row[feature]).sum::<f64>())
         .collect::<Vec<_>>();
 
     for _ in 0..config.max_iterations {
@@ -95,23 +85,11 @@ mod tests {
     #[test]
     fn lasso_removes_a_weak_irrelevant_feature() {
         let problem = RegressionProblem::new(
-            vec![
-                vec![0.0, 1.0],
-                vec![1.0, 1.0],
-                vec![2.0, 1.0],
-                vec![3.0, 1.0],
-            ],
+            vec![vec![0.0, 1.0], vec![1.0, 1.0], vec![2.0, 1.0], vec![3.0, 1.0]],
             vec![0.0, 2.0, 4.0, 6.0],
         )
         .unwrap();
-        let solution = lasso(
-            &problem,
-            &LassoConfig {
-                lambda: 0.1,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let solution = lasso(&problem, &LassoConfig { lambda: 0.1, ..Default::default() }).unwrap();
         assert!((solution.coefficients[0] - 1.992_857).abs() < 1e-5);
         assert!(solution.coefficients[1].abs() < 1e-6);
     }

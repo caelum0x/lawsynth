@@ -1,0 +1,21 @@
+[package]
+name = "lawsynth-implicit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Implicit / rational (nullspace) dynamics discovery for LawSynth (SINDy-PI style)."
+autoexamples = false
+
+[[example]]
+name = "recover_rational"
+path = "examples/recover_rational.rs"
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-sparse = { path = "../lawsynth-sparse" }
+
+[lib]
+path = "src/lib.rs"

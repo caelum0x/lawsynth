@@ -16,9 +16,7 @@ fn main() {
     let started = Instant::now();
     let mut terms = 0;
     for _ in 0..100 {
-        terms += black_box(lasso(&problem, &config).unwrap())
-            .coefficients
-            .len();
+        terms += black_box(lasso(&problem, &config).unwrap()).coefficients.len();
     }
     println!("fit {terms} lasso coefficients in {:?}", started.elapsed());
 }

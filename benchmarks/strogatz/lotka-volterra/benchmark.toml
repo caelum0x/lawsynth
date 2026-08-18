@@ -1,0 +1,36 @@
+id = "strogatz/lotka-volterra"
+title = "Lotka-Volterra predator-prey"
+family = "strogatz"
+version = 1
+
+[capability]
+status = "supported"
+reason = "Quadratic-interaction dynamics are within the polynomial feature library; recoverable and simulable via the public CLI."
+
+[system]
+kind = "lotka_volterra"
+states = ["x", "y"]
+step = 0.02
+samples = 400
+[system.parameters]
+a = 1.1
+b = 0.4
+c = 0.4
+d = 0.1
+[system.initial]
+x = 10.0
+y = 5.0
+
+[discovery]
+degree = 2
+threshold = 0.05
+
+[simulation]
+start = 0.0
+end = 2.0
+step = 0.02
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.95

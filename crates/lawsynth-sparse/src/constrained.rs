@@ -10,11 +10,7 @@ pub struct NonnegativeConfig {
 
 impl Default for NonnegativeConfig {
     fn default() -> Self {
-        Self {
-            ridge: 1e-10,
-            max_iterations: 1_000,
-            tolerance: 1e-9,
-        }
+        Self { ridge: 1e-10, max_iterations: 1_000, tolerance: 1e-9 }
     }
 }
 
@@ -39,12 +35,7 @@ pub fn nonnegative_least_squares(
     let mut residual = problem.target.clone();
     let norms = (0..features)
         .map(|feature| {
-            problem
-                .rows
-                .iter()
-                .map(|row| row[feature] * row[feature])
-                .sum::<f64>()
-                + config.ridge
+            problem.rows.iter().map(|row| row[feature] * row[feature]).sum::<f64>() + config.ridge
         })
         .collect::<Vec<_>>();
     for _ in 0..config.max_iterations {

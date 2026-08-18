@@ -1,0 +1,15 @@
+[package]
+name = "lawsynth-weakform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Weak / integral-form discovery for noise-robust LawSynth system identification."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-features = { path = "../lawsynth-features" }
+
+[lib]
+path = "src/lib.rs"

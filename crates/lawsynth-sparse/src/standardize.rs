@@ -18,11 +18,7 @@ pub fn standardize_problem(
     let observations = problem.rows.len() as f64;
     let scales = (0..problem.features())
         .map(|column| {
-            let sum_squares = problem
-                .rows
-                .iter()
-                .map(|row| row[column] * row[column])
-                .sum::<f64>();
+            let sum_squares = problem.rows.iter().map(|row| row[column] * row[column]).sum::<f64>();
             let scale = (sum_squares / observations).sqrt();
             if scale > 1e-14 { scale } else { 1.0 }
         })
@@ -30,17 +26,9 @@ pub fn standardize_problem(
     let rows = problem
         .rows
         .iter()
-        .map(|row| {
-            row.iter()
-                .zip(&scales)
-                .map(|(value, scale)| value / scale)
-                .collect()
-        })
+        .map(|row| row.iter().zip(&scales).map(|(value, scale)| value / scale).collect())
         .collect();
-    Ok((
-        RegressionProblem::new(rows, problem.target.clone())?,
-        FeatureScaling { scales },
-    ))
+    Ok((RegressionProblem::new(rows, problem.target.clone())?, FeatureScaling { scales }))
 }
 
 pub(crate) fn restore_solution(
@@ -68,23 +56,13 @@ mod tests {
     #[test]
     fn scaling_round_trips_coefficients_in_original_units() {
         let problem = RegressionProblem::new(
-            vec![
-                vec![1.0, 1_000.0],
-                vec![1.0, 2_000.0],
-                vec![1.0, 3_000.0],
-                vec![1.0, 4_000.0],
-            ],
+            vec![vec![1.0, 1_000.0], vec![1.0, 2_000.0], vec![1.0, 3_000.0], vec![1.0, 4_000.0]],
             vec![3.0, 5.0, 7.0, 9.0],
         )
         .unwrap();
-        let solution = stlsq_standardized(
-            &problem,
-            &SparseConfig {
-                threshold: 1e-8,
-                ..Default::default()
-            },
-        )
-        .unwrap();
+        let solution =
+            stlsq_standardized(&problem, &SparseConfig { threshold: 1e-8, ..Default::default() })
+                .unwrap();
         assert!((solution.coefficients[0] - 1.0).abs() < 1e-8);
         assert!((solution.coefficients[1] - 0.002).abs() < 1e-10);
         assert!(solution.residual_sum_squares < 1e-16);

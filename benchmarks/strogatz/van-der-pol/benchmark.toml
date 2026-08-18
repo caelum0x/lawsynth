@@ -1,0 +1,33 @@
+id = "strogatz/van-der-pol"
+title = "Van der Pol relaxation oscillator"
+family = "strogatz"
+version = 1
+
+[capability]
+status = "supported"
+reason = "The cubic term x^2*y is within a degree-3 polynomial library; recoverable and simulable via the public CLI."
+
+[system]
+kind = "van_der_pol"
+states = ["x", "y"]
+step = 0.02
+samples = 400
+[system.parameters]
+mu = 1.0
+[system.initial]
+x = 2.0
+y = 0.0
+
+[discovery]
+degree = 3
+threshold = 0.05
+
+[simulation]
+start = 0.0
+end = 2.0
+step = 0.02
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.9
