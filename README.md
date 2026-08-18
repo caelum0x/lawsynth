@@ -8,6 +8,8 @@
 
 Local-first · deterministic · offline. Same inputs → same world, every time.
 
+**[lawsynth.dev](https://lawsynth.dev)** · [Documentation](https://lawsynth.dev/docs) · [Getting started](https://lawsynth.dev/getting-started) · [Capabilities](https://lawsynth.dev/capabilities) · [Why determinism](https://lawsynth.dev/determinism)
+
 </div>
 
 ---
@@ -223,6 +225,17 @@ segmentation, parameter refinement, bootstrap uncertainty, and causal hypotheses
 ---
 
 ## Documentation
+
+The full documentation is published at **[lawsynth.dev/docs](https://lawsynth.dev/docs)** — a
+deterministic, offline-built static site (the same values LawSynth stands on). It renders
+the entire `docs/` tree below, plus a hand-written [getting-started](https://lawsynth.dev/getting-started)
+walkthrough, a complete [CLI reference](https://lawsynth.dev/reference/cli) for every
+subcommand, a [capabilities](https://lawsynth.dev/capabilities) tour of the discover →
+analyze → control → share pillars, and the [core concepts](https://lawsynth.dev/concepts)
+vocabulary. Everything is cross-linked and searchable; the site itself is generated from a
+tested TypeScript SSG in [`apps/docs-site`](apps/docs-site).
+
+Browse it on the site, or read the source Markdown here on GitHub:
 
 - **[Getting started](docs/getting-started/README.md)** — [installation](docs/getting-started/installation.md) · [quickstart](docs/getting-started/quickstart.md) · [your first world](docs/getting-started/first-world.md) · [CLI](docs/getting-started/cli.md) · [Python](docs/getting-started/python.md) · [Studio](docs/getting-started/studio.md)
 - **[Guide](docs/guide/README.md)** — verified end-to-end CLI walkthrough (discover → simplify → stability → control → export) with a determinism demo
