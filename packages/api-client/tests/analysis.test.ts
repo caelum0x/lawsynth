@@ -15,6 +15,9 @@ import {
   parseKoopmanReport,
   parseSdeReport,
   parsePdeReport,
+  parseInvariantReport,
+  parseAnalyzeReport,
+  isSkipped,
 } from "../dist/index.js";
 
 // Verbatim `lawsynth ... --json` fixtures (see world-schema analysis tests for
@@ -348,4 +351,107 @@ test("discovery-engine parsers reject malformed input", () => {
   assert.throws(() => parseSdeReport({ world: "w", states: ["x"] }));
   assert.throws(() => parsePdeReport({ ...PDE, method: "pde" }));
   assert.throws(() => parsePdeReport({ ...PDE, terms: [{ label: "u", u_power: 0, derivative_order: 1.5, coefficient: 1 }] }));
+});
+
+// Verbatim `lawsynth {invariants,analyze} --json` fixtures (world paths normalized;
+// numerics/labels/combination from the debug binary). These assert the new parsers
+// are reachable from the api-client public surface and narrow the engine JSON.
+const INVARIANTS = {
+  world: "analysis-world.lsworld",
+  degree: 2,
+  trigonometric: false,
+  sample_box: { lo: -1, hi: 1.5 },
+  resolution: 5,
+  tolerance: 1.00000000000000006e-9,
+  basis_labels: ["imbalance", "mid", "imbalance^2", "imbalance*mid", "mid^2"],
+  invariants: [
+    {
+      combination: "0.25·imbalance^2 + 1.00·mid^2",
+      coefficients: [-3.31089114135616642e-17, 1.1536867344482037e-17, 2.42535625040950192e-1, -3.15558035916401844e-17, 9.70142500144177578e-1],
+      residual: 1.96384182500410133e-15,
+      singular_value: 1.42854653545030482e-15,
+    },
+  ],
+};
+
+const ANALYZE = {
+  world: "analysis-world.lsworld",
+  states: ["imbalance", "mid"],
+  stability: {
+    world: "analysis-world.lsworld",
+    states: ["imbalance", "mid"],
+    seeds_total: 25,
+    seeds_converged: 25,
+    fixed_points: [
+      {
+        coordinates: [0, 0],
+        classification: "center (marginal, inconclusive)",
+        inconclusive: true,
+        eigenvalues: [
+          { re: 0, im: -1.99946666672306694 },
+          { re: 0, im: 1.99946666672306672 },
+        ],
+      },
+    ],
+  },
+  lyapunov: {
+    world: "analysis-world.lsworld",
+    states: ["imbalance", "mid"],
+    exponents: [2.48236620712056284e-4, -2.48236709454393981e-4],
+    largest: 2.48236620712056284e-4,
+    sum: -8.87423376970397637e-11,
+    kaplan_yorke_dimension: 1.99999964250920881,
+    integration_time: 89.9999999999991616,
+    chaotic: true,
+  },
+  invariants: INVARIANTS,
+};
+
+test("parseInvariantReport narrows a conserved-quantity report", () => {
+  const report = parseInvariantReport(INVARIANTS);
+  assert.equal(report.degree, 2);
+  assert.equal(report.trigonometric, false);
+  assert.equal(report.sample_box.hi, 1.5);
+  assert.equal(report.basis_labels.length, 5);
+  assert.equal(report.invariants[0].combination, "0.25·imbalance^2 + 1.00·mid^2");
+  assert.equal(report.invariants[0].coefficients.length, 5);
+  assert.equal(report.invariants[0].singular_value, 1.42854653545030482e-15);
+});
+
+test("parseAnalyzeReport composes real stability/lyapunov/invariants sub-reports", () => {
+  const report = parseAnalyzeReport(ANALYZE);
+  assert.equal(report.world, "analysis-world.lsworld");
+  assert.equal(report.states.length, 2);
+  assert.ok(!isSkipped(report.stability));
+  if (!isSkipped(report.stability)) {
+    assert.equal(report.stability.fixed_points[0].classification, "center (marginal, inconclusive)");
+  }
+  assert.ok(!isSkipped(report.lyapunov));
+  if (!isSkipped(report.lyapunov)) {
+    assert.equal(report.lyapunov.chaotic, true);
+    assert.equal(report.lyapunov.largest, 2.48236620712056284e-4);
+  }
+  assert.ok(!isSkipped(report.invariants));
+  if (!isSkipped(report.invariants)) {
+    assert.equal(report.invariants.invariants[0].combination, "0.25·imbalance^2 + 1.00·mid^2");
+  }
+});
+
+test("parseAnalyzeReport narrows a skipped sub-slot", () => {
+  const report = parseAnalyzeReport({ ...ANALYZE, lyapunov: { skipped: true, note: "lyapunov integration diverged" } });
+  assert.ok(!isSkipped(report.stability));
+  assert.ok(isSkipped(report.lyapunov));
+  if (isSkipped(report.lyapunov)) {
+    assert.equal(report.lyapunov.skipped, true);
+    assert.equal(report.lyapunov.note, "lyapunov integration diverged");
+  }
+});
+
+test("invariants/analyze parsers reject malformed input", () => {
+  assert.throws(() => parseInvariantReport({ ...INVARIANTS, invariants: undefined }));
+  assert.throws(() => parseInvariantReport({ ...INVARIANTS, degree: 2.5 }));
+  assert.throws(() => parseInvariantReport({ ...INVARIANTS, sample_box: { lo: 0 } }));
+  assert.throws(() => parseAnalyzeReport(null));
+  assert.throws(() => parseAnalyzeReport({ ...ANALYZE, stability: { world: "w", states: [], seeds_total: 1, seeds_converged: 1 } }));
+  assert.throws(() => parseAnalyzeReport({ ...ANALYZE, lyapunov: { skipped: true } }));
 });

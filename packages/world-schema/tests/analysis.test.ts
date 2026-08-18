@@ -1,9 +1,12 @@
 import {
+  isSkipped,
+  parseAnalyzeReport,
   parseBasinReport,
   parseBifurcationReport,
   parseControlledModel,
   parseDomainRun,
   parseEstimateReport,
+  parseInvariantReport,
   parseKoopmanReport,
   parseLyapunovReport,
   parseMpcResult,
@@ -257,6 +260,107 @@ const PDE = `{
   "law": "u_t = -0.049992*u +0.050018*u_xx",
   "terms": [{"label": "1", "u_power": 0, "derivative_order": 0, "coefficient": 0.00000000000000000e0}, {"label": "u", "u_power": 1, "derivative_order": 0, "coefficient": -4.99916540251027358e-2}, {"label": "u^2", "u_power": 2, "derivative_order": 0, "coefficient": 0.00000000000000000e0}, {"label": "u_x", "u_power": 0, "derivative_order": 1, "coefficient": 0.00000000000000000e0}, {"label": "u*u_x", "u_power": 1, "derivative_order": 1, "coefficient": 0.00000000000000000e0}, {"label": "u^2*u_x", "u_power": 2, "derivative_order": 1, "coefficient": 0.00000000000000000e0}, {"label": "u_xx", "u_power": 0, "derivative_order": 2, "coefficient": 5.00181836393979451e-2}, {"label": "u*u_xx", "u_power": 1, "derivative_order": 2, "coefficient": 0.00000000000000000e0}, {"label": "u^2*u_xx", "u_power": 2, "derivative_order": 2, "coefficient": 0.00000000000000000e0}]
 }`;
+
+// `lawsynth invariants analysis-world.lsworld --json` on a conservative 2D world
+// (the energy-like invariant 0.25*imbalance^2 + mid^2). Captured VERBATIM from the
+// debug binary; only the "world" path string was normalized to a clean bundle name
+// (all numerics, labels, and the combination string are the engine's output).
+// See crates/lawsynth-cli/src/invariants.rs::render_json.
+const INVARIANTS = `{
+  "world": "analysis-world.lsworld",
+  "degree": 2,
+  "trigonometric": false,
+  "sample_box": {"lo": -1.00000000000000000e0, "hi": 1.50000000000000000e0},
+  "resolution": 5,
+  "tolerance": 1.00000000000000006e-9,
+  "basis_labels": ["imbalance", "mid", "imbalance^2", "imbalance*mid", "mid^2"],
+  "invariants": [
+    {
+      "combination": "0.25\u{b7}imbalance^2 + 1.00\u{b7}mid^2",
+      "coefficients": [-3.31089114135616642e-17, 1.15368673444820370e-17, 2.42535625040950192e-1, -3.15558035916401844e-17, 9.70142500144177578e-1],
+      "residual": 1.96384182500410133e-15,
+      "singular_value": 1.42854653545030482e-15
+    }
+  ]
+}`;
+
+// `lawsynth analyze analysis-world.lsworld --box -1:1,-1:1 --json` on the same
+// conservative world. Captured VERBATIM from the debug binary; only the "world"
+// path strings (top-level and inside each sub-object) were normalized to a clean
+// bundle name. Each sub-object is byte-for-byte the standalone command's --json.
+// See crates/lawsynth-cli/src/analyze.rs::render_json.
+const ANALYZE = `{
+  "world": "analysis-world.lsworld",
+  "states": ["imbalance", "mid"],
+  "stability": {
+  "world": "analysis-world.lsworld",
+  "states": ["imbalance", "mid"],
+  "seeds_total": 25,
+  "seeds_converged": 25,
+  "fixed_points": [
+    {
+      "coordinates": [0.00000000000000000e0, 0.00000000000000000e0],
+      "classification": "center (marginal, inconclusive)",
+      "inconclusive": true,
+      "eigenvalues": [{"re": 0.00000000000000000e0, "im": -1.99946666672306694e0}, {"re": 0.00000000000000000e0, "im": 1.99946666672306672e0}]
+    }
+  ]
+},
+  "lyapunov": {
+  "world": "analysis-world.lsworld",
+  "states": ["imbalance", "mid"],
+  "exponents": [2.48236620712056284e-4, -2.48236709454393981e-4],
+  "largest": 2.48236620712056284e-4,
+  "sum": -8.87423376970397637e-11,
+  "kaplan_yorke_dimension": 1.99999964250920881e0,
+  "integration_time": 8.99999999999991616e1,
+  "chaotic": true
+},
+  "invariants": {
+  "world": "analysis-world.lsworld",
+  "degree": 2,
+  "trigonometric": false,
+  "sample_box": {"lo": -1.00000000000000000e0, "hi": 1.50000000000000000e0},
+  "resolution": 5,
+  "tolerance": 1.00000000000000006e-9,
+  "basis_labels": ["imbalance", "mid", "imbalance^2", "imbalance*mid", "mid^2"],
+  "invariants": [
+    {
+      "combination": "0.25\u{b7}imbalance^2 + 1.00\u{b7}mid^2",
+      "coefficients": [-3.31089114135616642e-17, 1.15368673444820370e-17, 2.42535625040950192e-1, -3.15558035916401844e-17, 9.70142500144177578e-1],
+      "residual": 1.96384182500410133e-15,
+      "singular_value": 1.42854653545030482e-15
+    }
+  ]
+}
+}`;
+
+// A hand-built `analyze --json` object with a SKIPPED lyapunov slot, LABELLED as
+// synthetic. The skip shape is byte-for-byte analyze.rs::Section::json's
+// `{"skipped": true, "note": ...}` branch; the stability/invariants slots reuse
+// the verbatim shapes above (trimmed). This exercises the skip-narrowing path.
+const ANALYZE_SKIPPED = {
+  world: "analysis-world.lsworld",
+  states: ["imbalance", "mid"],
+  stability: {
+    world: "analysis-world.lsworld",
+    states: ["imbalance", "mid"],
+    seeds_total: 25,
+    seeds_converged: 25,
+    fixed_points: [],
+  },
+  lyapunov: { skipped: true, note: "lyapunov integration diverged" },
+  invariants: {
+    world: "analysis-world.lsworld",
+    degree: 2,
+    trigonometric: false,
+    sample_box: { lo: -1, hi: 1.5 },
+    resolution: 5,
+    tolerance: 1e-9,
+    basis_labels: ["imbalance", "mid"],
+    invariants: [],
+  },
+};
 
 export function runAnalysisTests(): void {
   // --- stability: stable node ---
@@ -662,6 +766,110 @@ export function runAnalysisTests(): void {
       return parsePdeReport(withoutTerms);
     },
     "pde report missing terms is rejected",
+  );
+
+  // --- invariants: a conserved quantity over a degree-2 monomial library ---
+  const invariant = parseInvariantReport(JSON.parse(INVARIANTS));
+  equal(invariant.world, "analysis-world.lsworld");
+  equal(invariant.degree, 2);
+  equal(invariant.trigonometric, false);
+  equal(invariant.sample_box.lo, -1);
+  equal(invariant.sample_box.hi, 1.5);
+  equal(invariant.resolution, 5);
+  equal(invariant.tolerance, 1.00000000000000006e-9);
+  equal(invariant.basis_labels.length, 5);
+  equal(invariant.basis_labels[2], "imbalance^2");
+  equal(invariant.invariants.length, 1);
+  const conserved = invariant.invariants[0]!;
+  equal(conserved.combination, "0.25\u{b7}imbalance^2 + 1.00\u{b7}mid^2");
+  equal(conserved.coefficients.length, 5);
+  equal(conserved.coefficients[4], 9.70142500144177578e-1);
+  equal(conserved.residual, 1.96384182500410133e-15);
+  equal(conserved.singular_value, 1.42854653545030482e-15);
+
+  // --- analyze: composes real stability/lyapunov/invariants sub-reports ---
+  const analyze = parseAnalyzeReport(JSON.parse(ANALYZE));
+  equal(analyze.world, "analysis-world.lsworld");
+  equal(analyze.states.length, 2);
+  equal(analyze.states[1], "mid");
+  // The stability slot is a real StabilityReport (not skipped).
+  ok(!isSkipped(analyze.stability), "analyze stability slot ran");
+  if (!isSkipped(analyze.stability)) {
+    equal(analyze.stability.seeds_total, 25);
+    equal(analyze.stability.fixed_points.length, 1);
+    equal(analyze.stability.fixed_points[0]!.classification, "center (marginal, inconclusive)");
+  }
+  // The lyapunov slot is a real LyapunovReport carrying the engine's verdict data.
+  ok(!isSkipped(analyze.lyapunov), "analyze lyapunov slot ran");
+  if (!isSkipped(analyze.lyapunov)) {
+    equal(analyze.lyapunov.exponents.length, 2);
+    equal(analyze.lyapunov.largest, 2.48236620712056284e-4);
+    equal(analyze.lyapunov.chaotic, true);
+  }
+  // The invariants slot is a real InvariantReport.
+  ok(!isSkipped(analyze.invariants), "analyze invariants slot ran");
+  if (!isSkipped(analyze.invariants)) {
+    equal(analyze.invariants.invariants.length, 1);
+    equal(analyze.invariants.invariants[0]!.combination, "0.25\u{b7}imbalance^2 + 1.00\u{b7}mid^2");
+  }
+
+  // --- analyze: a skipped slot narrows to SkippedAnalysis ---
+  const skippedRun = parseAnalyzeReport(ANALYZE_SKIPPED);
+  ok(!isSkipped(skippedRun.stability), "stability still ran");
+  ok(isSkipped(skippedRun.lyapunov), "lyapunov slot was skipped");
+  if (isSkipped(skippedRun.lyapunov)) {
+    equal(skippedRun.lyapunov.skipped, true);
+    equal(skippedRun.lyapunov.note, "lyapunov integration diverged");
+  }
+  ok(!isSkipped(skippedRun.invariants), "invariants still ran");
+
+  // --- error paths: malformed invariants/analyze input is rejected ---
+  throws(() => parseInvariantReport(null), "null is not an invariant report");
+  throws(() => parseInvariantReport("{}"), "a JSON string is not a parsed object");
+  throws(
+    () => parseInvariantReport({ world: "w", degree: 2, trigonometric: false, sample_box: { lo: 0, hi: 1 }, resolution: 5, tolerance: 1e-9, basis_labels: [] }),
+    "missing invariants array",
+  );
+  // sample_box must be an object with numeric lo/hi.
+  throws(
+    () => parseInvariantReport({ world: "w", degree: 2, trigonometric: false, sample_box: { lo: 0 }, resolution: 5, tolerance: 1e-9, basis_labels: [], invariants: [] }),
+    "sample_box missing hi is rejected",
+  );
+  // degree must be a non-negative integer, not a float.
+  throws(
+    () => parseInvariantReport({ world: "w", degree: 2.5, trigonometric: false, sample_box: { lo: 0, hi: 1 }, resolution: 5, tolerance: 1e-9, basis_labels: [], invariants: [] }),
+    "fractional degree is rejected",
+  );
+  // An invariant missing its singular_value is rejected.
+  throws(
+    () =>
+      parseInvariantReport({
+        world: "w",
+        degree: 2,
+        trigonometric: false,
+        sample_box: { lo: 0, hi: 1 },
+        resolution: 5,
+        tolerance: 1e-9,
+        basis_labels: ["x"],
+        invariants: [{ combination: "x", coefficients: [1], residual: 0 }],
+      }),
+    "invariant missing singular_value is rejected",
+  );
+  throws(() => parseAnalyzeReport(null), "null is not an analyze report");
+  // A malformed (non-skipped) stability sub-slot fails the whole analyze parse.
+  throws(
+    () => parseAnalyzeReport({ ...ANALYZE_SKIPPED, stability: { world: "w", states: [], seeds_total: 1, seeds_converged: 1 } }),
+    "analyze stability slot missing fixed_points is rejected",
+  );
+  // A malformed invariants sub-slot fails too.
+  throws(
+    () => parseAnalyzeReport({ ...ANALYZE_SKIPPED, invariants: { world: "w", degree: 2, trigonometric: false, sample_box: { lo: 0, hi: 1 }, resolution: 5, tolerance: 1e-9, basis_labels: [] } }),
+    "analyze invariants slot missing invariants is rejected",
+  );
+  // A skip note missing its "note" string is rejected.
+  throws(
+    () => parseAnalyzeReport({ ...ANALYZE_SKIPPED, lyapunov: { skipped: true } }),
+    "skip note missing note string is rejected",
   );
 
   // --- validate* returns issues instead of throwing ---

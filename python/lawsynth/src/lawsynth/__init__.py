@@ -160,6 +160,7 @@ def __getattr__(name):
         "bifurcation", "sensitivity", "estimate", "reduce",
         "lyapunov", "basins", "network", "mpc",
         "koopman", "sde", "pde",
+        "invariants", "analyze",
         "StabilityReport", "FixedPoint", "Eigenvalue",
         "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
         "Bifurcation", "BifurcationReport", "Sensitivity", "SensitivityReport",
@@ -168,6 +169,7 @@ def __getattr__(name):
         "DiscreteEigenvalue", "KoopmanReport",
         "SdeTerm", "SdeLaw", "SdeBin", "SdeState", "SdeReport",
         "PdeTerm", "PdeReport",
+        "Invariant", "InvariantReport", "Skipped", "AnalyzeReport",
         "AnalysisError", "CliError", "MissingBinaryError",
     }:
         from . import analysis as _analysis
@@ -199,6 +201,7 @@ __all__ = [
     "bifurcation", "sensitivity", "estimate", "reduce",
     "lyapunov", "basins", "network", "mpc",
     "koopman", "sde", "pde",
+    "invariants", "analyze",
     "StabilityReport", "FixedPoint", "Eigenvalue",
     "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
     "Bifurcation", "BifurcationReport", "Sensitivity", "SensitivityReport",
@@ -207,6 +210,7 @@ __all__ = [
     "DiscreteEigenvalue", "KoopmanReport",
     "SdeTerm", "SdeLaw", "SdeBin", "SdeState", "SdeReport",
     "PdeTerm", "PdeReport",
+    "Invariant", "InvariantReport", "Skipped", "AnalyzeReport",
     "AnalysisError", "CliError", "MissingBinaryError",
     "__version__",
 ]

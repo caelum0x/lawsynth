@@ -1182,3 +1182,373 @@ def test_pde_recovers_heat_diffusivity(tmp_path):
     # Finite-difference PDE-FIND recovers u_xx ~ alpha = 0.1 on a resolved grid.
     assert math.isclose(active["u_xx"], 0.1, abs_tol=1e-2)
     assert "u_xx" in report.law
+
+
+# --------------------------------------------------------------------------- #
+# Conserved-quantity + combined analysis: invariants / analyze                 #
+# The JSON fixtures below are VERBATIM captures from the built CLI             #
+# (target/debug/lawsynth) on the harmonic / damped oscillator worlds the live  #
+# tests build; they pin the exact key contract of invariants.rs / analyze.rs   #
+# ::render_json. `analyze` sub-objects are byte-for-byte the standalone shapes. #
+# --------------------------------------------------------------------------- #
+
+# `lawsynth invariants harm.lsworld --json` on the harmonic oscillator dx/dt=v,
+# dv/dt=-x: energy H = x^2 + v^2 is conserved, recovered as `1.00·v^2 + 1.00·x^2`
+# with a residual ~ 1e-15. Schema (lexicographic) order puts v before x.
+_INVARIANTS_JSON = """{
+  "world": "/tmp/harm.lsworld",
+  "degree": 2,
+  "trigonometric": false,
+  "sample_box": {"lo": -1.00000000000000000e0, "hi": 1.50000000000000000e0},
+  "resolution": 5,
+  "tolerance": 1.00000000000000006e-9,
+  "basis_labels": ["v", "x", "v^2", "v*x", "x^2"],
+  "invariants": [
+    {
+      "combination": "1.00·v^2 + 1.00·x^2",
+      "coefficients": [3.89932175428856094e-17, -4.66527696793956633e-18, 7.07106781188495792e-1, 6.30805042220706133e-17, 7.07106781184599353e-1],
+      "residual": 8.52439656525495142e-16,
+      "singular_value": 6.09703788491545931e-16
+    }
+  ]
+}"""
+
+# `lawsynth analyze harm.lsworld --box -1:1,-1:1 --json` on the harmonic oscillator:
+# a center (marginal, inconclusive) fixed point, a neutral Lyapunov spectrum
+# (exponents ~ 0, chaotic false), and the conserved energy. Each sub-object is the
+# byte-for-byte standalone shape (stability.rs / lyapunov.rs / invariants.rs).
+_ANALYZE_JSON = """{
+  "world": "/tmp/harm.lsworld",
+  "states": ["v", "x"],
+  "stability": {
+  "world": "/tmp/harm.lsworld",
+  "states": ["v", "x"],
+  "seeds_total": 25,
+  "seeds_converged": 25,
+  "fixed_points": [
+    {
+      "coordinates": [0.00000000000000000e0, 0.00000000000000000e0],
+      "classification": "center (marginal, inconclusive)",
+      "inconclusive": true,
+      "eigenvalues": [{"re": 0.00000000000000000e0, "im": 9.99933333333493213e-1}, {"re": 0.00000000000000000e0, "im": -9.99933333333493102e-1}]
+    }
+  ]
+},
+  "lyapunov": {
+  "world": "/tmp/harm.lsworld",
+  "states": ["v", "x"],
+  "exponents": [-6.92805072570224742e-13, -6.94831846380735385e-13],
+  "largest": -6.92805072570224742e-13,
+  "sum": -1.38763691895096003e-12,
+  "kaplan_yorke_dimension": 0.00000000000000000e0,
+  "integration_time": 8.99999999999991616e1,
+  "chaotic": false
+},
+  "invariants": {
+  "world": "/tmp/harm.lsworld",
+  "degree": 2,
+  "trigonometric": false,
+  "sample_box": {"lo": -1.00000000000000000e0, "hi": 1.50000000000000000e0},
+  "resolution": 5,
+  "tolerance": 1.00000000000000006e-9,
+  "basis_labels": ["v", "x", "v^2", "v*x", "x^2"],
+  "invariants": [
+    {
+      "combination": "1.00·v^2 + 1.00·x^2",
+      "coefficients": [3.89932175428856094e-17, -4.66527696793956633e-18, 7.07106781188495792e-1, 6.30805042220706133e-17, 7.07106781184599353e-1],
+      "residual": 8.52439656525495142e-16,
+      "singular_value": 6.09703788491545931e-16
+    }
+  ]
+}
+}"""
+
+# A synthetic `analyze --json` whose Lyapunov part is the honest skip marker the
+# engine emits (`{"skipped": true, "note": ...}`) while stability + invariants ran.
+# The skip shape is verbatim from analyze.rs::Section::json.
+_ANALYZE_SKIPPED_JSON = """{
+  "world": "/tmp/nonauto.lsworld",
+  "states": ["x"],
+  "stability": {
+    "world": "/tmp/nonauto.lsworld",
+    "states": ["x"],
+    "seeds_total": 5,
+    "seeds_converged": 5,
+    "fixed_points": []
+  },
+  "lyapunov": {"skipped": true, "note": "trajectory diverged before the transient elapsed"},
+  "invariants": {"skipped": true, "note": "no field"}
+}"""
+
+
+def test_new_analysis_symbols_import_lazily():
+    assert callable(lawsynth.invariants)
+    assert callable(lawsynth.analyze)
+    assert lawsynth.Invariant is analysis.Invariant
+    assert lawsynth.InvariantReport is analysis.InvariantReport
+    assert lawsynth.Skipped is analysis.Skipped
+    assert lawsynth.AnalyzeReport is analysis.AnalyzeReport
+
+
+def test_parse_invariants_dataclasses():
+    report = analysis._parse_invariants(json.loads(_INVARIANTS_JSON))
+    assert isinstance(report, analysis.InvariantReport)
+    assert report.degree == 2
+    assert report.trigonometric is False
+    assert report.sample_box == (-1.0, 1.5)
+    assert report.resolution == 5
+    assert report.tolerance == pytest.approx(1e-9)
+    assert report.basis_labels == ("v", "x", "v^2", "v*x", "x^2")
+    assert len(report.invariants) == 1
+    inv = report.invariants[0]
+    # Energy H = v^2 + x^2: the readable combination names both square terms.
+    assert "v^2" in inv.combination and "x^2" in inv.combination
+    # Raw coefficients align with basis_labels: the two square terms dominate,
+    # the linear / cross terms are numerical dust.
+    weights = dict(zip(report.basis_labels, inv.coefficients))
+    assert weights["v^2"] == pytest.approx(weights["x^2"], abs=1e-6)
+    assert abs(weights["v"]) < 1e-6 and abs(weights["x"]) < 1e-6 and abs(weights["v*x"]) < 1e-6
+    # A genuine invariant: residual and singular value are near zero.
+    assert inv.residual < 1e-9 and inv.singular_value < 1e-9
+
+
+def test_parse_invariants_rejects_malformed():
+    # Missing 'invariants' list / wrong container types must raise AnalysisError.
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_invariants(
+            {"world": "w", "degree": 2, "trigonometric": False,
+             "sample_box": {"lo": -1.0, "hi": 1.0}, "resolution": 5, "tolerance": 1e-9,
+             "basis_labels": ["x"]}  # no 'invariants'
+        )
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_invariants(
+            {"world": "w", "degree": 2, "trigonometric": False,
+             "sample_box": [-1.0, 1.0],  # must be an object with lo/hi
+             "resolution": 5, "tolerance": 1e-9, "basis_labels": ["x"], "invariants": []}
+        )
+
+
+def test_parse_analyze_composes_standalone_parsers():
+    report = analysis._parse_analyze(json.loads(_ANALYZE_JSON))
+    assert isinstance(report, analysis.AnalyzeReport)
+    assert report.states == ("v", "x")
+    # The composed sub-reports are the SAME types the standalone parsers return.
+    assert isinstance(report.stability, analysis.StabilityReport)
+    assert isinstance(report.lyapunov, analysis.LyapunovReport)
+    assert isinstance(report.invariants, analysis.InvariantReport)
+    # And they equal what the standalone parsers produce on the sub-objects.
+    raw = json.loads(_ANALYZE_JSON)
+    assert report.stability == analysis._parse_stability(raw["stability"])
+    assert report.lyapunov == analysis._parse_lyapunov(raw["lyapunov"])
+    assert report.invariants == analysis._parse_invariants(raw["invariants"])
+    # Harmonic oscillator: a center, a neutral spectrum, and the conserved energy.
+    assert "center" in report.stability.fixed_points[0].classification
+    assert report.lyapunov.chaotic is False
+    assert abs(report.lyapunov.largest) < 1e-2
+    assert len(report.invariants.invariants) == 1
+    assert "v^2" in report.invariants.invariants[0].combination
+
+
+def test_parse_analyze_handles_skipped_sections():
+    report = analysis._parse_analyze(json.loads(_ANALYZE_SKIPPED_JSON))
+    # The part that ran is the real dataclass; the parts that could not are Skipped.
+    assert isinstance(report.stability, analysis.StabilityReport)
+    assert report.stability.fixed_points == ()
+    assert isinstance(report.lyapunov, analysis.Skipped)
+    assert "diverged" in report.lyapunov.note
+    assert isinstance(report.invariants, analysis.Skipped)
+    assert report.invariants.note == "no field"
+
+
+def test_parse_analyze_rejects_malformed():
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_analyze({"world": "w"})  # no 'states'
+    with pytest.raises(analysis.AnalysisError):
+        # A sub-object that is neither a skip marker nor a valid stability object.
+        analysis._parse_analyze(
+            {"world": "w", "states": ["x"], "stability": "nope",
+             "lyapunov": {"skipped": True, "note": "n"},
+             "invariants": {"skipped": True, "note": "n"}}
+        )
+
+
+def test_invariants_arg_building_is_single_interval(monkeypatch):
+    # invariants --box is a single LO:HI (parse_sample_box), unlike the per-state
+    # box of stability/analyze. Capture the argv without spawning a subprocess.
+    captured: dict[str, object] = {}
+
+    def _fake_run_cli(args, **kwargs):
+        captured["args"] = list(args)
+        return json.loads(_INVARIANTS_JSON)
+
+    monkeypatch.setattr(analysis, "_run_cli", _fake_run_cli)
+    analysis.invariants("w.lsworld", box=(-1.0, 1.5), degree=3, trig=True, resolution=7)
+    args = captured["args"]
+    assert args[0] == "invariants" and args[1] == "w.lsworld"
+    assert "--box" in args and args[args.index("--box") + 1] == "-1.0:1.5"
+    assert "--degree" in args and args[args.index("--degree") + 1] == "3"
+    assert "--trig" in args  # valueless flag
+    assert "--resolution" in args and args[args.index("--resolution") + 1] == "7"
+    assert args[-1] == "--json"
+
+
+def test_analyze_arg_building_uses_per_state_box_and_initial(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def _fake_run_cli(args, **kwargs):
+        captured["args"] = list(args)
+        return json.loads(_ANALYZE_JSON)
+
+    monkeypatch.setattr(analysis, "_run_cli", _fake_run_cli)
+    analysis.analyze(
+        "w.lsworld", box=[(-1.0, 1.0), (-1.0, 1.0)], initial={"v": 0.0, "x": 1.0},
+        grid=7, dt=0.01, steps=1000, degree=2, trig=True,
+    )
+    args = captured["args"]
+    assert args[0] == "analyze" and args[1] == "w.lsworld"
+    # Per-state box: one comma-separated LOW:HIGH per state.
+    assert args[args.index("--box") + 1] == "-1.0:1.0,-1.0:1.0"
+    # --initial folds into a single comma-separated NAME=VALUE flag.
+    assert args[args.index("--initial") + 1] == "v=0.0,x=1.0"
+    assert "--trig" in args
+    assert args[-1] == "--json"
+
+
+# --------------------------------------------------------------------------- #
+# Live tests — real CLI invocation for invariants / analyze                    #
+# --------------------------------------------------------------------------- #
+
+
+def _discover_harmonic_oscillator(binary: Path, workdir: Path) -> Path:
+    """Discover the harmonic oscillator dx/dt=v, dv/dt=-x (energy x^2+v^2 conserved)."""
+    x, v, t, dt = 1.0, 0.0, 0.0, 0.02
+    rows: list[list[float]] = []
+    for _ in range(400):
+        rows.append([t, x, v])
+
+        def deriv(x: float, v: float) -> tuple[float, float]:
+            return v, -x
+
+        k1 = deriv(x, v)
+        k2 = deriv(x + dt / 2 * k1[0], v + dt / 2 * k1[1])
+        k3 = deriv(x + dt / 2 * k2[0], v + dt / 2 * k2[1])
+        k4 = deriv(x + dt * k3[0], v + dt * k3[1])
+        x = x + dt / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0])
+        v = v + dt / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1])
+        t += dt
+    csv_path = workdir / "harm.csv"
+    world = workdir / "harm.lsworld"
+    _write_csv(csv_path, ["time", "x", "v"], rows)
+    completed = subprocess.run(
+        [str(binary), "discover", str(csv_path), "--time", "time",
+         "--state", "x,v", "--output", str(world), "--degree", "1"],
+        capture_output=True, text=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return world
+
+
+def _discover_damped_oscillator(binary: Path, workdir: Path) -> Path:
+    """Discover the damped oscillator dx/dt=v, dv/dt=-x-0.3v (a stable spiral)."""
+    x, v, t, dt = 1.0, 0.0, 0.0, 0.02
+    rows: list[list[float]] = []
+    for _ in range(400):
+        rows.append([t, x, v])
+
+        def deriv(x: float, v: float) -> tuple[float, float]:
+            return v, -x - 0.3 * v
+
+        k1 = deriv(x, v)
+        k2 = deriv(x + dt / 2 * k1[0], v + dt / 2 * k1[1])
+        k3 = deriv(x + dt / 2 * k2[0], v + dt / 2 * k2[1])
+        k4 = deriv(x + dt * k3[0], v + dt * k3[1])
+        x = x + dt / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0])
+        v = v + dt / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1])
+        t += dt
+    csv_path = workdir / "damp.csv"
+    world = workdir / "damp.lsworld"
+    _write_csv(csv_path, ["time", "x", "v"], rows)
+    completed = subprocess.run(
+        [str(binary), "discover", str(csv_path), "--time", "time",
+         "--state", "x,v", "--output", str(world), "--degree", "1"],
+        capture_output=True, text=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return world
+
+
+def test_invariants_recovers_energy_on_harmonic_oscillator(tmp_path):
+    binary = _binary_or_skip()
+    world = _discover_harmonic_oscillator(binary, tmp_path)
+    report = lawsynth.invariants(world, box=(-1.0, 1.5))
+    assert isinstance(report, analysis.InvariantReport)
+    assert report.degree == 2
+    assert report.sample_box == (-1.0, 1.5)
+    # The harmonic oscillator conserves energy H = x^2 + v^2 (library-expressible
+    # at degree 2), so at least one invariant is recovered and names both squares.
+    assert len(report.invariants) >= 1
+    energy = report.invariants[0]
+    assert "x^2" in energy.combination and "v^2" in energy.combination
+    # A genuine null direction: residual and singular value are near zero.
+    assert energy.residual < 1e-6 and energy.singular_value < 1e-6
+
+
+def test_analyze_damped_oscillator_is_stable_and_conserves_nothing(tmp_path):
+    binary = _binary_or_skip()
+    world = _discover_damped_oscillator(binary, tmp_path)
+    report = lawsynth.analyze(world, box=[(-1.0, 1.0), (-1.0, 1.0)])
+    assert isinstance(report, analysis.AnalyzeReport)
+    # Stability: a stable spiral at the origin.
+    assert isinstance(report.stability, analysis.StabilityReport)
+    assert len(report.stability.fixed_points) == 1
+    assert report.stability.fixed_points[0].classification == "stable spiral"
+    # Lyapunov: not chaotic (it is dissipative, largest exponent negative).
+    assert isinstance(report.lyapunov, analysis.LyapunovReport)
+    assert report.lyapunov.chaotic is False
+    assert report.lyapunov.largest < 0.0
+    # Invariants: a damped system conserves no degree-2 quantity.
+    assert isinstance(report.invariants, analysis.InvariantReport)
+    assert report.invariants.invariants == ()
+
+
+def test_analyze_harmonic_oscillator_is_center_with_energy(tmp_path):
+    binary = _binary_or_skip()
+    world = _discover_harmonic_oscillator(binary, tmp_path)
+    report = lawsynth.analyze(world, box=[(-1.0, 1.0), (-1.0, 1.0)])
+    assert isinstance(report, analysis.AnalyzeReport)
+    # Stability: an undamped oscillator's origin is a (marginal) center.
+    assert isinstance(report.stability, analysis.StabilityReport)
+    assert "center" in report.stability.fixed_points[0].classification
+    # Lyapunov: neutral / conservative — exponents straddle zero, not chaotic.
+    assert isinstance(report.lyapunov, analysis.LyapunovReport)
+    assert report.lyapunov.chaotic is False
+    assert abs(report.lyapunov.largest) < 1e-2
+    # Invariants: energy H = x^2 + v^2 is recovered.
+    assert isinstance(report.invariants, analysis.InvariantReport)
+    assert len(report.invariants.invariants) >= 1
+    assert "x^2" in report.invariants.invariants[0].combination
+    assert "v^2" in report.invariants.invariants[0].combination
+
+
+def test_analyze_convenience_method_on_result(tmp_path):
+    _binary_or_skip()
+    try:
+        import lawsynth._native  # noqa: F401
+    except ModuleNotFoundError as error:
+        if error.name == "lawsynth._native":
+            pytest.skip("native extension not built; convenience methods need a live world")
+        raise
+    times = [i * 0.02 for i in range(400)]
+    columns = {
+        "x": [math.exp(-t) for t in times],
+        "y": [math.exp(-2 * t) for t in times],
+    }
+    study = lawsynth.Study.from_columns(times, columns, state=["x", "y"], name="node")
+    result = study.discover(polynomial_degree=1)
+    # analyze / invariants are attached like .stability(): save-and-analyze wrappers.
+    assert hasattr(result, "analyze") and hasattr(result, "invariants")
+    report = result.analyze(box=[(-1.0, 1.0), (-1.0, 1.0)])
+    assert isinstance(report, analysis.AnalyzeReport)
+    # A stable node dx/dt=-x, dy/dt=-2y: dissipative, so no conserved quantity.
+    assert isinstance(report.stability, analysis.StabilityReport)
+    assert report.stability.fixed_points[0].classification == "stable node"

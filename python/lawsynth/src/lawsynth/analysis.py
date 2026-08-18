@@ -80,6 +80,10 @@ __all__ = [
     "SdeReport",
     "PdeTerm",
     "PdeReport",
+    "Invariant",
+    "InvariantReport",
+    "Skipped",
+    "AnalyzeReport",
     "stability",
     "discover_controlled",
     "domains",
@@ -96,6 +100,8 @@ __all__ = [
     "koopman",
     "sde",
     "pde",
+    "invariants",
+    "analyze",
 ]
 
 
@@ -714,6 +720,86 @@ class PdeReport:
     terms: tuple[PdeTerm, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class Invariant:
+    """One detected conserved quantity ``H(x)`` over the candidate basis.
+
+    ``combination`` is the engine's readable rendering (coefficients rescaled so the
+    largest-magnitude term reads ``1.00``, e.g. ``"1.00·v^2 + 1.00·x^2"``);
+    ``coefficients`` is the raw unit-norm weight vector over the report's
+    ``basis_labels`` (same order); ``residual`` is ``‖L_f H‖`` — how close the Lie
+    derivative ``∇H·f`` is to zero on the sample grid — and ``singular_value`` the
+    matching near-null singular value. Both are near zero for a genuine invariant.
+    """
+
+    combination: str
+    coefficients: tuple[float, ...]
+    residual: float
+    singular_value: float
+
+
+@dataclass(frozen=True, slots=True)
+class InvariantReport:
+    """The parsed result of ``lawsynth invariants WORLD --json``.
+
+    The world's laws are read as an autonomous field ``ẋ = f(x)`` (every declared
+    parameter pinned at its stored value) and conserved quantities are sought as
+    combinations of a candidate library: monomials up to total ``degree``
+    (``trigonometric`` adds sin/cos terms), whose readable names are
+    ``basis_labels``. The Lie-derivative matrix is sampled on a deterministic grid
+    of ``resolution`` points per axis inside ``sample_box`` (the shared per-axis
+    interval ``(lo, hi)``) and each near-null direction within ``tolerance`` is
+    reported as an :class:`Invariant`.
+
+    The search is **library-bounded**: an empty ``invariants`` means no conserved
+    quantity expressible in the degree-``D`` library was found within tolerance —
+    not that the system conserves nothing. Raise ``degree``, add ``trig``, or widen
+    the box to search a richer library.
+    """
+
+    world: str
+    degree: int
+    trigonometric: bool
+    sample_box: tuple[float, float]
+    resolution: int
+    tolerance: float
+    basis_labels: tuple[str, ...]
+    invariants: tuple[Invariant, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Skipped:
+    """A sub-analysis of :func:`analyze` that could not run, with an honest note.
+
+    ``lawsynth analyze`` runs stability, Lyapunov, and invariants in one pass; a
+    part that cannot run (a non-autonomous world, a Lyapunov run that diverges, ...)
+    is reported as this small skip marker rather than failing the whole command.
+    ``note`` is the engine's human-readable reason.
+    """
+
+    note: str
+
+
+@dataclass(frozen=True, slots=True)
+class AnalyzeReport:
+    """The parsed result of ``lawsynth analyze WORLD --box ... --json``.
+
+    A one-shot dynamics summary combining three engines on one world. Each
+    sub-object is byte-for-byte the shape the matching standalone command emits, so
+    the fields are the very same dataclasses those commands' parsers return:
+    ``stability`` a :class:`StabilityReport`, ``lyapunov`` a :class:`LyapunovReport`,
+    ``invariants`` an :class:`InvariantReport` — or a :class:`Skipped` marker when
+    that part could not run for this world. ``world`` and ``states`` echo the
+    analyzed world (states in the engine's schema order).
+    """
+
+    world: str
+    states: tuple[str, ...]
+    stability: "StabilityReport | Skipped"
+    lyapunov: "LyapunovReport | Skipped"
+    invariants: "InvariantReport | Skipped"
+
+
 # --------------------------------------------------------------------------- #
 # Parsers — the JSON/text shapes each CLI subcommand emits                     #
 #                                                                              #
@@ -1202,6 +1288,87 @@ def _parse_pde(data: Mapping[str, object]) -> PdeReport:
         ),
         law=str(_require(data, "law", "pde")),
         terms=terms,
+    )
+
+
+def _parse_invariants(data: Mapping[str, object]) -> InvariantReport:
+    """Parse the ``invariants --json`` object (see ``invariants.rs::render_json``)."""
+    box_raw = _require(data, "sample_box", "invariants")
+    if not isinstance(box_raw, Mapping):
+        raise AnalysisError("`lawsynth invariants` JSON 'sample_box' must be an object")
+    invariants_raw = _require(data, "invariants", "invariants")
+    if not isinstance(invariants_raw, list):
+        raise AnalysisError("`lawsynth invariants` JSON 'invariants' must be a list")
+    labels_raw = _require(data, "basis_labels", "invariants")
+    if not isinstance(labels_raw, list):
+        raise AnalysisError("`lawsynth invariants` JSON 'basis_labels' must be a list")
+    invariants = tuple(
+        Invariant(
+            combination=str(_require(entry, "combination", "invariants")),
+            coefficients=tuple(
+                _as_float(value, "invariants[].coefficients[]")
+                for value in entry.get("coefficients", [])
+            ),
+            residual=_as_float(
+                _require(entry, "residual", "invariants"), "invariants[].residual"
+            ),
+            singular_value=_as_float(
+                _require(entry, "singular_value", "invariants"), "invariants[].singular_value"
+            ),
+        )
+        for entry in invariants_raw
+    )
+    return InvariantReport(
+        world=str(data.get("world", "")),
+        degree=_as_int(_require(data, "degree", "invariants"), "degree"),
+        trigonometric=bool(_require(data, "trigonometric", "invariants")),
+        sample_box=(
+            _as_float(_require(box_raw, "lo", "invariants"), "sample_box.lo"),
+            _as_float(_require(box_raw, "hi", "invariants"), "sample_box.hi"),
+        ),
+        resolution=_as_int(_require(data, "resolution", "invariants"), "resolution"),
+        tolerance=_as_float(_require(data, "tolerance", "invariants"), "tolerance"),
+        basis_labels=tuple(str(label) for label in labels_raw),
+        invariants=invariants,
+    )
+
+
+def _parse_analyze_section(data: object, kind: str, parser):
+    """Dispatch one ``analyze`` sub-object: a skip marker or the standalone shape.
+
+    A ``{"skipped": true, "note": ...}`` sub-object becomes a small :class:`Skipped`
+    marker; anything else is handed to ``parser`` — the exact standalone
+    ``_parse_stability`` / ``_parse_lyapunov`` / ``_parse_invariants`` — so the
+    composed sub-report is the same type that command's parser already returns.
+    """
+    if not isinstance(data, Mapping):
+        raise AnalysisError(f"`lawsynth analyze` JSON {kind!r} sub-object must be an object")
+    if data.get("skipped") is True:
+        return Skipped(note=str(data.get("note", "")))
+    return parser(data)
+
+
+def _parse_analyze(data: Mapping[str, object]) -> AnalyzeReport:
+    """Parse the ``analyze --json`` object (see ``analyze.rs::render_json``).
+
+    Composes the existing standalone parsers over the sub-objects via
+    :func:`_parse_analyze_section`: each of ``stability`` / ``lyapunov`` /
+    ``invariants`` is either a :class:`Skipped` marker or, reusing
+    ``_parse_stability`` / ``_parse_lyapunov`` / ``_parse_invariants`` unchanged, a
+    :class:`StabilityReport` / :class:`LyapunovReport` / :class:`InvariantReport`.
+    """
+    return AnalyzeReport(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "analyze")),  # type: ignore[union-attr]
+        stability=_parse_analyze_section(
+            _require(data, "stability", "analyze"), "stability", _parse_stability
+        ),
+        lyapunov=_parse_analyze_section(
+            _require(data, "lyapunov", "analyze"), "lyapunov", _parse_lyapunov
+        ),
+        invariants=_parse_analyze_section(
+            _require(data, "invariants", "analyze"), "invariants", _parse_invariants
+        ),
     )
 
 
@@ -2053,6 +2220,106 @@ def pde(
     return _parse_pde(_run_cli(args))
 
 
+def invariants(
+    world_path: str | PathLike[str],
+    *,
+    box: str | tuple[float, float] | Sequence[float] | None = None,
+    degree: int | None = None,
+    trig: bool = False,
+    resolution: int | None = None,
+    tolerance: float | None = None,
+) -> InvariantReport:
+    """Search for conserved quantities ``H(x)`` of a world via the CLI engine.
+
+    Runs ``lawsynth invariants WORLD --json`` and parses the result into an
+    :class:`InvariantReport`. The world's laws are read as an autonomous field
+    ``ẋ = f(x)`` (every declared parameter pinned) and each nonconstant combination
+    of a candidate library whose Lie derivative ``L_f H = ∇H·f`` vanishes on the
+    sample grid is reported as an :class:`Invariant`. ``box`` is the **single shared
+    per-axis interval** ``[LO, HI]^n`` the grid samples — the CLI's ``--box`` here
+    takes one ``LOW:HIGH`` (unlike the per-state box of :func:`stability` /
+    :func:`analyze`), so pass a ``(lo, hi)`` pair or the raw ``"LO:HI"`` string.
+    ``degree`` sets the monomial library degree, ``trig=True`` adds ``sin``/``cos``
+    terms, ``resolution`` the grid points per axis, and ``tolerance`` the near-null
+    cutoff on the Lie-derivative singular values.
+
+    The search is **library-bounded**: an empty ``report.invariants`` means no
+    conserved quantity expressible in the chosen library was found within tolerance,
+    not a proof that none exists — raise ``degree``, add ``trig``, or widen ``box``.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (unreadable world, a decomposition that
+    fails to converge on the chosen box/resolution, ...).
+    """
+    args: list[str] = ["invariants", str(world_path)]
+    if box is not None:
+        args += ["--box", _format_range(box)]
+    if degree is not None:
+        args += ["--degree", str(int(degree))]
+    if trig:
+        args.append("--trig")
+    if resolution is not None:
+        args += ["--resolution", str(int(resolution))]
+    if tolerance is not None:
+        args += ["--tolerance", repr(float(tolerance))]
+    args.append("--json")
+    return _parse_invariants(_run_cli(args))
+
+
+def analyze(
+    world_path: str | PathLike[str],
+    *,
+    box: str | Sequence[tuple[float, float]],
+    grid: int | None = None,
+    initial: Mapping[str, float] | Sequence[tuple[str, float]] | None = None,
+    dt: float | None = None,
+    steps: int | None = None,
+    degree: int | None = None,
+    trig: bool = False,
+) -> AnalyzeReport:
+    """Run the combined one-shot dynamics analysis of a world via the CLI engine.
+
+    Runs ``lawsynth analyze WORLD --box ... --json`` and parses the result into an
+    :class:`AnalyzeReport`. In one pass the engine runs :func:`stability` (fixed
+    points inside the required ``box`` and their linear classification),
+    :func:`lyapunov` (the spectrum from ``initial``, defaulting to the origin), and
+    :func:`invariants` (conserved quantities over a degree-``D`` library). ``box``
+    is the mandatory **per-state** search box (one ``(low, high)`` per state, in
+    state order, or the raw ``"LOW:HIGH,LOW:HIGH"`` string) that drives the
+    stability search. ``grid`` sets the fixed-point search resolution; ``initial``
+    the Lyapunov launch point (mapping ``{state: value}`` or ``(state, value)``
+    pairs, assigning **every** state exactly once — folded into a single
+    ``--initial`` flag); ``dt`` / ``steps`` the Lyapunov integration; ``degree`` and
+    ``trig`` the invariant library.
+
+    Each sub-object mirrors the standalone command's ``--json`` exactly, so
+    ``report.stability`` / ``report.lyapunov`` / ``report.invariants`` are the very
+    :class:`StabilityReport` / :class:`LyapunovReport` / :class:`InvariantReport`
+    those commands return. A part that **cannot run for this world** (a
+    non-autonomous field, a Lyapunov run that diverges) is a :class:`Skipped` marker
+    rather than a failure of the whole command — only an unloadable world or a
+    missing ``box`` is a hard :class:`CliError` / :class:`ValidationError`.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit.
+    """
+    args: list[str] = ["analyze", str(world_path), "--box", _format_box(box)]
+    if grid is not None:
+        args += ["--grid", str(int(grid))]
+    if initial is not None:
+        args += ["--initial", _format_assignments(initial, label="initial")]
+    if dt is not None:
+        args += ["--dt", repr(float(dt))]
+    if steps is not None:
+        args += ["--steps", str(int(steps))]
+    if degree is not None:
+        args += ["--degree", str(int(degree))]
+    if trig:
+        args.append("--trig")
+    args.append("--json")
+    return _parse_analyze(_run_cli(args))
+
+
 # --------------------------------------------------------------------------- #
 # Attach convenience methods to DiscoveryResult / Study (best-effort, lazy)     #
 # --------------------------------------------------------------------------- #
@@ -2102,6 +2369,8 @@ def _install() -> None:
         "lyapunov": lyapunov,
         "basins": basins,
         "mpc": mpc,
+        "invariants": invariants,
+        "analyze": analyze,
     }
     for cls in (Study, DiscoveryResult):
         for name, function in methods.items():

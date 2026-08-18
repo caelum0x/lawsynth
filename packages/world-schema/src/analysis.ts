@@ -24,6 +24,10 @@
  *   (see `crates/lawsynth-cli/src/sde.rs::render_json`)
  * - `lawsynth pde ... --json`          ->  {@link PdeReport}
  *   (see `crates/lawsynth-cli/src/pde.rs::render_json`)
+ * - `lawsynth invariants ... --json`   ->  {@link InvariantReport}
+ *   (see `crates/lawsynth-cli/src/invariants.rs::render_json`)
+ * - `lawsynth analyze ... --json`      ->  {@link AnalyzeReport}
+ *   (see `crates/lawsynth-cli/src/analyze.rs::render_json`)
  *
  * The parsers below are pure: they validate `unknown` engine JSON and narrow it
  * into the typed model, or throw. They never touch the network — the engine runs
@@ -1296,6 +1300,200 @@ export function validatePdeReport(input: unknown): ValidationResult<PdeReport> {
 /** Parses a `lawsynth pde --json` report, throwing {@link SchemaValidationError} on any issue. */
 export function parsePdeReport(input: unknown): PdeReport {
   const checked = validatePdeReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- invariants: conserved-quantity detection ------------------------------
+// These mirror the `lawsynth invariants --json` render function in
+// crates/lawsynth-cli/src/invariants.rs::render_json (keys, nesting, and the
+// `sample_box` shape confirmed against that source AND against verbatim output
+// captured from the debug binary).
+
+/** The per-axis sampling interval `[lo, hi]`, mirroring `{ "lo", "hi" }`. */
+export interface SampleBox {
+  readonly lo: number;
+  readonly hi: number;
+}
+
+/**
+ * One detected conserved quantity `H(x)`: a near-null direction of the
+ * Lie-derivative matrix over the candidate basis.
+ */
+export interface Invariant {
+  /**
+   * The rescaled, human-readable law over the basis labels (e.g.
+   * `0.25·imbalance^2 + 1.00·mid^2`), as the engine's `render_combination`
+   * writes it. Uses the middle-dot `·` (U+00B7) between coefficient and term.
+   */
+  readonly combination: string;
+  /** The raw unit-norm coefficient vector, indexed by `basis_labels`. */
+  readonly coefficients: readonly number[];
+  /** The Lie-derivative residual `‖L_f H‖` — smaller is a tighter invariant. */
+  readonly residual: number;
+  /** The singular value of the near-null direction. */
+  readonly singular_value: number;
+}
+
+/** `lawsynth invariants ... --json` — conserved-quantity detection on a world. */
+export interface InvariantReport {
+  readonly world: string;
+  /** Total monomial degree `D` of the candidate library (a `usize` count). */
+  readonly degree: number;
+  /** True when the library was augmented with `sin`/`cos` terms (`--trig`). */
+  readonly trigonometric: boolean;
+  /** The per-axis sample box `[lo, hi]^n` the field was probed on. */
+  readonly sample_box: SampleBox;
+  /** Sample points per axis (a `usize` count). */
+  readonly resolution: number;
+  /** Near-null tolerance on the Lie-derivative singular values. */
+  readonly tolerance: number;
+  /** The ordered basis-term labels the coefficient vectors are indexed by. */
+  readonly basis_labels: readonly string[];
+  /** The detected conserved quantities; empty when none is library-expressible. */
+  readonly invariants: readonly Invariant[];
+}
+
+function readSampleBox(value: unknown, path: string, issues: ValidationIssue[]): SampleBox {
+  if (!record(value)) {
+    issue(issues, path, "type", "sample_box must be an object");
+    return { lo: Number.NaN, hi: Number.NaN };
+  }
+  return { lo: num(value.lo, `${path}/lo`, issues), hi: num(value.hi, `${path}/hi`, issues) };
+}
+
+function readInvariant(value: unknown, path: string, issues: ValidationIssue[]): Invariant {
+  if (!record(value)) {
+    issue(issues, path, "type", "invariant must be an object");
+    return { combination: "", coefficients: [], residual: Number.NaN, singular_value: Number.NaN };
+  }
+  return {
+    combination: str(value.combination, `${path}/combination`, issues),
+    coefficients: numberArray(value.coefficients, `${path}/coefficients`, issues),
+    residual: num(value.residual, `${path}/residual`, issues),
+    singular_value: num(value.singular_value, `${path}/singular_value`, issues),
+  };
+}
+
+/** Validates a `lawsynth invariants --json` report without throwing. */
+export function validateInvariantReport(input: unknown): ValidationResult<InvariantReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "invariant report must be an object");
+    return result(input, issues);
+  }
+  const invariants = Array.isArray(input.invariants)
+    ? input.invariants.map((item, index) => readInvariant(item, `/invariants/${index}`, issues))
+    : (issue(issues, "/invariants", "type", "must be an array"), [] as Invariant[]);
+  const report: InvariantReport = {
+    world: str(input.world, "/world", issues),
+    degree: count(input.degree, "/degree", issues),
+    trigonometric: bool(input.trigonometric, "/trigonometric", issues),
+    sample_box: readSampleBox(input.sample_box, "/sample_box", issues),
+    resolution: count(input.resolution, "/resolution", issues),
+    tolerance: num(input.tolerance, "/tolerance", issues),
+    basis_labels: stringArray(input.basis_labels, "/basis_labels", issues),
+    invariants,
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth invariants --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseInvariantReport(input: unknown): InvariantReport {
+  const checked = validateInvariantReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- analyze: one-shot stability + lyapunov + invariants -------------------
+// Mirrors the `lawsynth analyze --json` render function in
+// crates/lawsynth-cli/src/analyze.rs::render_json. Each sub-slot is byte-for-byte
+// the standalone command's `--json` object, so this parser COMPOSES the existing
+// stability/lyapunov/invariants report shapes. A slot the engine could not run is
+// emitted as `{ "skipped": true, "note": ... }` (see analyze.rs::Section::json)
+// and is narrowed to {@link SkippedAnalysis} instead of the report.
+
+/**
+ * A sub-analysis the engine chose to skip (a non-autonomous world, a diverging
+ * Lyapunov run, etc.), mirroring analyze.rs's `{ "skipped": true, "note": ... }`.
+ * `skipped` is always exactly `true`; `note` is the engine's honest reason.
+ */
+export interface SkippedAnalysis {
+  readonly skipped: true;
+  readonly note: string;
+}
+
+/** `lawsynth analyze ... --json` — the combined one-shot dynamics report. */
+export interface AnalyzeReport {
+  readonly world: string;
+  readonly states: readonly Identifier[];
+  /** The stability sub-report, or a skip note. */
+  readonly stability: StabilityReport | SkippedAnalysis;
+  /** The Lyapunov sub-report, or a skip note. */
+  readonly lyapunov: LyapunovReport | SkippedAnalysis;
+  /** The invariants sub-report, or a skip note. */
+  readonly invariants: InvariantReport | SkippedAnalysis;
+}
+
+/**
+ * Type guard narrowing an {@link AnalyzeReport} sub-slot to a {@link SkippedAnalysis}.
+ * A slot is a skip note exactly when it is an object carrying `skipped === true`.
+ */
+export function isSkipped(value: unknown): value is SkippedAnalysis {
+  return record(value) && (value as { skipped?: unknown }).skipped === true;
+}
+
+/**
+ * Reads one analyze sub-slot. When the slot is a skip note it is narrowed to a
+ * {@link SkippedAnalysis}; otherwise the slot is delegated to the standalone
+ * report's validator (the exact validation the matching `parse*` wraps), and its
+ * issues are re-pathed under `path` so errors point at the right sub-object.
+ */
+function readSection<T>(
+  value: unknown,
+  validate: (input: unknown) => ValidationResult<T>,
+  path: string,
+  issues: ValidationIssue[],
+): T | SkippedAnalysis {
+  if (record(value) && value.skipped === true) {
+    return { skipped: true, note: str(value.note, `${path}/note`, issues) };
+  }
+  const checked = validate(value);
+  if (checked.ok) return checked.value;
+  for (const child of checked.issues) {
+    issue(issues, `${path}${child.path}`, child.code, child.message);
+  }
+  // Placeholder discarded once `issues` is non-empty (mirrors the file's
+  // default-on-error convention); the overall result is marked invalid.
+  return { skipped: true, note: "" };
+}
+
+/** Validates a `lawsynth analyze --json` report without throwing. */
+export function validateAnalyzeReport(input: unknown): ValidationResult<AnalyzeReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "analyze report must be an object");
+    return result(input, issues);
+  }
+  const report: AnalyzeReport = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    stability: readSection(input.stability, validateStabilityReport, "/stability", issues),
+    lyapunov: readSection(input.lyapunov, validateLyapunovReport, "/lyapunov", issues),
+    invariants: readSection(input.invariants, validateInvariantReport, "/invariants", issues),
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/**
+ * Parses a `lawsynth analyze --json` report, throwing {@link SchemaValidationError}
+ * on any issue. Composes the standalone stability/lyapunov/invariants report
+ * shapes: each non-skipped sub-slot narrows to a real {@link StabilityReport},
+ * {@link LyapunovReport}, or {@link InvariantReport}, and each skipped slot to a
+ * {@link SkippedAnalysis} (use {@link isSkipped} to narrow at the use site).
+ */
+export function parseAnalyzeReport(input: unknown): AnalyzeReport {
+  const checked = validateAnalyzeReport(input);
   if (!checked.ok) throw new SchemaValidationError(checked.issues);
   return checked.value;
 }
