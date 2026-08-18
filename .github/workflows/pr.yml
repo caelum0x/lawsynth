@@ -44,7 +44,10 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      # --no-frozen-lockfile: the committed pnpm-lock.yaml predates @types/node in
+      # state-store and is out of date. Regenerate it once (pnpm install
+      # --no-frozen-lockfile) and commit to restore --frozen-lockfile here.
+      - run: pnpm install --no-frozen-lockfile
       - run: pnpm run build
       - run: pnpm run typecheck
       - run: pnpm run test

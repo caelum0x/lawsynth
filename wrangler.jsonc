@@ -1,0 +1,10 @@
+{
+  // Static-assets Worker for lawsynth.dev — serves the pre-rendered docs site.
+  // Build with `pnpm run build:site` (emits apps/docs-site/public), deploy with
+  // `npx wrangler deploy`. No Worker script (`main`) is needed: the `assets`
+  // block alone serves the static tree. For the Cloudflare Pages flow instead,
+  // see apps/docs-site/wrangler.toml + DEPLOY.md.
+  "name": "lawsynth",
+  "compatibility_date": "2025-01-01",
+  "assets": { "directory": "./apps/docs-site/public" }
+}
