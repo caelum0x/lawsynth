@@ -1,0 +1,16 @@
+[package]
+name = "lawsynth-basins"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic basin-of-attraction mapping for discovered LawSynth vector fields."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+lawsynth-stability = { path = "../lawsynth-stability" }
+
+[lib]
+path = "src/lib.rs"

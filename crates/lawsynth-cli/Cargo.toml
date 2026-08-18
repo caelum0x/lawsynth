@@ -37,9 +37,11 @@ lawsynth-differentiate = { path = "../lawsynth-differentiate" }
 lawsynth-egraph = { path = "../lawsynth-egraph" }
 lawsynth-estimate = { path = "../lawsynth-estimate" }
 lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-invariants = { path = "../lawsynth-invariants" }
 lawsynth-jacobian = { path = "../lawsynth-jacobian" }
 lawsynth-koopman = { path = "../lawsynth-koopman" }
 lawsynth-modelreduce = { path = "../lawsynth-modelreduce" }
+lawsynth-modelselect = { path = "../lawsynth-modelselect" }
 lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
 lawsynth-plugin-host = { path = "../lawsynth-plugin-host" }
 lawsynth-preprocess = { path = "../lawsynth-preprocess" }
