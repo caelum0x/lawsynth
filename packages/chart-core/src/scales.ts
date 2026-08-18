@@ -5,6 +5,15 @@ function checkDomain(domain: Domain): void {
   if (!Number.isFinite(domain.min) || !Number.isFinite(domain.max) || domain.min > domain.max) throw new RangeError("invalid domain");
 }
 
+/**
+ * Validates an output range. Unlike a domain, a range may be **descending**
+ * (`min > max`) — that is how callers flip an axis (e.g. SVG's downward Y), so
+ * only finiteness and a non-zero span are required.
+ */
+function checkRange(range: Domain): void {
+  if (!Number.isFinite(range.min) || !Number.isFinite(range.max) || range.min === range.max) throw new RangeError("invalid range");
+}
+
 export function extent(values: readonly number[]): Domain {
   if (values.length === 0) throw new RangeError("cannot calculate extent of an empty array");
   let min = Infinity; let max = -Infinity;
@@ -22,7 +31,7 @@ export function padDomain(domain: Domain, fraction = 0.05): Domain {
 }
 
 export function createScale(domain: Domain, range: Domain, kind: ScaleKind = "linear"): (value: number) => number {
-  checkDomain(domain); checkDomain(range);
+  checkDomain(domain); checkRange(range);
   if (domain.min === domain.max) throw new RangeError("scale domain must have non-zero span");
   if (kind === "log" && domain.min <= 0) throw new RangeError("log domains must be strictly positive");
   const sourceMin = kind === "log" ? Math.log(domain.min) : domain.min;
