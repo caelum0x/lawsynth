@@ -40,9 +40,7 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-      # --no-frozen-lockfile until the committed lockfile is regenerated (it
-      # predates @types/node in state-store). See apps/docs-site/DEPLOY.md.
-      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
       # Emits the static tree to apps/docs-site/public (self-contained HTML +
       # sitemap/robots/_headers). Deterministic; see apps/docs-site/DEPLOY.md.
       - run: pnpm --filter @lawsynth/docs-site run render
