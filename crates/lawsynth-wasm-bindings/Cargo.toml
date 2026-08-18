@@ -1,0 +1,18 @@
+[package]
+name = "lawsynth-wasm-bindings"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "C-ABI (wasm32) bindings over lawsynth-wasm for the browser playground — no wasm-bindgen, std-only."
+
+# `cdylib` produces the deployable `.wasm` (or a host shared lib); `rlib` lets the
+# host test binary link the exports directly, so the binding logic is unit-tested
+# on the host toolchain even where the wasm32 target is unavailable.
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-wasm = { path = "../lawsynth-wasm" }

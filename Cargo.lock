@@ -543,6 +543,14 @@ name = "lawsynth-wasm"
 version = "0.1.0"
 
 [[package]]
+name = "lawsynth-wasm-bindings"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-wasm",
+]
+
+[[package]]
 name = "lawsynth-weakform"
 version = "0.1.0"
 dependencies = [

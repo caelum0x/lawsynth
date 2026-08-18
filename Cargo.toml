@@ -45,6 +45,7 @@ members = [
   "crates/lawsynth-network",
   "crates/lawsynth-basins",
   "crates/lawsynth-integration",
+  "crates/lawsynth-wasm-bindings",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",
