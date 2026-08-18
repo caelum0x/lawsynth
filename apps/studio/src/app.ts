@@ -1,4 +1,4 @@
-import { ANALYSIS_REPORTS, analysisReportLabel, analysisReportSummary } from "./analysis.js";
+import { ANALYSIS_REPORTS, analysisReportLabel, analysisReportSummary, analysisSample, renderAnalysisReport, type AnalysisReport } from "./analysis.js";
 import { DiscoveryController } from "./discovery.js";
 import { ProviderScope, type StudioProviders } from "./providers.js";
 import { StudioRouter, parseRoute, routePath, type StudioRoute } from "./routes.js";
@@ -44,7 +44,9 @@ const STUDIO_CSS = `.lss{--ink:#18201d;--paper:#f3f0e8;--surface:#fffdf7;--line:
 .lss-nav-screen{display:flex!important;flex-direction:column;gap:2px;align-items:flex-start;min-height:auto!important;padding:8px 10px!important;margin-bottom:2px}.lss-nav-screen-title{font-weight:600}.lss-nav-screen-sub{font:400 11px/1.3 Inter,system-ui,sans-serif;color:#8a9089;white-space:normal}.lss-nav button[aria-current=page] .lss-nav-screen-sub{color:#c8c6ba}
 .lss-card-link{cursor:pointer;text-align:left;font:inherit;color:inherit}.lss-card-link:hover{border-color:var(--accent)}.lss-card-link:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .lss-scr-graph{width:100%;height:auto;border:1px solid var(--line);background:var(--surface)}.lss-scr-graph-node:focus-visible{outline:none}.lss-scr-graph-node:focus-visible rect{stroke:var(--accent);stroke-width:2.5}
-.lss-scr-codes{display:flex;flex-direction:column;gap:14px}.lss-scr-code{border:1px solid var(--line);background:var(--surface)}.lss-scr-code-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line)}.lss-scr-code-label{font:600 11px/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em;color:#59635e}.lss-scr-copy{min-height:28px!important;padding:4px 12px!important;font-size:12px!important}.lss-scr-code-body{margin:0;padding:12px;overflow:auto;font:12px/1.5 ui-monospace,monospace;max-height:320px}.lss-scr-code-caption{margin:0;padding:0 12px 10px;color:#8a9089;font-size:11px}`;
+.lss-scr-codes{display:flex;flex-direction:column;gap:14px}.lss-scr-code{border:1px solid var(--line);background:var(--surface)}.lss-scr-code-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line)}.lss-scr-code-label{font:600 11px/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.05em;color:#59635e}.lss-scr-copy{min-height:28px!important;padding:4px 12px!important;font-size:12px!important}.lss-scr-code-body{margin:0;padding:12px;overflow:auto;font:12px/1.5 ui-monospace,monospace;max-height:320px}.lss-scr-code-caption{margin:0;padding:0 12px 10px;color:#8a9089;font-size:11px}
+.lss-analysis{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}.lss-analysis h2{margin:0 0 12px}.lss-analysis-input{margin:0 0 12px}.lss-analysis-input textarea{width:100%;min-height:120px;padding:8px 10px;border:1px solid var(--line);background:var(--surface);font:12px/1.5 ui-monospace,monospace;resize:vertical}.lss-analysis-input textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}.lss-analysis-result{margin-top:16px}.lss-analysis-result .lss-scr-section+.lss-scr-section,.lss-analysis-result .lss-scr-metrics{margin-top:12px}
+.lss-badge{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-left-width:3px;border-radius:3px;font:600 11px/1.4 ui-monospace,monospace;background:var(--surface)}.lss-badge.lss-tone-success{border-color:#2f7d43;color:#2f7d43}.lss-badge.lss-tone-warning{border-color:#c58a1e;color:#8a5e00}.lss-badge.lss-tone-error{border-color:#b32d2d;color:#b32d2d}.lss-badge.lss-tone-info{border-color:#3768a6;color:#3768a6}`;
 
 export class StudioApp extends EventTarget {
   readonly router: StudioRouter;
@@ -62,6 +64,9 @@ export class StudioApp extends EventTarget {
   #style: HTMLStyleElement | undefined;
   #unsubscribe: (() => void) | undefined;
   #saveTimer: ReturnType<typeof setTimeout> | undefined;
+  #analysisReport: AnalysisReport | undefined;
+  #analysisText = "";
+  #analysisSubmitted: string | null = null;
   readonly #document: Document | undefined;
   readonly #settingsKey: string;
   readonly #popstate = (): void => {
@@ -220,10 +225,37 @@ export class StudioApp extends EventTarget {
         grid.append(card);
       }
       main.append(grid);
+      if (route.report !== undefined) main.append(this.#renderAnalysisDetail(document, route.report));
     } else main.append(node(document, "p", undefined, `Active route: ${routePath(route)}`));
   }
 
   #card(document: Document, label: string, value: string): HTMLElement { const card = node(document, "article", "lss-card"); card.append(node(document, "strong", undefined, label), node(document, "div", undefined, value)); return card; }
+
+  #renderAnalysisDetail(document: Document, report: AnalysisReport): HTMLElement {
+    // Reset the paste draft whenever the selected report changes so one report's
+    // JSON is never parsed under another report's parser.
+    if (this.#analysisReport !== report) { this.#analysisReport = report; this.#analysisText = ""; this.#analysisSubmitted = null; }
+    const panel = node(document, "section", "lss-analysis"); panel.setAttribute("aria-label", `${analysisReportLabel(report)} analysis`);
+    panel.append(node(document, "h2", "lss-scr-heading", `${analysisReportLabel(report)} — ${analysisReportSummary(report)}`));
+    const field = node(document, "label", "lss-scr-field lss-analysis-input");
+    field.append(node(document, "span", "lss-scr-field-label", `Paste \`lawsynth ${report} … --json\` output`));
+    const textarea = node(document, "textarea"); textarea.value = this.#analysisText; textarea.setAttribute("rows", "6"); textarea.setAttribute("spellcheck", "false");
+    textarea.setAttribute("aria-label", `${report} report JSON`);
+    textarea.addEventListener("input", () => { this.#analysisText = textarea.value; });
+    field.append(textarea);
+    panel.append(field);
+    const actions = node(document, "div", "lss-scr-actions");
+    const analyze = node(document, "button", "lss-scr-btn lss-tone-success", "Analyze"); analyze.type = "button";
+    analyze.addEventListener("click", () => { this.#analysisText = textarea.value; this.#analysisSubmitted = textarea.value; this.render(); });
+    const sample = node(document, "button", "lss-scr-btn", "Load sample"); sample.type = "button";
+    sample.addEventListener("click", () => { this.#analysisText = analysisSample(report); this.#analysisSubmitted = this.#analysisText; this.render(); });
+    const clear = node(document, "button", "lss-scr-btn", "Clear"); clear.type = "button";
+    clear.addEventListener("click", () => { this.#analysisText = ""; this.#analysisSubmitted = null; this.render(); });
+    actions.append(analyze, sample, clear);
+    panel.append(actions);
+    panel.append(renderAnalysisReport(document, report, this.#analysisSubmitted));
+    return panel;
+  }
 
   #renderScreen(main: HTMLElement, document: Document): void {
     const screens = this.#screens;

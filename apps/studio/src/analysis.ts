@@ -42,6 +42,7 @@ import {
   type SensitivityReport,
   type StabilityReport,
 } from "@lawsynth/api-client";
+import { SchemaValidationError } from "@lawsynth/world-schema";
 
 /** The seven analysis reports the engine can emit, in a stable presentation order. */
 export const ANALYSIS_REPORTS = [
@@ -652,4 +653,437 @@ function buildReductionView(report: ReductionReport): ReductionView {
 /** Parses raw `reduce --json` (or an already-parsed report) into a {@link ReductionView}. */
 export function reductionView(input: unknown): ReductionView {
   return buildReductionView(parseReductionReport(input));
+}
+
+// --- bundled samples --------------------------------------------------------
+
+/**
+ * Deterministic `lawsynth <report> --json` samples, VERBATIM engine output shapes
+ * (mirroring the fixtures in packages/world-schema/tests/analysis.test.ts). These
+ * make the Analysis screen demoable with no engine or backend: "Load sample" fills
+ * the paste box with the matching constant below. Every string is a fixed literal —
+ * nothing here reads the clock, the network, or randomness.
+ */
+const ANALYSIS_SAMPLES: Readonly<Record<AnalysisReport, string>> = Object.freeze({
+  stability: `{
+  "world": "decay2d.lsworld",
+  "states": ["x", "y"],
+  "seeds_total": 25,
+  "seeds_converged": 25,
+  "fixed_points": [
+    {
+      "coordinates": [0.0, 0.0],
+      "classification": "stable node",
+      "inconclusive": false,
+      "eigenvalues": [{"re": -2.0416666610439438, "im": 0.0}, {"re": -1.0102040817416067, "im": 0.0}]
+    }
+  ]
+}`,
+  control: `{
+  "source": "forced1d.csv",
+  "states": ["x"],
+  "controls": ["u"],
+  "equations": [
+    {
+      "state": "x",
+      "residual_sum_squares": 0.00195699903604763716,
+      "terms": [{"term": "u", "coefficient": 0.999393977864784677}, {"term": "x", "coefficient": -0.495801160602859781}]
+    }
+  ],
+  "validation": {
+    "in_sample": true,
+    "per_state": [{"state": "x", "r_squared": 0.999990552004691668, "rmse": 0.00196976022511570177}],
+    "aggregate_r_squared": 0.999990552004691668,
+    "aggregate_rmse": 0.00196976022511570177
+  }
+}`,
+  domains: `{
+  "preset": "damped-oscillator",
+  "recovered": true,
+  "tolerance": 0.001,
+  "laws": [
+    "dv/dt = -0.999987 * x + -0.499985 * v",
+    "dx/dt = 0.999983 * v"
+  ],
+  "recovery": [
+    {"state": "x", "rhs_rmse": 0.00000372573809999326259, "discovered_terms": 1, "reference_terms": 1},
+    {"state": "v", "rhs_rmse": 0.00000336418375435850972, "discovered_terms": 2, "reference_terms": 2}
+  ]
+}`,
+  bifurcation: `{
+  "world": "van-der-pol.lsworld",
+  "states": ["x", "y"],
+  "parameter": "mu",
+  "range": {"min": -1.0, "max": 1.0},
+  "steps": 21,
+  "branch_count": 1,
+  "bifurcations": [
+    {
+      "parameter_value": -0.000000002,
+      "kind": "hopf",
+      "branch_id": 0,
+      "fixed_point": [0.0, 0.0],
+      "eigenvalue": {"re": -0.000000001, "im": 1.0}
+    }
+  ]
+}`,
+  sensitivity: `{
+  "world": "lotka-volterra.lsworld",
+  "states": ["x", "y"],
+  "parameters": ["alpha", "beta"],
+  "final_time": 0.5,
+  "sensitivities": [
+    {"state": "x", "parameter": "alpha", "value": 0.718024197761129912},
+    {"state": "x", "parameter": "beta", "value": -0.668825445802069152},
+    {"state": "y", "parameter": "alpha", "value": 0.0138592584652729028},
+    {"state": "y", "parameter": "beta", "value": -0.0131930603898465209}
+  ]
+}`,
+  estimate: `{
+  "world": "pendulum.lsworld",
+  "states": ["omega", "theta"],
+  "fixed_point": [0.0, 0.0],
+  "fixed_points_found": 1,
+  "measured": ["theta"],
+  "method": "pole_placement",
+  "gain": [[-0.1875], [4.75]],
+  "error_poles": [{"re": -3.0, "im": 0.0}, {"re": -2.0, "im": 0.0}],
+  "convergent": true,
+  "covariance": null
+}`,
+  reduce: `{
+  "world": "pendulum.lsworld",
+  "states": ["omega", "theta"],
+  "fixed_point": [0.0, 0.0],
+  "measured": null,
+  "hankel_singular_values": [5.57534663944548292, 5.17456615089844707],
+  "order": 1,
+  "error_bound": 10.3491323017968941,
+  "reduced": {
+    "a": [[-0.12033972395446968]],
+    "b": [[0.439580802799826253, -1.07174627076214346]],
+    "c": [[1.04223883190820343], [-0.505578449249294404]]
+  }
+}`,
+});
+
+/** The bundled, deterministic `--json` sample for a report (drives the "Load sample" action). */
+export function analysisSample(report: AnalysisReport): string {
+  return ANALYSIS_SAMPLES[report];
+}
+
+// --- DOM rendering ----------------------------------------------------------
+//
+// Pure, deterministic element builders: given a `Document` they turn a parsed
+// report into a DOM subtree, or an honest empty / parse-error notice. No state,
+// no clock, no network — every branch is a function of its inputs, so the same
+// input always yields the same tree. app.ts owns the surrounding paste controls
+// and simply mounts `renderAnalysisReport(...)` on submit.
+
+function node<K extends keyof HTMLElementTagNameMap>(
+  document: Document,
+  tag: K,
+  className?: string,
+  text?: string,
+): HTMLElementTagNameMap[K] {
+  const value = document.createElement(tag);
+  if (className !== undefined) value.className = className;
+  if (text !== undefined) value.textContent = text;
+  return value;
+}
+
+function toneClass(tone: AnalysisTone): string {
+  return `lss-tone-${tone}`;
+}
+
+function badge(document: Document, label: string, tone: AnalysisTone): HTMLElement {
+  return node(document, "span", `lss-badge ${toneClass(tone)}`, label);
+}
+
+function notice(document: Document, text: string, tone: AnalysisTone): HTMLElement {
+  const element = node(document, "p", `lss-scr-notice ${toneClass(tone)}`, text);
+  element.setAttribute("role", tone === "error" ? "alert" : "status");
+  return element;
+}
+
+function metric(document: Document, label: string, value: string): HTMLElement {
+  const cell = node(document, "div", "lss-scr-metric");
+  cell.append(node(document, "span", "lss-scr-metric-label", label), node(document, "span", "lss-scr-metric-value", value));
+  return cell;
+}
+
+function metrics(document: Document, entries: readonly (readonly [string, string])[]): HTMLElement {
+  const grid = node(document, "div", "lss-scr-metrics");
+  for (const [label, value] of entries) grid.append(metric(document, label, value));
+  return grid;
+}
+
+function heading(document: Document, text: string): HTMLElement {
+  return node(document, "h2", "lss-scr-heading", text);
+}
+
+function tableRow(document: Document, cells: readonly (string | HTMLElement)[], tag: "td" | "th" = "td"): HTMLElement {
+  const row = node(document, "tr");
+  for (const cell of cells) {
+    const container = node(document, tag);
+    if (typeof cell === "string") container.textContent = cell;
+    else container.append(cell);
+    row.append(container);
+  }
+  return row;
+}
+
+function renderStabilityDetail(document: Document, view: StabilityView): HTMLElement {
+  const section = node(document, "section", "lss-scr-section");
+  section.append(
+    metrics(document, [
+      ["World", view.world],
+      ["States", view.states.join(", ")],
+      ["Seeds converged", `${view.seedsConverged}/${view.seedsTotal}`],
+      ["Fixed points", String(view.rows.length)],
+    ]),
+  );
+  section.append(notice(document, view.summary, view.empty ? "info" : "success"));
+  if (view.empty) {
+    section.append(node(document, "p", "lss-scr-empty", "No fixed points found in the searched region."));
+    return section;
+  }
+  const table = node(document, "table", "lss-scr-table");
+  const head = node(document, "thead");
+  head.append(tableRow(document, ["#", "Coordinates", "Classification", "Verdict", "Eigenvalues"], "th"));
+  table.append(head);
+  const body = node(document, "tbody");
+  for (const row of view.rows) {
+    const verdict = row.inconclusive
+      ? badge(document, "Inconclusive (linearization cannot decide)", "warning")
+      : badge(document, titleCase(row.stability), row.tone);
+    const eigen = node(document, "span", undefined, row.eigenvalues.map((value) => value.display).join(",  "));
+    body.append(
+      tableRow(document, [
+        String(row.index + 1),
+        row.coordinatesDisplay,
+        badge(document, row.label, row.tone),
+        verdict,
+        eigen,
+      ]),
+    );
+  }
+  table.append(body);
+  section.append(table);
+  return section;
+}
+
+function renderControlDetail(document: Document, view: ControlView): HTMLElement {
+  const section = node(document, "section", "lss-scr-section");
+  section.append(
+    metrics(document, [
+      ["Source", view.source],
+      ["States", view.states.join(", ")],
+      ["Controls", view.controls.join(", ")],
+    ]),
+  );
+  section.append(notice(document, view.validationStatus, view.validated ? "success" : "warning"));
+  const list = node(document, "div", "lss-scr-equations");
+  for (const equation of view.equations) {
+    const item = node(document, "div", "lss-scr-equation");
+    item.append(node(document, "span", "lss-scr-equation-text", equation.expression));
+    item.append(node(document, "span", "lss-scr-field-help", `residual SS ${equation.residualDisplay}`));
+    list.append(item);
+  }
+  section.append(list);
+  return section;
+}
+
+function renderDomainDetail(document: Document, view: DomainRunView): HTMLElement {
+  const section = node(document, "section", "lss-scr-section");
+  section.append(metrics(document, [["Preset", view.preset], ["Tolerance", formatScalar(view.tolerance)], ["Worst RHS RMSE", formatScalar(view.worstRmse)]]));
+  section.append(notice(document, view.recoveredLabel, view.tone));
+  const table = node(document, "table", "lss-scr-table");
+  const head = node(document, "thead");
+  head.append(tableRow(document, ["State", "RHS RMSE", "Terms (found/ref)", "Terms match", "Within tolerance"], "th"));
+  table.append(head);
+  const body = node(document, "tbody");
+  for (const row of view.recovery) {
+    body.append(
+      tableRow(document, [
+        row.state,
+        row.rhsRmseDisplay,
+        `${row.discoveredTerms}/${row.referenceTerms}`,
+        badge(document, row.termsMatch ? "Match" : "Differ", row.termsMatch ? "success" : "warning"),
+        badge(document, row.withinTolerance ? "Yes" : "No", row.withinTolerance ? "success" : "warning"),
+      ]),
+    );
+  }
+  table.append(body);
+  section.append(table);
+  return section;
+}
+
+function renderBifurcationDetail(document: Document, view: BifurcationView): HTMLElement {
+  const section = node(document, "section", "lss-scr-section");
+  section.append(
+    metrics(document, [
+      ["World", view.world],
+      ["Parameter", view.parameter],
+      ["Range", view.rangeDisplay],
+      ["Branches", String(view.branchCount)],
+    ]),
+  );
+  section.append(notice(document, view.summary, view.empty ? "info" : "success"));
+  if (view.empty) {
+    section.append(node(document, "p", "lss-scr-empty", "No bifurcations detected across the swept range."));
+    return section;
+  }
+  const table = node(document, "table", "lss-scr-table");
+  const head = node(document, "thead");
+  head.append(tableRow(document, [view.parameter, "Kind", "Branch", "Fixed point", "Eigenvalue"], "th"));
+  table.append(head);
+  const body = node(document, "tbody");
+  for (const row of view.rows) {
+    body.append(
+      tableRow(document, [row.parameterDisplay, badge(document, row.kindLabel, "info"), String(row.branchId), row.fixedPointDisplay, row.eigenvalue.display]),
+    );
+  }
+  table.append(body);
+  section.append(table);
+  return section;
+}
+
+function renderSensitivityDetail(document: Document, view: SensitivityView): HTMLElement {
+  const section = node(document, "section", "lss-scr-section");
+  section.append(
+    metrics(document, [
+      ["World", view.world],
+      ["Final time", formatScalar(view.finalTime)],
+      ["Peak |dx/dθ|", view.peak === null ? "—" : `${view.peak.state}/${view.peak.parameter} = ${formatScalar(view.peak.value)}`],
+    ]),
+  );
+  if (view.empty) {
+    section.append(node(document, "p", "lss-scr-empty", "No sensitivities were computed."));
+    return section;
+  }
+  const table = node(document, "table", "lss-scr-table");
+  const head = node(document, "thead");
+  head.append(tableRow(document, ["dxi/dθj", ...view.parameters], "th"));
+  table.append(head);
+  const body = node(document, "tbody");
+  for (const row of view.rows) {
+    body.append(tableRow(document, [row.state, ...row.cells.map((cell) => cell.display)]));
+  }
+  table.append(body);
+  section.append(table);
+  return section;
+}
+
+function renderMatrix(document: Document, label: string, matrix: Matrix): HTMLElement {
+  const wrapper = node(document, "div", "lss-scr-section");
+  wrapper.append(heading(document, label));
+  const table = node(document, "table", "lss-scr-table");
+  const body = node(document, "tbody");
+  for (const line of matrix) body.append(tableRow(document, line.map((value) => formatScalar(value))));
+  table.append(body);
+  wrapper.append(table);
+  return wrapper;
+}
+
+function renderEstimateDetail(document: Document, view: EstimateView): HTMLElement {
+  const section = node(document, "section", "lss-scr-section");
+  section.append(
+    metrics(document, [
+      ["World", view.world],
+      ["Method", view.methodLabel],
+      ["Fixed point", view.fixedPointDisplay],
+      ["Measured", view.measured.join(", ")],
+    ]),
+  );
+  section.append(notice(document, view.convergentLabel, view.convergentTone));
+  section.append(heading(document, "Error poles"));
+  section.append(node(document, "p", undefined, view.errorPoles.map((value) => value.display).join(",  ")));
+  section.append(renderMatrix(document, "Observer gain L", view.gain));
+  if (view.hasCovariance && view.covariance !== null) {
+    section.append(renderMatrix(document, "Steady-state error covariance", view.covariance));
+  } else {
+    section.append(node(document, "p", "lss-scr-empty", "No steady-state covariance (pole placement, not --kalman)."));
+  }
+  return section;
+}
+
+function renderReductionDetail(document: Document, view: ReductionView): HTMLElement {
+  const section = node(document, "section", "lss-scr-section");
+  section.append(
+    metrics(document, [
+      ["World", view.world],
+      ["Measured (C)", view.measuredLabel],
+      ["Order (retained/total)", `${view.retained}/${view.hankelSingularValues.length}`],
+      ["Discarded", String(view.discarded)],
+      ["Hankel error bound", view.errorBoundDisplay],
+    ]),
+  );
+  section.append(heading(document, "Hankel singular values"));
+  section.append(node(document, "p", undefined, view.hankelSingularValues.map(formatScalar).join(",  ")));
+  section.append(renderMatrix(document, "Reduced A", view.reduced.a));
+  section.append(renderMatrix(document, "Reduced B", view.reduced.b));
+  section.append(renderMatrix(document, "Reduced C", view.reduced.c));
+  return section;
+}
+
+function renderReportDetail(document: Document, report: AnalysisReport, data: unknown): HTMLElement {
+  switch (report) {
+    case "stability":
+      return renderStabilityDetail(document, stabilityView(data));
+    case "control":
+      return renderControlDetail(document, controlView(data));
+    case "domains":
+      return renderDomainDetail(document, domainRunView(data));
+    case "bifurcation":
+      return renderBifurcationDetail(document, bifurcationView(data));
+    case "sensitivity":
+      return renderSensitivityDetail(document, sensitivityView(data));
+    case "estimate":
+      return renderEstimateDetail(document, estimateView(data));
+    case "reduce":
+      return renderReductionDetail(document, reductionView(data));
+  }
+}
+
+/**
+ * Renders the result region for one analysis report from raw engine `--json`.
+ *
+ * Pure and deterministic. Honest outcomes are surfaced, never crashed on:
+ * `null`/empty input shows a paste prompt; invalid JSON and schema failures are
+ * shown as an error notice carrying the {@link SchemaValidationError} message;
+ * an empty result set renders as a normal "none found" state, not an error.
+ */
+export function renderAnalysisReport(document: Document, report: AnalysisReport, rawJson: string | null): HTMLElement {
+  const container = node(document, "div", "lss-analysis-result");
+  const trimmed = rawJson === null ? "" : rawJson.trim();
+  if (trimmed.length === 0) {
+    container.append(
+      node(
+        document,
+        "p",
+        "lss-scr-empty",
+        `Paste \`lawsynth ${report} … --json\` output above, or press "Load sample" to preview a bundled report.`,
+      ),
+    );
+    return container;
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(trimmed);
+  } catch (error) {
+    container.append(notice(document, `That text is not valid JSON — ${error instanceof Error ? error.message : String(error)}`, "error"));
+    return container;
+  }
+  try {
+    container.append(renderReportDetail(document, report, data));
+  } catch (error) {
+    const message = error instanceof SchemaValidationError
+      ? `Schema validation failed — ${error.message}`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+    container.append(notice(document, message, "error"));
+  }
+  return container;
 }
