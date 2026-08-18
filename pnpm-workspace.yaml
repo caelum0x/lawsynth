@@ -1,3 +1,9 @@
+# pnpm 10 reads settings from this file (not just .npmrc). The lockfile records
+# `settings.autoInstallPeers: false`; pinning it here makes the resolved config
+# match so `--frozen-lockfile` doesn't fail with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH
+# (e.g. on Cloudflare, where pnpm 10 otherwise defaults autoInstallPeers to true).
+autoInstallPeers: false
+
 # Only implemented packages are enrolled. Planned applications and packages
 # remain out of the workspace until their product source is implemented.
 packages:
