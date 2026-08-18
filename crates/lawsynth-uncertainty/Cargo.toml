@@ -11,6 +11,9 @@ description = "Deterministic uncertainty quantification primitives for LawSynth"
 name = "lawsynth_uncertainty"
 path = "src/lib.rs"
 
+[dependencies]
+lawsynth-sparse = { path = "../lawsynth-sparse" }
+
 [[example]]
 name = "structural_basic"
 path = "examples/structural_basic.rs"

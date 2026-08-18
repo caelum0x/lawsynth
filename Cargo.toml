@@ -29,6 +29,8 @@ members = [
   "crates/lawsynth-control",
   "crates/lawsynth-stability",
   "crates/lawsynth-domains",
+  "crates/lawsynth-bifurcation",
+  "crates/lawsynth-feedback",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",

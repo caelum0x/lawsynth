@@ -1,10 +1,10 @@
 //! `lawsynth simplify` — reduce each law to its smallest equivalent form.
 //!
-//! Each law expression is run through the real `lawsynth-egraph` equality
-//! saturation engine (safe algebraic identities: constant folding, `x+0`, `x*1`,
-//! `x*0`, `x^1`, ... plus canonical commutative ordering) and the
-//! `lawsynth-symbolic` local simplifier. The lowest-cost (fewest AST nodes)
-//! equivalent form is then extracted with the e-graph's cost model.
+//! Each law expression is run through the real `lawsynth-egraph` bounded equality
+//! saturation via its [`simplify_law`]/[`simplify_expr`] API (safe algebraic
+//! identities: constant folding, `x+0`, `x*1`, `x*0`, `x^1`, ... plus canonical
+//! commutative ordering). The lowest-cost (fewest AST nodes) equivalent form is
+//! extracted deterministically with the e-graph's cost model.
 //!
 //! Every rewrite in the rule set is value-preserving, so the result is
 //! *mathematically equivalent*. The command proves this honestly by simulating
@@ -17,11 +17,10 @@ use std::fmt::Write as _;
 
 use lawsynth_bundle::{read_world, write_world};
 use lawsynth_core::Identifier;
-use lawsynth_egraph::{EquivalenceGraph, RewriteConfig, expression_cost, extract_lowest_cost};
+use lawsynth_egraph::{RewriteConfig, expression_cost, simplify_expr, simplify_law};
 use lawsynth_expr::Expr;
 use lawsynth_report::render_continuous_law;
 use lawsynth_sim::{SimulationConfig, SimulationRequest, Trajectory, simulate};
-use lawsynth_symbolic::simplify_candidate;
 use lawsynth_world::{ContinuousLaw, World};
 
 /// Deviation at or below this bound counts as machine-equivalent trajectories.
@@ -82,12 +81,28 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
 }
 
 /// Returns a new world with every law expression reduced to its smallest
-/// equivalent form. The result is re-validated by [`World::new`].
+/// equivalent form via the e-graph's [`simplify_law`] API (field order is
+/// preserved). The result is re-validated by [`World::new`].
+///
+/// If bounded saturation cannot run (e.g. a law exceeds the engine's structural
+/// node ceiling), the original laws are kept unchanged — the command never
+/// returns a law it did not soundly simplify.
 pub fn simplify_world(world: &World) -> Result<World, String> {
-    let laws: Vec<ContinuousLaw> = world
-        .laws()
-        .values()
-        .map(|law| ContinuousLaw::new(law.target.clone(), simplify_expression(&law.expression)))
+    let fields: Vec<(Identifier, Expr)> =
+        world.laws().values().map(|law| (law.target.clone(), law.expression.clone())).collect();
+    let simplified = match simplify_law(&fields, &RewriteConfig::default()) {
+        Ok(simplified) => simplified,
+        // If the law-level pass cannot run (e.g. one field exceeds the node
+        // ceiling), fall back to a per-field pass so the fields that *can* be
+        // simplified still are, each soundly or left untouched.
+        Err(_) => fields
+            .iter()
+            .map(|(target, expression)| (target.clone(), simplify_expression(expression)))
+            .collect(),
+    };
+    let laws: Vec<ContinuousLaw> = simplified
+        .into_iter()
+        .map(|(target, expression)| ContinuousLaw::new(target, expression))
         .collect();
     World::new(
         world.variables().values().cloned().collect::<Vec<_>>(),
@@ -98,23 +113,12 @@ pub fn simplify_world(world: &World) -> Result<World, String> {
 }
 
 /// Extracts the smallest expression equivalent to `expression` using the
-/// e-graph's equality saturation, the symbolic simplifier, and the e-graph
-/// cost model. The original is always a candidate, so the result never grows.
+/// e-graph's [`simplify_expr`] bounded equality saturation and cost-model
+/// extraction. The original is always a candidate, so the result never grows;
+/// if saturation cannot run (invalid schedule / node-limit), the original is
+/// returned unchanged.
 pub fn simplify_expression(expression: &Expr) -> Expr {
-    let config = RewriteConfig::default();
-    let mut graph = EquivalenceGraph::default();
-    // Saturating over the safe rule set yields the canonical member plus every
-    // raw form that collapsed into the same equivalence class.
-    let class = graph.add(expression.clone(), &config).clone();
-
-    let mut candidates = class.members.clone();
-    candidates.push(class.canonical.clone());
-    // Fold in the symbolic crate's local simplifier as an independent path.
-    candidates.push(simplify_candidate(expression));
-    // And ensure the original is always in contention for the min.
-    candidates.push(expression.clone());
-
-    extract_lowest_cost(&candidates).unwrap_or_else(|| expression.clone())
+    simplify_expr(expression, &RewriteConfig::default()).unwrap_or_else(|_| expression.clone())
 }
 
 /// Node count of an expression (the e-graph extraction cost).

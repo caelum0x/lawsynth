@@ -1,0 +1,14 @@
+[package]
+name = "lawsynth-feedback"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic linear feedback design (pole placement, LQR) from discovered LawSynth linearizations."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-koopman = { path = "../lawsynth-koopman" }
+
+[lib]
+path = "src/lib.rs"

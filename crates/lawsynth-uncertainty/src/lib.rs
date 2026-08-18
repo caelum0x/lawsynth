@@ -5,6 +5,7 @@
 //! distributions or silently discard invalid values.
 
 mod bootstrap;
+mod coefficients;
 mod config;
 mod covariance;
 mod error;
@@ -16,6 +17,10 @@ mod source;
 mod structural;
 
 pub use bootstrap::{BootstrapResult, bootstrap};
+pub use coefficients::{
+    BootstrapCoefficientConfig, CoefficientEnsemble, ResampleMode, TermUncertainty,
+    bootstrap_coefficients,
+};
 pub use config::{BootstrapConfig, IntervalConfig, PropagationConfig};
 pub use covariance::CovarianceMatrix;
 pub use error::UncertaintyError;

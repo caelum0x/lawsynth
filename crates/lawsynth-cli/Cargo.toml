@@ -27,9 +27,11 @@ path = "src/main.rs"
 
 [dependencies]
 lawsynth-bundle = { path = "../lawsynth-bundle" }
+lawsynth-control = { path = "../lawsynth-control" }
 lawsynth-core = { path = "../lawsynth-core" }
 lawsynth-data = { path = "../lawsynth-data" }
 lawsynth-discovery = { path = "../lawsynth-discovery" }
+lawsynth-domains = { path = "../lawsynth-domains" }
 lawsynth-differentiate = { path = "../lawsynth-differentiate" }
 lawsynth-egraph = { path = "../lawsynth-egraph" }
 lawsynth-expr = { path = "../lawsynth-expr" }
@@ -39,6 +41,7 @@ lawsynth-preprocess = { path = "../lawsynth-preprocess" }
 lawsynth-profile = { path = "../lawsynth-profile" }
 lawsynth-report = { path = "../lawsynth-report" }
 lawsynth-sim = { path = "../lawsynth-sim" }
+lawsynth-stability = { path = "../lawsynth-stability" }
 lawsynth-uncertainty = { path = "../lawsynth-uncertainty" }
 lawsynth-stats = { path = "../lawsynth-stats" }
 lawsynth-symbolic = { path = "../lawsynth-symbolic" }

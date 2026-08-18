@@ -13,6 +13,7 @@ pub enum UncertaintyError {
     SingularCovariance,
     NonPositiveVariance,
     InsufficientResamples,
+    FitFailure(String),
 }
 
 impl fmt::Display for UncertaintyError {
@@ -35,10 +36,12 @@ impl fmt::Display for UncertaintyError {
             }
             Self::SingularCovariance => write!(f, "covariance matrix is singular"),
             Self::NonPositiveVariance => write!(f, "variance must be positive"),
-            Self::InsufficientResamples => write!(
-                f,
-                "insufficient resamples for requested confidence interval"
-            ),
+            Self::InsufficientResamples => {
+                write!(f, "insufficient resamples for requested confidence interval")
+            }
+            Self::FitFailure(reason) => {
+                write!(f, "sparse refit failed during bootstrap: {reason}")
+            }
         }
     }
 }

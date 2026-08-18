@@ -21,6 +21,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-bifurcation"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-expr",
+ "lawsynth-jacobian",
+ "lawsynth-koopman",
+ "lawsynth-stability",
+]
+
+[[package]]
 name = "lawsynth-bundle"
 version = "0.1.0"
 dependencies = [
@@ -40,10 +51,12 @@ name = "lawsynth-cli"
 version = "0.1.0"
 dependencies = [
  "lawsynth-bundle",
+ "lawsynth-control",
  "lawsynth-core",
  "lawsynth-data",
  "lawsynth-differentiate",
  "lawsynth-discovery",
+ "lawsynth-domains",
  "lawsynth-egraph",
  "lawsynth-expr",
  "lawsynth-plugin-api",
@@ -52,6 +65,7 @@ dependencies = [
  "lawsynth-profile",
  "lawsynth-report",
  "lawsynth-sim",
+ "lawsynth-stability",
  "lawsynth-stats",
  "lawsynth-symbolic",
  "lawsynth-uncertainty",
@@ -157,6 +171,14 @@ dependencies = [
  "lawsynth-core",
  "lawsynth-data",
  "lawsynth-expr",
+]
+
+[[package]]
+name = "lawsynth-feedback"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-koopman",
 ]
 
 [[package]]
@@ -341,6 +363,9 @@ dependencies = [
 [[package]]
 name = "lawsynth-uncertainty"
 version = "0.1.0"
+dependencies = [
+ "lawsynth-sparse",
+]
 
 [[package]]
 name = "lawsynth-units"
