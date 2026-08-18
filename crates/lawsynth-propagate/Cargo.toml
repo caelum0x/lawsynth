@@ -1,0 +1,16 @@
+[package]
+name = "lawsynth-propagate"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic propagation of coefficient uncertainty into LawSynth forecast intervals."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-sensitivity = { path = "../lawsynth-sensitivity" }
+lawsynth-uncertainty = { path = "../lawsynth-uncertainty" }
+
+[lib]
+path = "src/lib.rs"

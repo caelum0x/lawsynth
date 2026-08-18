@@ -12,6 +12,7 @@ lawsynth-data = { path = "../../crates/lawsynth-data" }
 lawsynth-discovery = { path = "../../crates/lawsynth-discovery" }
 lawsynth-runner = { path = "../../crates/lawsynth-runner" }
 lawsynth-sim = { path = "../../crates/lawsynth-sim" }
+lawsynth-stability = { path = "../../crates/lawsynth-stability" }
 lawsynth-store = { path = "../../crates/lawsynth-store" }
 lawsynth-world = { path = "../../crates/lawsynth-world" }
 

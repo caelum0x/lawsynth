@@ -2,16 +2,37 @@ use lawsynth_data::Dataset;
 use lawsynth_discovery::{DiscoveryConfig, DiscoveryResult};
 use lawsynth_runner::{ResourceRequest, WorkEnvelope};
 use lawsynth_sim::{SimulationConfig, SimulationRequest, Trajectory};
+use lawsynth_stability::{StabilityConfig, StabilityReport};
 use lawsynth_world::World;
 
 use crate::WorkerError;
 
 /// Typed work accepted by the local worker. The payload is in-memory on purpose:
 /// this crate does not pretend to provide a queue codec or a network API.
+///
+/// The variants differ in size, but boxing the larger one would change the
+/// public shape that in-process callers (the scheduler and executor) destructure
+/// by variant, so the difference is accepted rather than hidden behind
+/// indirection -- mirroring the same decision documented on [`JobOutput`].
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Job {
-    Discover { dataset: Dataset, config: DiscoveryConfig },
-    Simulate { world: World, config: SimulationConfig, request: SimulationRequest },
+    Discover {
+        dataset: Dataset,
+        config: DiscoveryConfig,
+    },
+    Simulate {
+        world: World,
+        config: SimulationConfig,
+        request: SimulationRequest,
+    },
+    /// Fixed-point and linear-stability analysis of a world's autonomous vector
+    /// field over a caller-provided search box. The `config` carries both the
+    /// per-state search box and every deterministic Newton/classification knob.
+    AnalyzeStability {
+        world: World,
+        config: StabilityConfig,
+    },
 }
 
 impl Job {
@@ -19,6 +40,7 @@ impl Job {
         match self {
             Self::Discover { .. } => "discover",
             Self::Simulate { .. } => "simulate",
+            Self::AnalyzeStability { .. } => "analyze-stability",
         }
     }
 
@@ -39,6 +61,26 @@ impl Job {
             Self::Simulate { config, .. } => {
                 SimulationConfig::new(config.start, config.end, config.step)
                     .map_err(WorkerError::from)?;
+            }
+            Self::AnalyzeStability { world, config } => {
+                let states = world.state_ids().count();
+                if states == 0 {
+                    return Err(WorkerError::InvalidJob(
+                        "stability analysis requires at least one state".into(),
+                    ));
+                }
+                if world.laws().is_empty() {
+                    return Err(WorkerError::InvalidJob(
+                        "stability analysis requires at least one law".into(),
+                    ));
+                }
+                let intervals = config.search_box().len();
+                if intervals != states {
+                    return Err(WorkerError::InvalidJob(format!(
+                        "stability search box has {intervals} interval(s) but the world has \
+{states} state(s)"
+                    )));
+                }
             }
         }
         Ok(())
@@ -87,6 +129,7 @@ impl JobEnvelope {
 pub enum JobOutput {
     Discovery(DiscoveryResult),
     Simulation(Trajectory),
+    Stability(StabilityReport),
 }
 
 /// Queueing and network listeners are intentionally not part of this worker.
@@ -114,5 +157,62 @@ impl TransportSurface {
             Self::QueueNotImplemented => "no queue client or message codec is linked",
             Self::NetworkNotImplemented => "no HTTP, RPC, or authentication transport is linked",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use lawsynth_core::Identifier;
+    use lawsynth_expr::Expr;
+    use lawsynth_stability::StabilityConfig;
+    use lawsynth_world::{ContinuousLaw, Variable, VariableRole, World};
+
+    use super::Job;
+    use crate::WorkerError;
+
+    fn id(value: &str) -> Identifier {
+        Identifier::new(value).unwrap()
+    }
+
+    /// A one-state world `x' = x`, enough to exercise stability validation.
+    fn one_state_world() -> World {
+        World::new(
+            [Variable::new(id("x"), VariableRole::State)],
+            [],
+            [ContinuousLaw::new(id("x"), Expr::symbol(id("x")))],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn kind_of_stability_job_is_analyze_stability() {
+        let job = Job::AnalyzeStability {
+            world: one_state_world(),
+            config: StabilityConfig::new(vec![(-1.0, 1.0)]),
+        };
+        assert_eq!(job.kind(), "analyze-stability");
+    }
+
+    #[test]
+    fn validate_accepts_matching_box_dimension() {
+        let job = Job::AnalyzeStability {
+            world: one_state_world(),
+            config: StabilityConfig::new(vec![(-1.0, 1.0)]),
+        };
+        assert!(job.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_box_and_state_dimension_mismatch() {
+        // One state, but a two-interval search box.
+        let job = Job::AnalyzeStability {
+            world: one_state_world(),
+            config: StabilityConfig::new(vec![(-1.0, 1.0), (-1.0, 1.0)]),
+        };
+        let error = job.validate().unwrap_err();
+        assert!(matches!(error, WorkerError::InvalidJob(_)));
+        let message = error.to_string();
+        assert!(message.contains("interval"));
+        assert!(message.contains("state"));
     }
 }

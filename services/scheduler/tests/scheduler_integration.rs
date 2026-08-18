@@ -2,12 +2,13 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use lawsynth_core::Identifier;
-use lawsynth_expr::Expr;
+use lawsynth_expr::{Expr, UnaryOperator};
 use lawsynth_runner::{CancellationToken, ResourceRequest};
 use lawsynth_scheduler::{
     JobState, Scheduler, SchedulerConfig, SchedulerError, SchedulerTransport, WorkerPool,
 };
 use lawsynth_sim::{SimulationConfig, SimulationRequest};
+use lawsynth_stability::{Classification, StabilityConfig};
 use lawsynth_store::{LocalStore, MemoryStore, StoreConfig};
 use lawsynth_worker::{Job, JobEnvelope, JobOutput, Worker, WorkerConfig};
 use lawsynth_world::{ContinuousLaw, Variable, VariableRole, World};
@@ -41,6 +42,32 @@ fn simulation_job(name: &str, deadline_at_ms: u64) -> JobEnvelope {
                 initial_state: BTreeMap::from([(x, 1.0)]),
                 ..Default::default()
             },
+        },
+    )
+    .unwrap()
+}
+
+/// Builds a real, worker-executable stability-analysis envelope over a stable
+/// node at the origin (`x' = -x`, `y' = -2y`) with a two-interval search box.
+fn stability_job(name: &str, deadline_at_ms: u64) -> JobEnvelope {
+    let world = World::new(
+        [Variable::new(id("x"), VariableRole::State), Variable::new(id("y"), VariableRole::State)],
+        [],
+        [
+            ContinuousLaw::new(id("x"), Expr::unary(UnaryOperator::Negate, Expr::symbol(id("x")))),
+            ContinuousLaw::new(id("y"), Expr::product(Expr::constant(-2.0), Expr::symbol(id("y")))),
+        ],
+    )
+    .unwrap();
+    JobEnvelope::new(
+        name,
+        1,
+        10,
+        deadline_at_ms,
+        resources(),
+        Job::AnalyzeStability {
+            world,
+            config: StabilityConfig::new(vec![(-1.0, 1.0), (-1.0, 1.0)]),
         },
     )
     .unwrap()
@@ -80,6 +107,35 @@ fn dispatches_worker_compatible_envelope_through_real_rk4_execution() {
     let checkpoint = scheduler.checkpoint("real-rk4").unwrap().unwrap();
     assert_eq!(checkpoint.state, JobState::Completed);
     assert_eq!(checkpoint.sequence, 3);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn routes_and_records_a_stability_analysis_kind_first_class() {
+    let mut scheduler = scheduler();
+    scheduler.submit(stability_job("stability-route", 1_000), 10).unwrap();
+    let lease = scheduler.lease_next("cpu-a", 20).unwrap().unwrap();
+    // The scheduler carries the worker's job kind opaquely; it must surface the
+    // new kind unchanged so downstream consumers can route on it.
+    assert_eq!(lease.envelope.work.kind, "analyze-stability");
+    let root =
+        std::env::temp_dir().join(format!("lawsynth-scheduler-stability-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let worker = Worker::new(
+        WorkerConfig::new(ResourceRequest::new(1_000, 1 << 20, 1 << 20).unwrap(), 1024).unwrap(),
+        LocalStore::open(&root, StoreConfig::default()).unwrap(),
+    )
+    .unwrap();
+    let result = worker.execute_at(&lease.envelope, &CancellationToken::default(), 21).unwrap();
+    let JobOutput::Stability(report) = result else {
+        panic!("scheduler issued the wrong work");
+    };
+    assert_eq!(report.fixed_points.len(), 1);
+    assert_eq!(report.fixed_points[0].classification, Classification::StableNode);
+    scheduler.complete(&lease.token, 22).unwrap();
+    assert_eq!(scheduler.state("stability-route").unwrap(), &JobState::Completed);
+    let checkpoint = scheduler.checkpoint("stability-route").unwrap().unwrap();
+    assert_eq!(checkpoint.state, JobState::Completed);
     let _ = std::fs::remove_dir_all(root);
 }
 

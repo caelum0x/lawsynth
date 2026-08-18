@@ -16,6 +16,7 @@ lawsynth-core = { path = "../../crates/lawsynth-core" }
 lawsynth-data = { path = "../../crates/lawsynth-data" }
 lawsynth-expr = { path = "../../crates/lawsynth-expr" }
 lawsynth-sim = { path = "../../crates/lawsynth-sim" }
+lawsynth-stability = { path = "../../crates/lawsynth-stability" }
 lawsynth-world = { path = "../../crates/lawsynth-world" }
 
 [lib]

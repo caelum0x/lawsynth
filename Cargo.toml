@@ -34,6 +34,8 @@ members = [
   "crates/lawsynth-sensitivity",
   "crates/lawsynth-estimate",
   "crates/lawsynth-modelreduce",
+  "crates/lawsynth-mpc",
+  "crates/lawsynth-propagate",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",

@@ -49,9 +49,10 @@ pub fn classify(error: &WorkerError) -> TransportError {
         // A failed artifact handoff is a server-side integrity condition.
         WorkerError::Artifact(_) => TransportError::new(500, "artifact_failed"),
         WorkerError::Runner(runner) => classify_runner(runner),
-        // Discovery and simulation failures are internal execution faults.
+        // Discovery, simulation, and stability failures are internal execution faults.
         WorkerError::Discovery(_) => TransportError::new(500, "discovery_failed"),
         WorkerError::Simulation(_) => TransportError::new(500, "simulation_failed"),
+        WorkerError::Stability(_) => TransportError::new(500, "stability_failed"),
         WorkerError::Store(store) => classify_store(store),
         // A corrupt persisted checkpoint is a storage integrity fault.
         WorkerError::CorruptCheckpoint(_) => TransportError::new(500, "corrupt_checkpoint"),

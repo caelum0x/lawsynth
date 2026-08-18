@@ -50,6 +50,7 @@ version = "0.1.0"
 name = "lawsynth-cli"
 version = "0.1.0"
 dependencies = [
+ "lawsynth-bifurcation",
  "lawsynth-bundle",
  "lawsynth-control",
  "lawsynth-core",
@@ -58,12 +59,17 @@ dependencies = [
  "lawsynth-discovery",
  "lawsynth-domains",
  "lawsynth-egraph",
+ "lawsynth-estimate",
  "lawsynth-expr",
+ "lawsynth-jacobian",
+ "lawsynth-koopman",
+ "lawsynth-modelreduce",
  "lawsynth-plugin-api",
  "lawsynth-plugin-host",
  "lawsynth-preprocess",
  "lawsynth-profile",
  "lawsynth-report",
+ "lawsynth-sensitivity",
  "lawsynth-sim",
  "lawsynth-stability",
  "lawsynth-stats",
@@ -234,6 +240,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-mpc"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-expr",
+ "lawsynth-feedback",
+ "lawsynth-jacobian",
+ "lawsynth-koopman",
+]
+
+[[package]]
 name = "lawsynth-opt"
 version = "0.1.0"
 
@@ -263,6 +280,16 @@ version = "0.1.0"
 dependencies = [
  "lawsynth-core",
  "lawsynth-data",
+]
+
+[[package]]
+name = "lawsynth-propagate"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-expr",
+ "lawsynth-sensitivity",
+ "lawsynth-uncertainty",
 ]
 
 [[package]]
@@ -318,6 +345,7 @@ dependencies = [
  "lawsynth-expr",
  "lawsynth-runner",
  "lawsynth-sim",
+ "lawsynth-stability",
  "lawsynth-store",
  "lawsynth-worker",
  "lawsynth-world",
@@ -425,6 +453,7 @@ dependencies = [
  "lawsynth-expr",
  "lawsynth-runner",
  "lawsynth-sim",
+ "lawsynth-stability",
  "lawsynth-store",
  "lawsynth-world",
 ]

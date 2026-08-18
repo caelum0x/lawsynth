@@ -1,0 +1,17 @@
+[package]
+name = "lawsynth-mpc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic receding-horizon (model-predictive) control for discovered LawSynth models."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+lawsynth-feedback = { path = "../lawsynth-feedback" }
+lawsynth-koopman = { path = "../lawsynth-koopman" }
+
+[lib]
+path = "src/lib.rs"

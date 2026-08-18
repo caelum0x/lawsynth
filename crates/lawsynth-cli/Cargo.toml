@@ -26,6 +26,7 @@ name = "lawsynth"
 path = "src/main.rs"
 
 [dependencies]
+lawsynth-bifurcation = { path = "../lawsynth-bifurcation" }
 lawsynth-bundle = { path = "../lawsynth-bundle" }
 lawsynth-control = { path = "../lawsynth-control" }
 lawsynth-core = { path = "../lawsynth-core" }
@@ -34,12 +35,17 @@ lawsynth-discovery = { path = "../lawsynth-discovery" }
 lawsynth-domains = { path = "../lawsynth-domains" }
 lawsynth-differentiate = { path = "../lawsynth-differentiate" }
 lawsynth-egraph = { path = "../lawsynth-egraph" }
+lawsynth-estimate = { path = "../lawsynth-estimate" }
 lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+lawsynth-koopman = { path = "../lawsynth-koopman" }
+lawsynth-modelreduce = { path = "../lawsynth-modelreduce" }
 lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
 lawsynth-plugin-host = { path = "../lawsynth-plugin-host" }
 lawsynth-preprocess = { path = "../lawsynth-preprocess" }
 lawsynth-profile = { path = "../lawsynth-profile" }
 lawsynth-report = { path = "../lawsynth-report" }
+lawsynth-sensitivity = { path = "../lawsynth-sensitivity" }
 lawsynth-sim = { path = "../lawsynth-sim" }
 lawsynth-stability = { path = "../lawsynth-stability" }
 lawsynth-uncertainty = { path = "../lawsynth-uncertainty" }

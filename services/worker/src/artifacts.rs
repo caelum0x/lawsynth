@@ -31,6 +31,7 @@ impl ArtifactManifest {
         let (kind, items) = match output {
             JobOutput::Discovery(result) => ("discover", result.candidates.len() as u64),
             JobOutput::Simulation(trajectory) => ("simulate", trajectory.samples() as u64),
+            JobOutput::Stability(report) => ("analyze-stability", report.fixed_points.len() as u64),
         };
         Self { job_id: job_id.into(), kind, items, summary: execute::output_summary(output) }
     }
@@ -82,4 +83,33 @@ pub(crate) fn record<S: ObjectStore>(
 
 fn hex(value: &str) -> String {
     value.as_bytes().iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use lawsynth_stability::{Classification, FixedPoint, StabilityReport};
+
+    use super::ArtifactManifest;
+    use crate::JobOutput;
+
+    fn report_with(fixed_points: usize) -> StabilityReport {
+        let fixed_points = (0..fixed_points)
+            .map(|index| FixedPoint {
+                coordinates: vec![index as f64],
+                eigenvalues: Vec::new(),
+                classification: Classification::StableNode,
+            })
+            .collect();
+        StabilityReport { states: Vec::new(), fixed_points, seeds_total: 4, seeds_converged: 2 }
+    }
+
+    #[test]
+    fn maps_stability_output_to_kind_and_fixed_point_count() {
+        let output = JobOutput::Stability(report_with(2));
+        let manifest = ArtifactManifest::from_output("job-42", &output);
+        assert_eq!(manifest.kind, "analyze-stability");
+        assert_eq!(manifest.items, 2);
+        assert!(manifest.summary.contains("2 fixed point(s)"));
+        assert!(manifest.summary.contains("2 converged seed(s)"));
+    }
 }
