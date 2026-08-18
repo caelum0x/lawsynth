@@ -18,4 +18,11 @@ lint:
 python-test:
     PYTHONPATH=python/lawsynth/src python3 -m pytest -q python/lawsynth/tests
 
-verify: fmt check test lint python-test
+# Build, typecheck, and test the whole pnpm TypeScript workspace (packages + apps).
+ts:
+    pnpm install --frozen-lockfile
+    pnpm run build
+    pnpm run typecheck
+    pnpm run test
+
+verify: fmt check test lint python-test ts
