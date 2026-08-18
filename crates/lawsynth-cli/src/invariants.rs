@@ -141,7 +141,11 @@ fn library_summary(config: &InvariantConfig) -> String {
 }
 
 /// Human-facing report.
-fn render_text(bundle: &str, config: &InvariantConfig, report: &InvariantReport) -> String {
+pub(crate) fn render_text(
+    bundle: &str,
+    config: &InvariantConfig,
+    report: &InvariantReport,
+) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "Invariant analysis of {bundle}");
     let _ = writeln!(
@@ -180,7 +184,11 @@ widen --box to search a richer library.",
 
 /// Stable, machine-readable report. Floats use the full 17-digit form so the JSON
 /// is a faithful, deterministic image of the report.
-fn render_json(bundle: &str, config: &InvariantConfig, report: &InvariantReport) -> String {
+pub(crate) fn render_json(
+    bundle: &str,
+    config: &InvariantConfig,
+    report: &InvariantReport,
+) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "{{");
     let _ = writeln!(out, "  \"world\": {},", json_string(bundle));

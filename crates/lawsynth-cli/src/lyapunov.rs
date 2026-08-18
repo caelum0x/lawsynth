@@ -117,7 +117,7 @@ fn is_chaotic(report: &LyapunovReport) -> bool {
 }
 
 /// Human-facing report.
-fn render_text(
+pub(crate) fn render_text(
     bundle: &str,
     states: &[Identifier],
     initial: &[f64],
@@ -171,7 +171,7 @@ sharpen it; the sum is the tightest quantity."
 
 /// Stable, machine-readable report. Floats use the full 17-digit form so the JSON
 /// is a faithful, deterministic image of the report.
-fn render_json(bundle: &str, states: &[Identifier], report: &LyapunovReport) -> String {
+pub(crate) fn render_json(bundle: &str, states: &[Identifier], report: &LyapunovReport) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "{{");
     let _ = writeln!(out, "  \"world\": {},", json_string(bundle));

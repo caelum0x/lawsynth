@@ -148,7 +148,7 @@ fn render_coordinates(states: &[Identifier], point: &FixedPoint) -> String {
 }
 
 /// Human-facing report.
-fn render_text(bundle: &str, report: &StabilityReport) -> String {
+pub(crate) fn render_text(bundle: &str, report: &StabilityReport) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "Stability analysis of {bundle}");
     let states: Vec<&str> = report.states.iter().map(Identifier::as_str).collect();
@@ -188,7 +188,7 @@ exist \u{2014} widen the box or refine the grid to search elsewhere."
 
 /// Stable, machine-readable report. Floats use the full 17-digit form so the JSON
 /// is a faithful, deterministic image of the report.
-fn render_json(bundle: &str, report: &StabilityReport) -> String {
+pub(crate) fn render_json(bundle: &str, report: &StabilityReport) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "{{");
     let _ = writeln!(out, "  \"world\": {},", json_string(bundle));
