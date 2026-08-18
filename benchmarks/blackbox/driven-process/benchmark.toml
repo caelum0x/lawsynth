@@ -1,0 +1,36 @@
+id = "blackbox/driven-process"
+title = "Opaque nonlinear coupled process (no advertised ground truth)"
+family = "blackbox"
+version = 1
+
+[capability]
+status = "supported"
+reason = "A deterministic two-feature nonlinear process scored on predictive trajectory R^2 + parsimony only; no symbolic recovery is claimed or expected."
+
+[system]
+kind = "blackbox_driven"
+states = ["a", "b"]
+step = 0.02
+samples = 400
+[system.parameters]
+k1 = 0.8
+c = 0.5
+k2 = 0.6
+k3 = 0.4
+[system.initial]
+a = 1.0
+b = 0.2
+
+[discovery]
+degree = 2
+threshold = 0.05
+
+[simulation]
+start = 0.0
+end = 2.0
+step = 0.02
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.9

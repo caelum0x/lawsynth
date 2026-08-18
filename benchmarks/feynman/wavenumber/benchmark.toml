@@ -1,0 +1,13 @@
+id = "feynman/wavenumber"
+title = "Dispersion wavenumber k = omega / c (Feynman I.29.4)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression k = omega/c (Feynman I.29.4): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "wavenumber"
+samples = 200
+target = "y"

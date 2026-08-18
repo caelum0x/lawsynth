@@ -1,0 +1,13 @@
+id = "feynman/ideal-gas"
+title = "Ideal gas pressure P = n kb T / V (Feynman I.39.22)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression P = n*kb*T/V (Feynman I.39.22): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "ideal_gas"
+samples = 200
+target = "y"

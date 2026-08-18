@@ -1,0 +1,13 @@
+id = "feynman/potential-energy"
+title = "Gravitational potential energy U = m g z (Feynman I.14.3)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression U = m*g*z (Feynman I.14.3): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "potential_energy"
+samples = 200
+target = "y"

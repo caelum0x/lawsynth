@@ -1,0 +1,36 @@
+id = "feynman/radioactive-decay"
+title = "Radioactive decay (Feynman I.43 exponential law, framed as dynamics)"
+family = "feynman"
+version = 1
+
+# The static Feynman table lists N = N0 * exp(-t/tau).  Its *governing law* is the
+# first-order ODE dN/dt = -N/tau, which is squarely a dynamics-discovery problem
+# the LawSynth CLI is designed for.  We therefore frame this Feynman relation as a
+# derivative problem (not static regression) and let the CLI recover it honestly.
+[capability]
+status = "supported"
+reason = "The exponential decay law is the solution of dN/dt = -(1/tau) N, a linear first-order ODE inside the polynomial library; recoverable and simulable via the public CLI."
+
+[system]
+kind = "radioactive_decay"
+states = ["N"]
+step = 0.05
+samples = 300
+[system.parameters]
+tau = 2.5
+[system.initial]
+N = 8.0
+
+[discovery]
+degree = 2
+threshold = 0.02
+
+[simulation]
+start = 0.0
+end = 4.0
+step = 0.05
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.99

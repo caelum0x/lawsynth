@@ -741,6 +741,30 @@ class DiscoveryResult:
 
         return simplify_world(self._world)
 
+    def to_sympy(self):
+        """SymPy expression per law (see :func:`lawsynth.to_sympy`)."""
+        from .export import to_sympy
+
+        return to_sympy(self._world)
+
+    def to_torch(self, *, initial: Mapping[str, float] | None = None, trainable_initial: bool = True, dtype=None):
+        """Differentiable ``torch.nn.Module`` for the dynamics (trainable constants).
+
+        ``initial`` defaults to the first observed state row, exposed as an
+        optional trainable parameter. See :func:`lawsynth.to_torch`.
+        """
+        from .export import to_torch
+
+        resolved = dict(initial) if initial is not None else _initial_state(self._dataset, self._states)
+        return to_torch(self._world, initial=resolved, trainable_initial=trainable_initial, dtype=dtype)
+
+    def to_jax(self, *, initial: Mapping[str, float] | None = None, trainable_initial: bool = True, dtype=None):
+        """Differentiable JAX dynamics for the world (see :func:`lawsynth.to_jax`)."""
+        from .export import to_jax
+
+        resolved = dict(initial) if initial is not None else _initial_state(self._dataset, self._states)
+        return to_jax(self._world, initial=resolved, trainable_initial=trainable_initial, dtype=dtype)
+
     def simulate(self, *, horizon: float | None = None, initial: Mapping[str, float] | None = None, start: float | None = None, step: float | None = None) -> TrajectoryData:
         return _simulate(self._world, self._dataset, self._states, horizon=horizon, initial=initial, start=start, step=step)
 
@@ -982,6 +1006,32 @@ class Study:
         from .simplification import simplify_world
 
         return simplify_world(self._require_world())
+
+    def to_sympy(self):
+        """SymPy expression per discovered law (see :func:`lawsynth.to_sympy`)."""
+        from .export import to_sympy
+
+        return to_sympy(self._require_world())
+
+    def to_torch(self, *, initial: Mapping[str, float] | None = None, trainable_initial: bool = True, dtype=None):
+        """Differentiable ``torch.nn.Module`` for the discovered dynamics.
+
+        ``initial`` defaults to the first observed state row, exposed as an
+        optional trainable parameter. See :func:`lawsynth.to_torch`.
+        """
+        from .export import to_torch
+
+        world = self._require_world()
+        resolved = dict(initial) if initial is not None else _initial_state(self._dataset, self._states)
+        return to_torch(world, initial=resolved, trainable_initial=trainable_initial, dtype=dtype)
+
+    def to_jax(self, *, initial: Mapping[str, float] | None = None, trainable_initial: bool = True, dtype=None):
+        """Differentiable JAX dynamics for the discovered world (see :func:`lawsynth.to_jax`)."""
+        from .export import to_jax
+
+        world = self._require_world()
+        resolved = dict(initial) if initial is not None else _initial_state(self._dataset, self._states)
+        return to_jax(world, initial=resolved, trainable_initial=trainable_initial, dtype=dtype)
 
     def discover(
         self,

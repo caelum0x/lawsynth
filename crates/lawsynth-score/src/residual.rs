@@ -11,11 +11,7 @@ pub struct ResidualSummary {
 /// Returns `observed - predicted` in the original observation order.
 pub fn residuals(observed: &[f64], predicted: &[f64]) -> Result<Vec<f64>, ScoreError> {
     validate_pair(observed, predicted)?;
-    Ok(observed
-        .iter()
-        .zip(predicted)
-        .map(|(actual, estimate)| actual - estimate)
-        .collect())
+    Ok(observed.iter().zip(predicted).map(|(actual, estimate)| actual - estimate).collect())
 }
 
 impl ResidualSummary {
@@ -27,11 +23,8 @@ impl ResidualSummary {
             return Err(ScoreError::NonFiniteValue);
         }
         let mean = values.iter().sum::<f64>() / values.len() as f64;
-        let variance = values
-            .iter()
-            .map(|value| (value - mean).powi(2))
-            .sum::<f64>()
-            / values.len() as f64;
+        let variance =
+            values.iter().map(|value| (value - mean).powi(2)).sum::<f64>() / values.len() as f64;
         Ok(Self {
             mean,
             standard_deviation: variance.sqrt(),
@@ -48,11 +41,6 @@ mod tests {
     fn retains_signed_residual_order_and_summarizes_spread() {
         let values = residuals(&[2.0, 1.0], &[1.0, 3.0]).unwrap();
         assert_eq!(values, vec![1.0, -2.0]);
-        assert_eq!(
-            ResidualSummary::from_residuals(&values)
-                .unwrap()
-                .maximum_absolute,
-            2.0
-        );
+        assert_eq!(ResidualSummary::from_residuals(&values).unwrap().maximum_absolute, 2.0);
     }
 }

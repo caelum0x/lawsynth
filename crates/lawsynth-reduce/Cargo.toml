@@ -1,0 +1,15 @@
+[package]
+name = "lawsynth-reduce"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic symmetry & separability structural reductions for LawSynth discovery."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+
+[lib]
+path = "src/lib.rs"

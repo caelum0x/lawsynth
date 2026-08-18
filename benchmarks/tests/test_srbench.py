@@ -64,3 +64,22 @@ def test_srbench_report_runs_and_reports_determinism() -> None:
     det = [r["determinism"] for r in report["rows"] if r["determinism"] is not None]
     assert det and all(det), "every executed case must be byte-identical on replay"
     print(srbench_report.render_table(report))
+
+
+def test_full_report_covers_all_three_families() -> None:
+    """The default report must span strogatz, feynman, and blackbox honestly."""
+    _binary()
+    report = srbench_report.build_report(None, allow_build=True)
+    assert report["binary_available"] is True
+    families = {r["family"] for r in report["rows"] if r["family"]}
+    # Boundary rows carry family too (from the outcome), so all three appear.
+    assert {"strogatz", "feynman", "blackbox"} <= families
+    # Honest split: static Feynman cases are boundaries, not fake recoveries.
+    boundaries = [r for r in report["rows"] if r["status"] == "capability-boundary"]
+    assert boundaries, "static Feynman cases must be reported as boundaries"
+    assert all(r["family"] == "feynman" for r in boundaries)
+    # No supported case regresses; every executed case is deterministic.
+    assert report["supported_regressions"] == []
+    det = [r["determinism"] for r in report["rows"] if r["determinism"] is not None]
+    assert det and all(det)
+    print(srbench_report.render_table(report))

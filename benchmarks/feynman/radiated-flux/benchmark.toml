@@ -1,0 +1,13 @@
+id = "feynman/radiated-flux"
+title = "Radiated power flux FE = P / (4 pi r^2) (Feynman II.3.24)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression FE = P/(4*pi*r^2) (Feynman II.3.24): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "radiated_flux"
+samples = 200
+target = "y"

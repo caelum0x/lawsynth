@@ -48,11 +48,7 @@ pub(crate) fn validate_pair(observed: &[f64], predicted: &[f64]) -> Result<(), S
     if observed.len() != predicted.len() {
         return Err(ScoreError::LengthMismatch);
     }
-    if observed
-        .iter()
-        .chain(predicted)
-        .any(|value| !value.is_finite())
-    {
+    if observed.iter().chain(predicted).any(|value| !value.is_finite()) {
         return Err(ScoreError::NonFiniteValue);
     }
     Ok(())

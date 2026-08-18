@@ -1,0 +1,13 @@
+id = "feynman/spring-energy"
+title = "Hooke spring energy U = k x^2 / 2 (Feynman I.14.4)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression U = k*x^2/2 (Feynman I.14.4): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "spring_energy"
+samples = 200
+target = "y"

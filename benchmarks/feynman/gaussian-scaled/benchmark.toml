@@ -1,0 +1,13 @@
+id = "feynman/gaussian-scaled"
+title = "Scaled Gaussian f = exp(-(theta/sigma)^2 / 2) (Feynman I.6.20)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression f = exp(-(theta/sigma)^2/2) (Feynman I.6.20): a y=f(x1..xn) target with a transcendental form, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "gaussian_scaled"
+samples = 200
+target = "y"

@@ -1,0 +1,40 @@
+id = "blackbox/three-species"
+title = "Opaque three-feature interaction process (no advertised ground truth)"
+family = "blackbox"
+version = 1
+
+[capability]
+status = "supported"
+reason = "A deterministic three-feature process with bilinear coupling, scored on predictive trajectory R^2 + parsimony only; no symbolic recovery is claimed or expected."
+
+[system]
+kind = "blackbox_three"
+states = ["x", "y", "z"]
+step = 0.02
+samples = 400
+[system.parameters]
+a = 0.5
+b = 0.4
+c = 0.6
+d = 0.3
+e = 0.2
+f = 0.25
+g = 0.35
+[system.initial]
+x = 1.0
+y = 0.5
+z = 0.3
+
+[discovery]
+degree = 2
+threshold = 0.05
+
+[simulation]
+start = 0.0
+end = 2.0
+step = 0.02
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.9

@@ -7,9 +7,6 @@ pub struct ScoringConfig {
 
 impl Default for ScoringConfig {
     fn default() -> Self {
-        Self {
-            error_weight: 1.0,
-            complexity_weight: 0.01,
-        }
+        Self { error_weight: 1.0, complexity_weight: 0.01 }
     }
 }

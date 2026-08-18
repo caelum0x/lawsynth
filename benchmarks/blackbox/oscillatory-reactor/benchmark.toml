@@ -1,0 +1,36 @@
+id = "blackbox/oscillatory-reactor"
+title = "Opaque oscillatory reactor process (no advertised ground truth)"
+family = "blackbox"
+version = 1
+
+# Reuses the Brusselator RHS as an opaque generator: no ground truth is advertised
+# to the scorer, so it is treated purely as a black-box predictive task.
+[capability]
+status = "supported"
+reason = "A deterministic two-feature oscillatory process (cubic coupling), scored on predictive trajectory R^2 + parsimony only; no symbolic recovery is claimed or expected."
+
+[system]
+kind = "brusselator"
+states = ["x", "y"]
+step = 0.02
+samples = 400
+[system.parameters]
+a = 1.0
+b = 1.7
+[system.initial]
+x = 1.0
+y = 1.0
+
+[discovery]
+degree = 3
+threshold = 0.05
+
+[simulation]
+start = 0.0
+end = 2.0
+step = 0.02
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.9

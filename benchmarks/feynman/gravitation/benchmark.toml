@@ -1,0 +1,19 @@
+id = "feynman/gravitation"
+title = "Newtonian gravitation F = G m1 m2 / r^2 (Feynman I.9.18)"
+family = "feynman"
+version = 1
+
+# Honest capability boundary: this is a STATIC algebraic relation y = f(x1..xn),
+# i.e. multivariate symbolic *regression*, not governing-dynamics discovery from a
+# time series.  The LawSynth CLI discovers derivatives dX/dt = f(state); it does
+# NOT fit static algebraic formulas.  We still generate the dataset deterministically
+# (public formula, our own seeded RNG) to prove the generator, and report the case
+# honestly as a boundary rather than fabricating a recovery.
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression F = G*m1*m2/r^2 (Feynman I.9.18): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "gravitation"
+samples = 200
+target = "y"

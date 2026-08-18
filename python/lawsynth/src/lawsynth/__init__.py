@@ -92,8 +92,8 @@ def __getattr__(name):
             raise NativeError(
                 "the lawsynth native extension is unavailable; install the built package"
             ) from error
-        # Ensure editing/simplification methods are attached to the native World.
-        from . import composition, simplification  # noqa: F401
+        # Ensure editing/simplification/export methods are attached to the World.
+        from . import composition, export, simplification  # noqa: F401
         return getattr(_native, name)
     if name in {"Study", "DiscoveryResult", "Explanation", "Forecast", "Law", "ScenarioComparison"}:
         from . import study as _study
@@ -147,6 +147,10 @@ def __getattr__(name):
         from . import audit as _audit
 
         return getattr(_audit, name)
+    if name in {"to_sympy", "to_torch", "to_jax", "numeric_derivatives", "ExportError", "MissingDependencyError", "JaxDynamics"}:
+        from . import export as _export
+
+        return getattr(_export, name)
     raise AttributeError(name)
 
 
@@ -166,5 +170,7 @@ __all__ = [
     "stream_discover", "StreamHistory", "StreamModel", "ChangeRecord", "TermChange",
     "validate", "Validation",
     "model_card", "ModelCard", "Lineage", "LineageLink", "AuditLog", "AuditEntry",
+    "to_sympy", "to_torch", "to_jax", "numeric_derivatives",
+    "ExportError", "MissingDependencyError", "JaxDynamics",
     "__version__",
 ]

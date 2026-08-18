@@ -1,0 +1,38 @@
+id = "blackbox/coupled-decay"
+title = "Opaque coupled decay process (no advertised ground truth)"
+family = "blackbox"
+version = 1
+
+# Black-box family: a deterministic multi-feature trajectory presented WITHOUT any
+# published closed-form ground truth. We score only predictive trajectory R^2 and
+# parsimony (node count) — there is no symbolic_recovery expectation, matching the
+# SRBench black-box protocol. The CLI can still discover a governing model here.
+[capability]
+status = "supported"
+reason = "A deterministic two-feature dynamical process scored on predictive trajectory R^2 + parsimony only; no symbolic recovery is claimed or expected."
+
+[system]
+kind = "blackbox_coupled_decay"
+states = ["x", "v"]
+step = 0.02
+samples = 400
+[system.parameters]
+k = 1.0
+c = 0.3
+[system.initial]
+x = 1.0
+v = 0.0
+
+[discovery]
+degree = 2
+threshold = 0.05
+
+[simulation]
+start = 0.0
+end = 2.0
+step = 0.02
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.95

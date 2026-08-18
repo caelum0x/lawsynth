@@ -208,6 +208,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-reduce"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-differentiate",
+]
+
+[[package]]
 name = "lawsynth-regime"
 version = "0.1.0"
 
@@ -243,6 +252,7 @@ dependencies = [
 name = "lawsynth-score"
 version = "0.1.0"
 dependencies = [
+ "lawsynth-core",
  "lawsynth-expr",
 ]
 

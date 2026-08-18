@@ -1,0 +1,13 @@
+id = "feynman/cyclotron"
+title = "Cyclotron frequency omega = q v B / p (Feynman I.34.8)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression omega = q*v*B/p (Feynman I.34.8): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "cyclotron"
+samples = 200
+target = "y"

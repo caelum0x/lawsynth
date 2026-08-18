@@ -1,0 +1,13 @@
+id = "feynman/center-of-mass"
+title = "Center of mass r = (m1 r1 + m2 r2)/(m1 + m2) (Feynman I.18.4)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression r = (m1*r1+m2*r2)/(m1+m2) (Feynman I.18.4): a rational y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "center_of_mass"
+samples = 200
+target = "y"

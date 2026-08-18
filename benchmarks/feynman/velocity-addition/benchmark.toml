@@ -1,0 +1,13 @@
+id = "feynman/velocity-addition"
+title = "Relativistic velocity addition v = (u + w)/(1 + u w / c^2) (Feynman I.16.6)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression v = (u+w)/(1+u*w/c^2) (Feynman I.16.6): a rational y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "velocity_addition"
+samples = 200
+target = "y"

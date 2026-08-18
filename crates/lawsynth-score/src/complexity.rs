@@ -20,10 +20,8 @@ mod tests {
 
     #[test]
     fn counts_expression_nodes_not_rendered_text() {
-        let expression = Expr::sum(
-            Expr::constant(1.0),
-            Expr::product(Expr::constant(2.0), Expr::constant(3.0)),
-        );
+        let expression =
+            Expr::sum(Expr::constant(1.0), Expr::product(Expr::constant(2.0), Expr::constant(3.0)));
         assert_eq!(expression_complexity(&expression), 5);
     }
 }

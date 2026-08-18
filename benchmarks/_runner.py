@@ -36,6 +36,14 @@ from _scoring import (
 # Statuses that make the whole suite fail with a non-zero exit code.
 FAILING_STATUSES = frozenset({REGRESSION, FAILED})
 
+# The SRBench-style families (Strogatz dynamics, Feynman exact-recovery, and the
+# no-ground-truth black-box set) have their own dedicated harness and reporter
+# (``_srbench`` / ``srbench_report``) and their own tests.  They use a distinct
+# case schema (``[system]`` generators, not ``[generation]``), so the legacy
+# contract-suite runner deliberately excludes them rather than mis-dispatching
+# them through the native-CLI path.
+SRBENCH_FAMILIES = frozenset({"strogatz", "feynman", "blackbox"})
+
 
 @dataclass(frozen=True)
 class CaseOutcome:
@@ -50,11 +58,19 @@ class CaseOutcome:
 
 
 def discover_cases(benchmarks_dir: Path) -> list[Path]:
-    """Return every benchmark case directory, sorted for determinism."""
-    return sorted(
-        (toml.parent for toml in benchmarks_dir.rglob("benchmark.toml")),
-        key=lambda path: str(path),
-    )
+    """Return every legacy contract-suite case directory, sorted for determinism.
+
+    Cases belonging to an SRBench-style family (see :data:`SRBENCH_FAMILIES`) are
+    excluded: they are executed and scored by the dedicated ``srbench_report``
+    harness, not by this contract-suite runner.
+    """
+    cases = []
+    for toml in benchmarks_dir.rglob("benchmark.toml"):
+        relative = toml.parent.relative_to(benchmarks_dir)
+        if relative.parts and relative.parts[0] in SRBENCH_FAMILIES:
+            continue
+        cases.append(toml.parent)
+    return sorted(cases, key=lambda path: str(path))
 
 
 def case_id(benchmarks_dir: Path, case_dir: Path) -> str:

@@ -1,0 +1,13 @@
+id = "feynman/coulomb"
+title = "Coulomb's law F = q1 q2 / (4 pi eps r^2) (Feynman I.12.2)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression F = q1*q2/(4*pi*eps*r^2) (Feynman I.12.2): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "coulomb"
+samples = 200
+target = "y"

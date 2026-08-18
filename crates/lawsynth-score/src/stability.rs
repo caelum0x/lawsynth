@@ -16,18 +16,12 @@ pub fn selection_stability(selections: &[Vec<bool>]) -> Result<SelectionStabilit
     let Some(first) = selections.first() else {
         return Err(ScoreError::EmptyObservations);
     };
-    if selections
-        .iter()
-        .any(|selection| selection.len() != first.len())
-    {
+    if selections.iter().any(|selection| selection.len() != first.len()) {
         return Err(ScoreError::InconsistentSelectionWidth);
     }
     let selection_frequencies = (0..first.len())
         .map(|feature| {
-            selections
-                .iter()
-                .filter(|selection| selection[feature])
-                .count() as f64
+            selections.iter().filter(|selection| selection[feature]).count() as f64
                 / selections.len() as f64
         })
         .collect();
@@ -44,21 +38,13 @@ pub fn selection_stability(selections: &[Vec<bool>]) -> Result<SelectionStabilit
                     )
                 },
             );
-            total += if union == 0 {
-                1.0
-            } else {
-                intersection as f64 / union as f64
-            };
+            total += if union == 0 { 1.0 } else { intersection as f64 / union as f64 };
             pairs += 1;
         }
     }
     Ok(SelectionStability {
         selection_frequencies,
-        mean_pairwise_jaccard: if pairs == 0 {
-            1.0
-        } else {
-            total / pairs as f64
-        },
+        mean_pairwise_jaccard: if pairs == 0 { 1.0 } else { total / pairs as f64 },
     })
 }
 

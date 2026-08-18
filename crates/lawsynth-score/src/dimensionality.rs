@@ -26,11 +26,7 @@ pub fn information_criteria(
     let denominator = observations as isize - parameters as isize - 1;
     let aicc = (denominator > 0)
         .then(|| aic + (2 * parameters * (parameters + 1)) as f64 / denominator as f64);
-    Ok(InformationCriteria {
-        aic,
-        aicc,
-        bic: n * variance.ln() + parameters as f64 * n.ln(),
-    })
+    Ok(InformationCriteria { aic, aicc, bic: n * variance.ln() + parameters as f64 * n.ln() })
 }
 
 #[cfg(test)]

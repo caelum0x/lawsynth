@@ -1,0 +1,13 @@
+id = "feynman/capacitor-voltage"
+title = "Capacitor voltage V = q / C (Feynman I.25.13)"
+family = "feynman"
+version = 1
+
+[capability]
+status = "capability-boundary"
+reason = "Static algebraic regression V = q/C (Feynman I.25.13): a y=f(x1..xn) target, not time-series dynamics. The dynamics CLI does not perform static multivariate regression; dataset generated deterministically and reported as a boundary."
+
+[system]
+kind = "capacitor_voltage"
+samples = 200
+target = "y"

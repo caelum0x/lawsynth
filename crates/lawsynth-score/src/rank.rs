@@ -43,8 +43,7 @@ pub fn weighted_rank(
         return Err(ScoreError::NonFiniteValue);
     }
     values.sort_by(|(left_index, left), (right_index, right)| {
-        left.total_cmp(right)
-            .then_with(|| left_index.cmp(right_index))
+        left.total_cmp(right).then_with(|| left_index.cmp(right_index))
     });
     Ok(values)
 }
@@ -56,23 +55,11 @@ mod tests {
     #[test]
     fn rank_is_stable_for_exact_ties() {
         let metrics = [
-            CandidateMetrics {
-                mean_squared_error: 1.0,
-                complexity: 2,
-            },
-            CandidateMetrics {
-                mean_squared_error: 1.0,
-                complexity: 2,
-            },
-            CandidateMetrics {
-                mean_squared_error: 0.5,
-                complexity: 3,
-            },
+            CandidateMetrics { mean_squared_error: 1.0, complexity: 2 },
+            CandidateMetrics { mean_squared_error: 1.0, complexity: 2 },
+            CandidateMetrics { mean_squared_error: 0.5, complexity: 3 },
         ];
         assert_eq!(rank_candidates(&metrics), vec![2, 0, 1]);
-        assert_eq!(
-            weighted_rank(&metrics, ScoringConfig::default()).unwrap()[0].0,
-            2
-        );
+        assert_eq!(weighted_rank(&metrics, ScoringConfig::default()).unwrap()[0].0, 2);
     }
 }

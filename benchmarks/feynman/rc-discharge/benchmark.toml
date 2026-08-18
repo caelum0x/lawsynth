@@ -1,0 +1,35 @@
+id = "feynman/rc-discharge"
+title = "RC capacitor discharge (framed as dynamics)"
+family = "feynman"
+version = 1
+
+# The capacitor-discharge relation Q = Q0 * exp(-t/RC) is the solution of the
+# first-order ODE dQ/dt = -Q/(R C), a linear dynamics-discovery target.
+[capability]
+status = "supported"
+reason = "dQ/dt = -Q/(R*C) is a linear first-order ODE inside the polynomial library; recoverable and simulable via the public CLI."
+
+[system]
+kind = "rc_discharge"
+states = ["Q"]
+step = 0.02
+samples = 300
+[system.parameters]
+R = 2.0
+C = 1.5
+[system.initial]
+Q = 5.0
+
+[discovery]
+degree = 2
+threshold = 0.02
+
+[simulation]
+start = 0.0
+end = 3.0
+step = 0.02
+
+[expect]
+simulate = true
+symbolic_recovery = "none"
+r2_min = 0.99

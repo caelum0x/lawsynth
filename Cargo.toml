@@ -23,6 +23,7 @@ members = [
   "crates/lawsynth-dynamics",
   "crates/lawsynth-koopman",
   "crates/lawsynth-weakform",
+  "crates/lawsynth-reduce",
   "crates/lawsynth-implicit",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
