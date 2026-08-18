@@ -1,0 +1,53 @@
+name: Deploy docs site
+
+# Builds the deterministic static documentation site and publishes it to
+# Cloudflare Pages (lawsynth.dev). Runs on pushes to `main` that touch the site
+# or its inputs, and can be triggered manually.
+#
+# Requires two repository secrets (Settings -> Secrets and variables -> Actions):
+#   CLOUDFLARE_API_TOKEN   - a token with the "Cloudflare Pages: Edit" permission
+#   CLOUDFLARE_ACCOUNT_ID  - the account that owns the `lawsynth` Pages project
+# If either secret is absent the deploy step is skipped (the build still runs),
+# so forks and PRs never fail on missing credentials.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/docs-site/**"
+      - "packages/world-schema/**"
+      - "packages/world-viewer/**"
+      - ".github/workflows/deploy-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Emits the static tree to apps/docs-site/public (self-contained HTML +
+      # sitemap/robots/_headers). Deterministic; see apps/docs-site/DEPLOY.md.
+      - run: pnpm --filter @lawsynth/docs-site run render
+      - name: Publish to Cloudflare Pages
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/docs-site/public --project-name=lawsynth
