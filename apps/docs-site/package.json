@@ -9,7 +9,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/tests/api_reference.test.js dist/tests/benchmarks.test.js dist/tests/blog.test.js dist/tests/code.test.js dist/tests/examples.test.js dist/tests/markdown.test.js dist/tests/navigation.test.js dist/tests/search.test.js dist/tests/site.test.js"
+    "render": "npm run build && node render-static.mjs public",
+    "deploy": "npm run render && wrangler pages deploy public --project-name lawsynth",
+    "test": "npm run build && node --test dist/tests/api_reference.test.js dist/tests/benchmarks.test.js dist/tests/blog.test.js dist/tests/code.test.js dist/tests/examples.test.js dist/tests/markdown.test.js dist/tests/navigation.test.js dist/tests/search.test.js dist/tests/site.test.js tests/render_static.test.mjs"
   },
   "dependencies": { "@lawsynth/world-schema": "workspace:*", "@lawsynth/world-viewer": "workspace:*" }
 }

@@ -1,0 +1,85 @@
+// Static-site emitter for Cloudflare Pages (lawsynth.dev).
+//
+// The documentation SSG (`./dist/src/content.js`, built from TypeScript) is
+// deliberately Node-free and produces an in-memory `DocumentationSite`. This
+// thin ESM script is the deployment boundary: it imports that tested,
+// deterministic model and writes it to a directory of plain files. It lives as
+// `.mjs` (not `.ts`) so it can use Node's `fs`/`path`/`process` without adding
+// `@types/node` to the pure-TypeScript site build.
+//
+// Every page is already a full, self-contained HTML document (inline styles +
+// theme script), so emission is a pure file write and the output tree is
+// byte-identical across runs.
+//
+// Usage (after `npm run build`): node render-static.mjs [outputDir=public]
+
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
+
+import { buildDocsSite } from "./dist/src/content.js";
+
+/** Production configuration for https://lawsynth.dev. */
+export const SITE_CONFIGURATION = Object.freeze({ origin: "https://lawsynth.dev", name: "LawSynth" });
+
+// `.dev` is HSTS-preloaded (HTTPS enforced by the TLD), so we add the remaining
+// hardening headers plus a CSP that permits the pages' own inline style/script.
+const HEADERS = `/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'self'
+`;
+
+const REDIRECTS = `# Cloudflare Pages redirects. Add canonical/legacy path rules here.
+`;
+
+function robotsTxt(origin) {
+  const base = origin.replace(/\/$/, "");
+  return `User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`;
+}
+
+function pageFile(outputDir, path) {
+  const clean = path.replace(/^\/+|\/+$/g, "");
+  return clean === "" ? join(outputDir, "index.html") : join(outputDir, clean, "index.html");
+}
+
+function write(file, contents) {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, contents, "utf8");
+}
+
+/**
+ * Emits `site` to `outputDir` as a deployable static tree; returns the sorted
+ * list of written file paths.
+ */
+export function emitStaticSite(site, outputDir, configuration = SITE_CONFIGURATION) {
+  const written = [];
+  for (const page of site.pages) {
+    const file = pageFile(outputDir, page.path);
+    write(file, page.html);
+    written.push(file);
+  }
+  const files = [
+    [join(outputDir, "sitemap.xml"), site.sitemap],
+    [join(outputDir, "robots.txt"), robotsTxt(configuration.origin)],
+    [join(outputDir, "_headers"), HEADERS],
+    [join(outputDir, "_redirects"), REDIRECTS],
+  ];
+  for (const [file, contents] of files) {
+    write(file, contents);
+    written.push(file);
+  }
+  return written.sort();
+}
+
+/** Builds the production site and emits it to `outputDir`. */
+export function renderStaticSite(outputDir) {
+  return emitStaticSite(buildDocsSite(SITE_CONFIGURATION), outputDir, SITE_CONFIGURATION);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const outputDir = process.argv[2] ?? "public";
+  const written = renderStaticSite(outputDir);
+  process.stdout.write(`Rendered ${written.length} file(s) to ${outputDir}\n`);
+}

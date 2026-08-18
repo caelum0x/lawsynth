@@ -1,0 +1,17 @@
+# Cloudflare Pages project for the LawSynth documentation site (lawsynth.dev).
+#
+# The site is a fully static tree emitted by `npm run render` (see package.json),
+# so Pages serves it directly — no Functions/Workers required for the docs.
+#
+# Deploy from this directory:
+#   npm run render
+#   npx wrangler pages deploy public --project-name lawsynth
+#
+# Or configure a Git-connected Pages project with:
+#   Build command:        npm run render
+#   Build output dir:     apps/docs-site/public
+#   Root directory:       apps/docs-site
+
+name = "lawsynth"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
