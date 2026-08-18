@@ -17,6 +17,11 @@ export type MarkdownBlock =
       readonly id: string;
     }
   | { readonly kind: "paragraph"; readonly text: string }
+  | {
+      readonly kind: "image";
+      readonly src: string;
+      readonly alt: string;
+    }
   | { readonly kind: "code"; readonly block: CodeBlock }
   | {
       readonly kind: "list";
@@ -175,6 +180,12 @@ function readQuote(
 
 const LIST_ITEM = /^\s*(?:([-*+])|(\d+)\.)\s+(.+)$/u;
 
+// A standalone image line: `![alt](/diagram.svg)`. Only same-origin absolute
+// paths are allowed — matching the site's `img-src 'self'` CSP — so a page can
+// never smuggle in an inline data: payload or an off-origin tracker through the
+// image syntax; anything else falls through to the paragraph renderer verbatim.
+const IMAGE_LINE = /^!\[([^\]]*)\]\((\/[^)\s]+)\)$/u;
+
 function readList(
   lines: readonly string[],
   start: number,
@@ -206,6 +217,7 @@ function startsBlock(line: string): boolean {
     /^(#{1,6})\s/u.test(line) ||
     line.startsWith("```") ||
     line.startsWith("> ") ||
+    IMAGE_LINE.test(line) ||
     LIST_ITEM.test(line) ||
     /^ {0,3}([-*_])(?:\s*\1){2,}\s*$/u.test(line)
   );
@@ -238,6 +250,8 @@ function plainTextFor(block: MarkdownBlock): readonly string[] {
     case "code":
     case "rule":
       return [];
+    case "image":
+      return block.alt ? [block.alt] : [];
     case "list":
       return block.items;
     case "heading":
@@ -296,6 +310,13 @@ export function parseMarkdown(source: string): MarkdownDocument {
       continue;
     }
 
+    const image = IMAGE_LINE.exec(line);
+    if (image) {
+      blocks.push({ kind: "image", alt: image[1]!.trim(), src: image[2]! });
+      index += 1;
+      continue;
+    }
+
     if (LIST_ITEM.test(line)) {
       const result = readList(parsed.body, index);
       blocks.push(result.block);
@@ -341,6 +362,13 @@ function renderBlock(block: MarkdownBlock): string {
       return `<h${block.level} id="${block.id}">${inline(block.text)}</h${block.level}>`;
     case "paragraph":
       return `<p>${inline(block.text)}</p>`;
+    case "image": {
+      const alt = escapeHtml(block.alt);
+      const figure = block.alt
+        ? `<img src="${escapeHtml(block.src)}" alt="${alt}" loading="lazy" decoding="async"><figcaption>${alt}</figcaption>`
+        : `<img src="${escapeHtml(block.src)}" alt="" loading="lazy" decoding="async">`;
+      return `<figure class="docs-figure">${figure}</figure>`;
+    }
     case "quote":
       return `<blockquote><p>${inline(block.text)}</p></blockquote>`;
     case "rule":

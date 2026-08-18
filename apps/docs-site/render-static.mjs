@@ -17,7 +17,10 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { buildDocsSite } from "./dist/src/content.js";
+import { docsContentPages } from "./dist/src/content.js";
+import { compileSite } from "./dist/src/site.js";
+
+import { loadDocsSources } from "./load-docs.mjs";
 
 /** Static assets (favicon, og image) copied verbatim into the output tree. */
 const ASSETS_DIR = fileURLToPath(new URL("./assets", import.meta.url));
@@ -85,9 +88,20 @@ export function emitStaticSite(site, outputDir, configuration = SITE_CONFIGURATI
   return written.sort();
 }
 
+/**
+ * Compiles the full production site: the built-in inline pages (introduction,
+ * getting-started, capabilities, CLI reference, concepts, gallery) combined with
+ * every hand-written page under the repo `docs/` tree, loaded from disk and
+ * published under `/docs/**`. Both sets flow through the same `compileSite`
+ * pipeline, so navigation, search, and the sitemap cover all of them.
+ */
+export function buildFullSite(configuration = SITE_CONFIGURATION) {
+  return compileSite([...docsContentPages(), ...loadDocsSources()], configuration);
+}
+
 /** Builds the production site and emits it to `outputDir`. */
 export function renderStaticSite(outputDir) {
-  return emitStaticSite(buildDocsSite(SITE_CONFIGURATION), outputDir, SITE_CONFIGURATION);
+  return emitStaticSite(buildFullSite(SITE_CONFIGURATION), outputDir, SITE_CONFIGURATION);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

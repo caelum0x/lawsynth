@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { buildDocsSite } from "../dist/src/content.js";
-import { emitStaticSite, renderStaticSite, SITE_CONFIGURATION } from "../render-static.mjs";
+import { buildFullSite, emitStaticSite, renderStaticSite, SITE_CONFIGURATION } from "../render-static.mjs";
 
 test("emitStaticSite writes one index.html per page plus control files", () => {
   const dir = mkdtempSync(join(tmpdir(), "lawsynth-site-"));
@@ -35,6 +35,42 @@ test("emitStaticSite writes one index.html per page plus control files", () => {
       "robots points to the sitemap",
     );
     assert.ok(readFileSync(join(dir, "_headers"), "utf8").includes("X-Content-Type-Options: nosniff"), "security headers");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the rendered site publishes the repo docs/ tree under /docs with rewritten links", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lawsynth-docs-"));
+  try {
+    renderStaticSite(dir);
+
+    // A representative page from several docs sections is emitted as full HTML.
+    const representative = [
+      "docs/index.html", // the /docs landing
+      "docs/guide/index.html", // a README -> directory index
+      "docs/guide/workflow/index.html", // a plain page
+      "docs/methods/causal/granger/index.html", // a nested methods page
+      "docs/reference/python/world/index.html", // a nested reference page
+    ];
+    for (const relative of representative) {
+      const html = readFileSync(join(dir, relative), "utf8");
+      assert.ok(html.startsWith("<!doctype html>"), `${relative} is a full HTML document`);
+    }
+
+    // Internal .md links are rewritten to site paths...
+    const guide = readFileSync(join(dir, "docs/guide/index.html"), "utf8");
+    assert.ok(guide.includes('href="/docs/guide/workflow"'), "relative .md link rewritten to a site path");
+    // ...and no /docs href retains a `.md` suffix.
+    assert.ok(!/href="\/docs\/[^"]*\.md/u.test(guide), "no /docs href keeps a .md suffix");
+
+    // The sitemap and a sanity count cover the docs pages too.
+    const sitemap = readFileSync(join(dir, "sitemap.xml"), "utf8");
+    assert.ok(sitemap.includes("https://lawsynth.dev/docs/guide/workflow"), "sitemap lists docs pages");
+
+    const site = buildFullSite(SITE_CONFIGURATION);
+    const docsPages = site.pages.filter((page) => page.path.startsWith("/docs"));
+    assert.ok(docsPages.length > 200, `expected the full docs corpus (got ${docsPages.length})`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
