@@ -21,10 +21,10 @@ impl EquivalenceGraph {
     pub fn add(&mut self, expression: Expr, config: &RewriteConfig) -> &EquivalenceClass {
         let canonical = saturate(expression.clone(), config);
         let key = canonical.to_canonical_string();
-        let class = self.classes.entry(key).or_insert_with(|| EquivalenceClass {
-            canonical,
-            members: Vec::new(),
-        });
+        let class = self
+            .classes
+            .entry(key)
+            .or_insert_with(|| EquivalenceClass { canonical, members: Vec::new() });
         if !class.members.contains(&expression) {
             class.members.push(expression);
         }

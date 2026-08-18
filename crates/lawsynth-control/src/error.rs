@@ -3,6 +3,7 @@ use std::fmt;
 use lawsynth_data::DataError;
 use lawsynth_differentiate::DifferentiationError;
 use lawsynth_features::FeatureError;
+use lawsynth_score::ScoreError;
 use lawsynth_sparse::SparseError;
 
 /// Errors surfaced while building or solving a controlled (SINDYc) model.
@@ -40,6 +41,27 @@ pub enum ControlError {
     Differentiation(DifferentiationError),
     /// A derived dataset (e.g. the state-only subset) failed validation.
     Data(DataError),
+    /// The initial-state vector length disagrees with the model's state count.
+    ///
+    /// Forward simulation needs exactly one initial value per state, in the
+    /// model's state order.
+    InitialStateDimension { expected: usize, found: usize },
+    /// A supplied control signal does not name the model's controls, in order.
+    ///
+    /// Simulation and validation both require the control channels to match the
+    /// model's controls exactly (same identifiers, same order) so each control
+    /// value binds to the right library variable.
+    ControlMismatch { expected: Vec<String>, found: Vec<String> },
+    /// A sampled control signal or simulation grid is malformed.
+    ///
+    /// Examples: an empty control column, a control column whose length differs
+    /// from its time axis, a non-positive step size, or a non-finite step.
+    ControlGrid(String),
+    /// Integration produced a non-finite state or a library term failed to
+    /// evaluate at a stage point.
+    Simulation(String),
+    /// Scoring a simulated trajectory against observations failed.
+    Score(ScoreError),
 }
 
 impl fmt::Display for ControlError {
@@ -67,6 +89,17 @@ impl fmt::Display for ControlError {
             Self::Sparse(error) => write!(formatter, "sparse regression error: {error}"),
             Self::Differentiation(error) => write!(formatter, "differentiation error: {error}"),
             Self::Data(error) => write!(formatter, "derived dataset error: {error}"),
+            Self::InitialStateDimension { expected, found } => write!(
+                formatter,
+                "initial state has {found} values but the model has {expected} states"
+            ),
+            Self::ControlMismatch { expected, found } => write!(
+                formatter,
+                "control signal names {found:?} but the model's controls are {expected:?}"
+            ),
+            Self::ControlGrid(message) => write!(formatter, "control grid error: {message}"),
+            Self::Simulation(message) => write!(formatter, "simulation error: {message}"),
+            Self::Score(error) => write!(formatter, "scoring error: {error}"),
         }
     }
 }
@@ -94,6 +127,12 @@ impl From<DifferentiationError> for ControlError {
 impl From<DataError> for ControlError {
     fn from(error: DataError) -> Self {
         Self::Data(error)
+    }
+}
+
+impl From<ScoreError> for ControlError {
+    fn from(error: ScoreError) -> Self {
+        Self::Score(error)
     }
 }
 

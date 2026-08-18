@@ -11,6 +11,7 @@ mod limits;
 mod proof;
 mod rules;
 mod schedule;
+mod simplify;
 
 pub use analysis::ExpressionAnalysis;
 pub use config::RewriteConfig;
@@ -23,3 +24,4 @@ pub use limits::RewriteLimits;
 pub use proof::RewriteProof;
 pub use rules::{RewriteRule, normalize};
 pub use schedule::RewriteSchedule;
+pub use simplify::{simplify_expr, simplify_law};

@@ -112,3 +112,85 @@ for any control.
   the strong-form derivative estimator provides.
 - No claim of proof: a discovered controlled law is a sparse, quantified fit,
   subject to the persistent-excitation and noise limits above.
+
+## Forward simulation & validation
+
+Discovery fits `ẋ = Θ(x, u) Ξ` but does not roll it forward. The `simulate`
+module closes the loop `discover → simulate → score`: it integrates a
+`ControlledModel` under a supplied control and scores the rollout against
+held-out data.
+
+### Simulator contract
+
+```text
+simulate_controlled(&ControlledModel, initial: &[f64], &ControlSignal, &SimConfig)
+    -> Result<Trajectory, ControlError>
+validate_controlled(&ControlledModel, &Dataset, &ControlSpec, &ValidationConfig)
+    -> Result<ControlScore, ControlError>
+```
+
+- **Fixed-step RK4.** Integration uses classical fourth-order Runge-Kutta with a
+  fixed step `SimConfig { t0, dt, steps }`, producing `steps + 1` samples. There
+  is no adaptive stepping and no stiffness handling; a stiff system needs a small
+  `dt`.
+- **Structural term evaluation (no string parsing).** The model carries the
+  structured augmented library `ControlledModel::library`. At every RK4 stage the
+  current `(state, control)` values are bound into an expression `Environment`
+  and each library term's **expression tree** is evaluated with
+  `lawsynth_expr::evaluate`. Term `k`'s value is multiplied by
+  `equation.coefficients[k]` and summed: `ẋ_i = Σ_k coef[i][k] · term_k(x, u)`.
+  The human-readable `library_terms` labels are never re-parsed — the rolled-out
+  right-hand side is exactly the fitted model.
+- **Control at RK4 stages.** RK4 samples the right-hand side at `t`, `t + dt/2`,
+  and `t + dt`. A `ControlSignal` supplies one value per control channel at each
+  of those times. The channels MUST equal the model's controls, in order.
+- **Control interpolation rule.** A control given as a closure `t ↦ [u(t)]` is
+  evaluated exactly at the stage times. A control given as sampled columns on a
+  strictly ascending time axis is **linearly interpolated** between adjacent
+  samples and **clamped (held constant)** outside the sampled range. Linear
+  interpolation is continuous and deterministic, so RK4 mid-step values are
+  well-defined and reproducible.
+
+### Determinism
+
+Every operation is a pure `f64` computation over deterministically ordered data
+(library terms fixed at discovery, states/controls in model order, `BTreeMap`
+environments). Identical `(model, initial, control, config)` inputs yield a
+**bit-identical** `Trajectory` (compared via `f64::to_bits`), and identical
+validation inputs yield a bit-identical `ControlScore`. Both are covered by
+tests.
+
+### R² and RMSE definition
+
+`validate_controlled` simulates from the dataset's own initial condition under
+the dataset's own control columns, then compares the simulated state columns to
+the observed ones. For each state it reports, via `lawsynth_score::fit_statistics`:
+
+- **R²** `= 1 − SS_res / SS_tot`, where `SS_res = Σ (observed − simulated)²` and
+  `SS_tot = Σ (observed − mean(observed))²`.
+- **RMSE** `= sqrt(SS_res / N)`.
+
+The **aggregate** figures pool every state's samples (in model-state order) into
+one observed/predicted pair and score that, weighting each sample equally.
+`ValidationConfig { substeps }` optionally takes `substeps` RK4 steps between
+consecutive observed samples (comparing only at the sample points) so the
+integrator's own step error can be shrunk below the model error; the default is
+one step per interval.
+
+### Honest limits
+
+- **Open-loop rollout.** The rollout is open-loop: model-coefficient error
+  accumulates over the horizon, so predictive R² degrades as the horizon grows.
+  On the reference forced oscillator the discovered model reproduces the full
+  20 s trajectory with aggregate R² ≈ 1.0 (RMSE ≈ 4e-5); a longer or less
+  accurate model would drift more.
+- **Compatible control grid.** A sampled control must cover the simulated horizon
+  on a compatible grid. Values requested outside the samples are **clamped**, not
+  extrapolated, and validation assumes an (approximately) regular grid so every
+  `substeps`-th simulated sample lands on an observed time.
+- **Fixed step only.** No adaptive stepping and no stiffness handling — accuracy
+  is entirely governed by `dt`.
+- **Score discriminates model quality.** Zeroing the discovered control
+  coefficient (an unmodelled forcing) collapses the reference aggregate R² from
+  ≈ 1.0 to ≈ 0.11 and inflates RMSE ~14×, demonstrating that the predictive
+  score genuinely separates good models from bad ones.

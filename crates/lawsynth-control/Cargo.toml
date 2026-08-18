@@ -12,6 +12,8 @@ lawsynth-data = { path = "../lawsynth-data" }
 lawsynth-features = { path = "../lawsynth-features" }
 lawsynth-sparse = { path = "../lawsynth-sparse" }
 lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-score = { path = "../lawsynth-score" }
 
 [lib]
 path = "src/lib.rs"

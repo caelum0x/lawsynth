@@ -66,10 +66,15 @@ mod discover;
 mod error;
 mod library;
 mod model;
+pub mod simulate;
 mod spec;
 
 pub use config::ControlConfig;
 pub use discover::discover_controlled;
 pub use error::ControlError;
 pub use model::{ControlledModel, StateEquation};
+pub use simulate::{
+    ControlScore, ControlSignal, SimConfig, StateScore, Trajectory, ValidationConfig,
+    simulate_controlled, validate_controlled,
+};
 pub use spec::ControlSpec;

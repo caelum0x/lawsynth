@@ -1,4 +1,5 @@
 use lawsynth_core::Identifier;
+use lawsynth_features::FeatureLibrary;
 
 /// The fitted sparse dynamics for a single state derivative `ẋ_i`.
 ///
@@ -43,6 +44,18 @@ pub struct ControlledModel {
     pub equations: Vec<StateEquation>,
     /// Human-readable labels for every augmented-library term, in column order.
     pub library_terms: Vec<String>,
+    /// The structured augmented library `Θ(x, u)` whose terms are aligned
+    /// positionally with every equation's coefficient row.
+    ///
+    /// This is the *structural* counterpart of [`library_terms`]: term `k` of
+    /// `library.terms()` is exactly the expression whose printed form is
+    /// `library_terms[k]` and whose coefficient is `equation.coefficients[k]`.
+    /// Forward simulation evaluates these expression trees directly (never by
+    /// re-parsing the label strings), so the rolled-out right-hand side matches
+    /// the fitted model exactly and deterministically.
+    ///
+    /// [`library_terms`]: ControlledModel::library_terms
+    pub library: FeatureLibrary,
     /// State identifiers in the order they were designated.
     pub states: Vec<Identifier>,
     /// Control identifiers in the order they were designated.

@@ -1,0 +1,16 @@
+[package]
+name = "lawsynth-stability"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic fixed-point and linear-stability analysis of discovered LawSynth vector fields."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+lawsynth-koopman = { path = "../lawsynth-koopman" }
+
+[lib]
+path = "src/lib.rs"

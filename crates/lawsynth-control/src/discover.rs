@@ -56,6 +56,9 @@ pub fn discover_controlled(
     Ok(ControlledModel {
         equations,
         library_terms,
+        // Keep the structured library so forward simulation can evaluate each
+        // term's expression tree directly instead of re-parsing label strings.
+        library,
         states: spec.states().to_vec(),
         controls: spec.controls().to_vec(),
     })

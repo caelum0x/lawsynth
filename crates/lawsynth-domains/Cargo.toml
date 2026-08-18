@@ -1,0 +1,23 @@
+[package]
+name = "lawsynth-domains"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Curated, self-validated domain presets (feature libraries, units, priors) for LawSynth discovery."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-features = { path = "../lawsynth-features" }
+lawsynth-units = { path = "../lawsynth-units" }
+lawsynth-discovery = { path = "../lawsynth-discovery" }
+
+[dev-dependencies]
+# Internal path deps used only by the round-trip integration tests to evaluate
+# discovered expressions and build probe environments.
+lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-world = { path = "../lawsynth-world" }
+
+[lib]
+path = "src/lib.rs"

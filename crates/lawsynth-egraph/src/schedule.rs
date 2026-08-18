@@ -10,9 +10,7 @@ impl RewriteSchedule {
         if config.max_passes == 0 {
             Err(RewriteError::InvalidConfig)
         } else {
-            Ok(Self {
-                passes: config.max_passes,
-            })
+            Ok(Self { passes: config.max_passes })
         }
     }
 }

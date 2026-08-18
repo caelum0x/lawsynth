@@ -1,5 +1,5 @@
-use lawsynth_expr::Expr;
 use lawsynth_egraph::ExpressionLanguage;
+use lawsynth_expr::Expr;
 
 #[test]
 fn language_classifies_expression_roots() {

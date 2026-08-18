@@ -27,6 +27,8 @@ members = [
   "crates/lawsynth-implicit",
   "crates/lawsynth-jacobian",
   "crates/lawsynth-control",
+  "crates/lawsynth-stability",
+  "crates/lawsynth-domains",
   "crates/lawsynth-discovery",
   "crates/lawsynth-uncertainty",
   "crates/lawsynth-api-types",
