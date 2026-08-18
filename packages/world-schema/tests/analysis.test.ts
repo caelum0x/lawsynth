@@ -4,10 +4,13 @@ import {
   parseControlledModel,
   parseDomainRun,
   parseEstimateReport,
+  parseKoopmanReport,
   parseLyapunovReport,
   parseMpcResult,
   parseNetworkModel,
+  parsePdeReport,
   parseReductionReport,
+  parseSdeReport,
   parseSensitivityReport,
   parseStabilityReport,
   validateStabilityReport,
@@ -201,6 +204,58 @@ const REDUCTION_MEASURED = `{
     "b": [[2.27703601385121773e-1, 8.58993592403251238e-1], [3.62637167908169578e-1, -4.24096444643041415e-1]],
     "c": [[8.88661308864968524e-1, -5.57999560848684850e-1]]
   }
+}`;
+
+// `lawsynth koopman koop.csv --state x,y --time time --json` on a linear-decay
+// dataset (x'=-x, y'=-2y). Captured verbatim from the debug binary; only the
+// "source" path string was normalized to a clean name (all numerics verbatim).
+const KOOPMAN = `{
+  "method": "koopman-dmd",
+  "source": "koop.csv",
+  "states": ["x", "y"],
+  "rank": 2,
+  "dt": 5.00000000000000028e-2,
+  "singular_values": [3.42412973113335761e0, 3.66106644230431433e-1],
+  "discrete_eigenvalues": [{"re": 9.51229424500333876e-1, "im": 0.00000000000000000e0, "modulus": 9.51229424500333876e-1}, {"re": 9.04837418019375450e-1, "im": 0.00000000000000000e0, "modulus": 9.04837418019375450e-1}],
+  "continuous_eigenvalues": [{"re": -1.00000000000799250e0, "im": 0.00000000000000000e0}, {"re": -2.00000000036656589e0, "im": 0.00000000000000000e0}],
+  "spectral_radius": 9.51229424500333876e-1,
+  "stable": true
+}`;
+
+// `lawsynth sde sde.csv --state x --time time --bins 8 --json` on an
+// Ornstein–Uhlenbeck path (dX = -X dt + 0.5 dW). Captured verbatim from the
+// debug binary; only the "source" path string was normalized (numerics verbatim).
+const SDE = `{
+  "method": "sde-kramers-moyal",
+  "source": "sde.csv",
+  "dt": 5.00000000000000028e-2,
+  "increments": 19999,
+  "states": [
+    {
+      "state": "x",
+      "trusted_bins": 8,
+      "drift": {"terms": [{"label": "1", "power": 0, "coefficient": 1.69498814865994656e-2}, {"label": "x", "power": 1, "coefficient": -9.31835524101490953e-1}, {"label": "x^2", "power": 2, "coefficient": -2.12975865910596279e-1}, {"label": "x^3", "power": 3, "coefficient": -1.52643134342554637e-1}], "residual_sum_squares": 2.23195137552446283e1},
+      "diffusion": {"terms": [{"label": "1", "power": 0, "coefficient": 2.50711161241422897e-1}, {"label": "x", "power": 1, "coefficient": 1.49374220289966546e-2}, {"label": "x^2", "power": 2, "coefficient": 4.17055916620023073e-2}, {"label": "x^3", "power": 3, "coefficient": -1.23121897480200516e-2}], "residual_sum_squares": 6.57403329307797435e-1},
+      "bins": [{"x_center": -1.10328016628529402e0, "drift": 1.08292939561732893e0, "diffusion": 2.58373134849284369e-1, "count": 68}, {"x_center": -7.88810664666158123e-1, "drift": 6.49277992405561610e-1, "diffusion": 2.82760572702799806e-1, "count": 656}, {"x_center": -4.64969450051377575e-1, "drift": 4.37726142558743425e-1, "diffusion": 2.50602777787971076e-1, "count": 2978}, {"x_center": -1.56798329500426437e-1, "drift": 1.54634039845952864e-1, "diffusion": 2.52369588617901486e-1, "count": 6325}, {"x_center": 1.52218175850468818e-1, "drift": -1.40197793650390562e-1, "diffusion": 2.49814792001835595e-1, "count": 6402}, {"x_center": 4.63272227717627161e-1, "drift": -4.39114484668472249e-1, "diffusion": 2.69923827217231238e-1, "count": 3007}, {"x_center": 7.59661785772231868e-1, "drift": -1.00727494333196410e0, "diffusion": 2.83716993160374575e-1, "count": 533}, {"x_center": 1.10013676770666669e0, "drift": -1.01572190893276959e0, "diffusion": 2.24826625914521128e-1, "count": 30}]
+    }
+  ]
+}`;
+
+// `lawsynth pde pde.csv --dx 0.0981... --dt 0.01 --json` on a heat-equation grid
+// (u_t = 0.05 u_xx). Captured verbatim from the debug binary; only the "source"
+// path string was normalized to a clean name (all numerics verbatim).
+const PDE = `{
+  "method": "pde-find",
+  "source": "pde.csv",
+  "variable": "u",
+  "time_snapshots": 60,
+  "spatial_points": 64,
+  "dx": 9.81747704246810349e-2,
+  "dt": 1.00000000000000002e-2,
+  "interior_points": 3596,
+  "residual_sum_squares": 1.48656280025936568e-14,
+  "law": "u_t = -0.049992*u +0.050018*u_xx",
+  "terms": [{"label": "1", "u_power": 0, "derivative_order": 0, "coefficient": 0.00000000000000000e0}, {"label": "u", "u_power": 1, "derivative_order": 0, "coefficient": -4.99916540251027358e-2}, {"label": "u^2", "u_power": 2, "derivative_order": 0, "coefficient": 0.00000000000000000e0}, {"label": "u_x", "u_power": 0, "derivative_order": 1, "coefficient": 0.00000000000000000e0}, {"label": "u*u_x", "u_power": 1, "derivative_order": 1, "coefficient": 0.00000000000000000e0}, {"label": "u^2*u_x", "u_power": 2, "derivative_order": 1, "coefficient": 0.00000000000000000e0}, {"label": "u_xx", "u_power": 0, "derivative_order": 2, "coefficient": 5.00181836393979451e-2}, {"label": "u*u_xx", "u_power": 1, "derivative_order": 2, "coefficient": 0.00000000000000000e0}, {"label": "u^2*u_xx", "u_power": 2, "derivative_order": 2, "coefficient": 0.00000000000000000e0}]
 }`;
 
 export function runAnalysisTests(): void {
@@ -480,6 +535,134 @@ export function runAnalysisTests(): void {
   throws(() => parseBasinReport({ world: "w", states: ["x"] }), "basins missing attractors");
   throws(() => parseNetworkModel({ nodes: ["x"] }), "network missing edges");
   throws(() => parseMpcResult({ states: ["x"] }), "mpc missing controls");
+
+  // --- koopman: a DMD linear-operator spectrum ---
+  const koopman = parseKoopmanReport(JSON.parse(KOOPMAN));
+  equal(koopman.method, "koopman-dmd");
+  equal(koopman.source, "koop.csv");
+  equal(koopman.states.length, 2);
+  equal(koopman.states[1], "y");
+  equal(koopman.rank, 2);
+  equal(koopman.dt, 5.00000000000000028e-2);
+  equal(koopman.singular_values.length, 2);
+  equal(koopman.singular_values[0], 3.42412973113335761e0);
+  equal(koopman.discrete_eigenvalues.length, 2);
+  equal(koopman.discrete_eigenvalues[0]!.re, 9.51229424500333876e-1);
+  equal(koopman.discrete_eigenvalues[0]!.modulus, 9.51229424500333876e-1);
+  equal(koopman.continuous_eigenvalues.length, 2);
+  equal(koopman.continuous_eigenvalues[1]!.re, -2.00000000036656589e0);
+  equal(koopman.spectral_radius, 9.51229424500333876e-1);
+  equal(koopman.stable, true);
+
+  // --- sde: drift/diffusion laws + binned Kramers–Moyal table ---
+  const sde = parseSdeReport(JSON.parse(SDE));
+  equal(sde.method, "sde-kramers-moyal");
+  equal(sde.source, "sde.csv");
+  equal(sde.dt, 5.00000000000000028e-2);
+  equal(sde.increments, 19999);
+  equal(sde.states.length, 1);
+  const sdeState = sde.states[0]!;
+  equal(sdeState.state, "x");
+  equal(sdeState.trusted_bins, 8);
+  equal(sdeState.drift.terms.length, 4);
+  equal(sdeState.drift.terms[1]!.label, "x");
+  equal(sdeState.drift.terms[1]!.power, 1);
+  equal(sdeState.drift.terms[1]!.coefficient, -9.31835524101490953e-1);
+  equal(sdeState.drift.residual_sum_squares, 2.23195137552446283e1);
+  equal(sdeState.diffusion.terms[0]!.coefficient, 2.50711161241422897e-1);
+  equal(sdeState.bins.length, 8);
+  equal(sdeState.bins[0]!.x_center, -1.10328016628529402e0);
+  equal(sdeState.bins[0]!.count, 68);
+  equal(sdeState.bins[3]!.count, 6325);
+
+  // --- pde: PDE-FIND u_t term list (all library terms, active + thresholded) ---
+  const pde = parsePdeReport(JSON.parse(PDE));
+  equal(pde.method, "pde-find");
+  equal(pde.source, "pde.csv");
+  equal(pde.variable, "u");
+  equal(pde.time_snapshots, 60);
+  equal(pde.spatial_points, 64);
+  equal(pde.dx, 9.81747704246810349e-2);
+  equal(pde.dt, 1.00000000000000002e-2);
+  equal(pde.interior_points, 3596);
+  equal(pde.residual_sum_squares, 1.48656280025936568e-14);
+  equal(pde.law, "u_t = -0.049992*u +0.050018*u_xx");
+  equal(pde.terms.length, 9);
+  equal(pde.terms[1]!.label, "u");
+  equal(pde.terms[1]!.u_power, 1);
+  equal(pde.terms[1]!.derivative_order, 0);
+  equal(pde.terms[1]!.coefficient, -4.99916540251027358e-2);
+  equal(pde.terms[6]!.label, "u_xx");
+  equal(pde.terms[6]!.derivative_order, 2);
+  equal(pde.terms[6]!.coefficient, 5.00181836393979451e-2);
+
+  // --- error paths: malformed discovery-engine input is rejected per shape ---
+  throws(() => parseKoopmanReport(null), "null is not a koopman report");
+  // The fixed method token must match exactly.
+  throws(
+    () => parseKoopmanReport({ ...JSON.parse(KOOPMAN), method: "dmd" }),
+    "wrong koopman method token is rejected",
+  );
+  // A discrete eigenvalue missing its modulus is rejected.
+  throws(
+    () =>
+      parseKoopmanReport({
+        ...JSON.parse(KOOPMAN),
+        discrete_eigenvalues: [{ re: 0.5, im: 0 }],
+      }),
+    "discrete eigenvalue missing modulus is rejected",
+  );
+  // rank must be a non-negative integer, not a float.
+  throws(
+    () => parseKoopmanReport({ ...JSON.parse(KOOPMAN), rank: 1.5 }),
+    "fractional koopman rank is rejected",
+  );
+  throws(() => parseSdeReport(null), "null is not an sde report");
+  throws(
+    () => parseSdeReport({ ...JSON.parse(SDE), method: "kramers-moyal" }),
+    "wrong sde method token is rejected",
+  );
+  // A bin count must be a non-negative integer.
+  throws(
+    () =>
+      parseSdeReport({
+        ...JSON.parse(SDE),
+        states: [{ state: "x", trusted_bins: 1, drift: { terms: [], residual_sum_squares: 0 }, diffusion: { terms: [], residual_sum_squares: 0 }, bins: [{ x_center: 0, drift: 0, diffusion: 0, count: -1 }] }],
+      }),
+    "negative bin count is rejected",
+  );
+  // A state model missing its diffusion law is rejected.
+  throws(
+    () =>
+      parseSdeReport({
+        ...JSON.parse(SDE),
+        states: [{ state: "x", trusted_bins: 1, drift: { terms: [], residual_sum_squares: 0 }, bins: [] }],
+      }),
+    "sde state missing diffusion is rejected",
+  );
+  throws(() => parsePdeReport(null), "null is not a pde report");
+  throws(
+    () => parsePdeReport({ ...JSON.parse(PDE), method: "pde" }),
+    "wrong pde method token is rejected",
+  );
+  // A term's derivative_order must be a non-negative integer.
+  throws(
+    () =>
+      parsePdeReport({
+        ...JSON.parse(PDE),
+        terms: [{ label: "u_x", u_power: 0, derivative_order: 1.5, coefficient: 1 }],
+      }),
+    "fractional derivative_order is rejected",
+  );
+  // Missing the terms array is rejected.
+  throws(
+    () => {
+      const withoutTerms: Record<string, unknown> = { ...JSON.parse(PDE) };
+      delete withoutTerms.terms;
+      return parsePdeReport(withoutTerms);
+    },
+    "pde report missing terms is rejected",
+  );
 
   // --- validate* returns issues instead of throwing ---
   const bad = validateStabilityReport({ world: 5 });

@@ -71,6 +71,15 @@ __all__ = [
     "NetworkEdge",
     "NetworkModel",
     "MpcResult",
+    "DiscreteEigenvalue",
+    "KoopmanReport",
+    "SdeTerm",
+    "SdeLaw",
+    "SdeBin",
+    "SdeState",
+    "SdeReport",
+    "PdeTerm",
+    "PdeReport",
     "stability",
     "discover_controlled",
     "domains",
@@ -84,6 +93,9 @@ __all__ = [
     "basins",
     "network",
     "mpc",
+    "koopman",
+    "sde",
+    "pde",
 ]
 
 
@@ -536,6 +548,173 @@ class MpcResult:
 
 
 # --------------------------------------------------------------------------- #
+# Discovery-engine results — koopman / sde / pde                                #
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True, slots=True)
+class DiscreteEigenvalue:
+    """A discrete-time DMD eigenvalue ``λ = re + im i`` with its modulus ``|λ|``.
+
+    ``modulus`` is the per-step growth factor: ``|λ| < 1`` decays, ``> 1`` grows,
+    ``≈ 1`` is neutral. It is a superset of :class:`Eigenvalue` (the ``koopman``
+    JSON emits ``modulus`` alongside ``re``/``im`` for the discrete spectrum only;
+    the continuous spectrum is a plain ``Eigenvalue``).
+    """
+
+    re: float
+    im: float
+    modulus: float
+
+
+@dataclass(frozen=True, slots=True)
+class KoopmanReport:
+    """The parsed result of ``lawsynth koopman DATASET --state ... --json`` (DMD).
+
+    Dynamic Mode Decomposition fits the best-fit **linear operator** ``A`` that
+    advances the state one step (``x' ≈ A x``) over the dataset's snapshot pairs,
+    and reports its spectrum. This is honestly a **linear (or lifted-linear)
+    approximation** of the dynamics, not a symbolic nonlinear law, and no
+    ``.lsworld`` bundle is written.
+
+    ``states`` is the operator's row/column order (the dataset's schema order).
+    ``rank`` is the (optionally truncated) SVD rank actually used and
+    ``singular_values`` the retained singular values (non-increasing). The
+    ``discrete_eigenvalues`` are ``λ`` (per step, each carrying its ``modulus``);
+    the ``continuous_eigenvalues`` are ``μ = ln(λ)/Δt`` (``re`` = growth rate,
+    ``im`` = angular frequency). ``spectral_radius`` is ``ρ = max|λ|`` and
+    ``stable`` is exactly ``ρ < 1`` (asymptotic stability of the linear operator).
+    """
+
+    source: str
+    states: tuple[str, ...]
+    rank: int
+    dt: float
+    singular_values: tuple[float, ...]
+    discrete_eigenvalues: tuple[DiscreteEigenvalue, ...]
+    continuous_eigenvalues: tuple[Eigenvalue, ...]
+    spectral_radius: float
+    stable: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SdeTerm:
+    """One active polynomial term ``coefficient * label`` (``label`` is ``x^power``)."""
+
+    label: str
+    power: int
+    coefficient: float
+
+
+@dataclass(frozen=True, slots=True)
+class SdeLaw:
+    """A discovered drift or diffusion law ``Σ coefficient·label`` with its residual."""
+
+    terms: tuple[SdeTerm, ...]
+    residual_sum_squares: float
+
+    def expression(self) -> str:
+        """Render the law as ``c0*l0 + c1*l1 + ...`` (``"0"`` if every term dropped)."""
+        if not self.terms:
+            return "0"
+        return " + ".join(f"{term.coefficient}*{term.label}" for term in self.terms)
+
+
+@dataclass(frozen=True, slots=True)
+class SdeBin:
+    """One binned Kramers–Moyal conditional-moment row for a state.
+
+    ``x_center`` is the bin's state-space center; ``drift`` / ``diffusion`` are the
+    estimated first / second conditional moments there; ``count`` is the bin
+    occupancy (low-occupancy bins are statistically unreliable).
+    """
+
+    x_center: float
+    drift: float
+    diffusion: float
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class SdeState:
+    """The recovered drift/diffusion laws and binned table for one state.
+
+    ``drift`` is ``a(x)`` and ``diffusion`` is ``b²(x)`` in ``dX = a(X) dt +
+    b(X) dW``. ``trusted_bins`` is how many of ``bins`` cleared the minimum
+    occupancy and actually fed the sparse regression.
+    """
+
+    state: str
+    trusted_bins: int
+    drift: SdeLaw
+    diffusion: SdeLaw
+    bins: tuple[SdeBin, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SdeReport:
+    """The parsed result of ``lawsynth sde OBS --state ... --json``.
+
+    A **statistical** (Kramers–Moyal) estimator: from a single noisy sample path
+    of a diagonal-noise Itô SDE it estimates the drift ``a(x)`` and diffusion
+    ``b²(x)`` per state by binning conditional moments and sparse-regressing each
+    onto a polynomial library. Accuracy grows with path length and rarely-visited
+    (low-occupancy) bins are unreliable; no ``.lsworld`` bundle is written.
+
+    ``dt`` is the mean increment and ``increments`` the number of increments used.
+    """
+
+    source: str
+    dt: float
+    increments: int
+    states: tuple[SdeState, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PdeTerm:
+    """One PDE-FIND library term ``coefficient · u^u_power · D_derivative_order``.
+
+    ``label`` is the engine's stable rendering (e.g. ``"u_xx"``, ``"u^2 u_x"``);
+    ``u_power`` is the field power and ``derivative_order`` the spatial-derivative
+    order of the term.
+    """
+
+    label: str
+    u_power: int
+    derivative_order: int
+    coefficient: float
+
+
+@dataclass(frozen=True, slots=True)
+class PdeReport:
+    """The parsed result of ``lawsynth pde FIELD --dx DX --dt DT --json`` (PDE-FIND).
+
+    From snapshots of a 1-D field ``u(x, t)`` on a regular space–time grid, the
+    evolution law ``u_t = F(u, u_x, u_xx, …)`` is recovered by central **finite
+    differences** plus sparse regression. Finite differencing amplifies noise, so
+    recovery is noise-sensitive and needs a resolved grid (finer grids tighten the
+    coefficients); no ``.lsworld`` bundle is written.
+
+    ``variable`` is the field name (``"u"``); ``time_snapshots`` × ``spatial_points``
+    is the grid shape and ``interior_points`` the count that fed the regression
+    (the boundary is dropped by central differencing). ``dx`` / ``dt`` echo the
+    grid steps, ``law`` is the rendered ``u_t = ...`` string, and ``terms`` are the
+    surviving library terms with their coefficients.
+    """
+
+    source: str
+    variable: str
+    time_snapshots: int
+    spatial_points: int
+    dx: float
+    dt: float
+    interior_points: int
+    residual_sum_squares: float
+    law: str
+    terms: tuple[PdeTerm, ...]
+
+
+# --------------------------------------------------------------------------- #
 # Parsers — the JSON/text shapes each CLI subcommand emits                     #
 #                                                                              #
 # These operate on already-decoded data (dict / str) so parsing is fully       #
@@ -889,6 +1068,140 @@ def _parse_mpc(data: Mapping[str, object]) -> MpcResult:
         control_trajectory=_as_matrix(
             _require(data, "control_trajectory", "mpc"), "control_trajectory"
         ),
+    )
+
+
+def _parse_discrete_eigenvalue(item: object, field: str) -> DiscreteEigenvalue:
+    """Parse a ``{"re": .., "im": .., "modulus": ..}`` object (discrete DMD mode)."""
+    if not isinstance(item, Mapping):
+        raise AnalysisError(f"CLI JSON field {field!r} must be an object with 're'/'im'/'modulus'")
+    return DiscreteEigenvalue(
+        re=_as_float(item.get("re"), f"{field}.re"),
+        im=_as_float(item.get("im"), f"{field}.im"),
+        modulus=_as_float(item.get("modulus"), f"{field}.modulus"),
+    )
+
+
+def _parse_koopman(data: Mapping[str, object]) -> KoopmanReport:
+    """Parse the ``koopman --json`` object (see ``koopman.rs::render_json``)."""
+    singular_raw = _require(data, "singular_values", "koopman")
+    if not isinstance(singular_raw, list):
+        raise AnalysisError("`lawsynth koopman` JSON 'singular_values' must be a list")
+    discrete_raw = _require(data, "discrete_eigenvalues", "koopman")
+    if not isinstance(discrete_raw, list):
+        raise AnalysisError("`lawsynth koopman` JSON 'discrete_eigenvalues' must be a list")
+    continuous_raw = _require(data, "continuous_eigenvalues", "koopman")
+    if not isinstance(continuous_raw, list):
+        raise AnalysisError("`lawsynth koopman` JSON 'continuous_eigenvalues' must be a list")
+    return KoopmanReport(
+        source=str(data.get("source", "")),
+        states=tuple(str(state) for state in _require(data, "states", "koopman")),  # type: ignore[union-attr]
+        rank=_as_int(_require(data, "rank", "koopman"), "rank"),
+        dt=_as_float(_require(data, "dt", "koopman"), "dt"),
+        singular_values=tuple(_as_float(value, "singular_values[]") for value in singular_raw),
+        discrete_eigenvalues=tuple(
+            _parse_discrete_eigenvalue(item, "discrete_eigenvalues[]") for item in discrete_raw
+        ),
+        continuous_eigenvalues=tuple(
+            _parse_eigenvalue(item, "continuous_eigenvalues[]") for item in continuous_raw
+        ),
+        spectral_radius=_as_float(_require(data, "spectral_radius", "koopman"), "spectral_radius"),
+        stable=bool(_require(data, "stable", "koopman")),
+    )
+
+
+def _parse_sde_law(data: object, field: str) -> SdeLaw:
+    """Parse a drift/diffusion law object (see ``sde.rs::law_json``)."""
+    if not isinstance(data, Mapping):
+        raise AnalysisError(f"`lawsynth sde` JSON {field!r} must be an object")
+    terms_raw = _require(data, "terms", "sde")
+    if not isinstance(terms_raw, list):
+        raise AnalysisError(f"`lawsynth sde` JSON {field}.terms must be a list")
+    terms = tuple(
+        SdeTerm(
+            label=str(_require(term, "label", "sde")),
+            power=_as_int(_require(term, "power", "sde"), f"{field}.terms[].power"),
+            coefficient=_as_float(
+                _require(term, "coefficient", "sde"), f"{field}.terms[].coefficient"
+            ),
+        )
+        for term in terms_raw
+    )
+    return SdeLaw(
+        terms=terms,
+        residual_sum_squares=_as_float(
+            _require(data, "residual_sum_squares", "sde"), f"{field}.residual_sum_squares"
+        ),
+    )
+
+
+def _parse_sde(data: Mapping[str, object]) -> SdeReport:
+    """Parse the ``sde --json`` object (see ``sde.rs::render_json``)."""
+    states_raw = _require(data, "states", "sde")
+    if not isinstance(states_raw, list):
+        raise AnalysisError("`lawsynth sde` JSON 'states' must be a list")
+    states = []
+    for entry in states_raw:
+        if not isinstance(entry, Mapping):
+            raise AnalysisError("`lawsynth sde` JSON 'states[]' must be an object")
+        bins_raw = _require(entry, "bins", "sde")
+        if not isinstance(bins_raw, list):
+            raise AnalysisError("`lawsynth sde` JSON 'states[].bins' must be a list")
+        bins = tuple(
+            SdeBin(
+                x_center=_as_float(_require(bin_, "x_center", "sde"), "bins[].x_center"),
+                drift=_as_float(_require(bin_, "drift", "sde"), "bins[].drift"),
+                diffusion=_as_float(_require(bin_, "diffusion", "sde"), "bins[].diffusion"),
+                count=_as_int(_require(bin_, "count", "sde"), "bins[].count"),
+            )
+            for bin_ in bins_raw
+        )
+        states.append(
+            SdeState(
+                state=str(_require(entry, "state", "sde")),
+                trusted_bins=_as_int(_require(entry, "trusted_bins", "sde"), "trusted_bins"),
+                drift=_parse_sde_law(_require(entry, "drift", "sde"), "drift"),
+                diffusion=_parse_sde_law(_require(entry, "diffusion", "sde"), "diffusion"),
+                bins=bins,
+            )
+        )
+    return SdeReport(
+        source=str(data.get("source", "")),
+        dt=_as_float(_require(data, "dt", "sde"), "dt"),
+        increments=_as_int(_require(data, "increments", "sde"), "increments"),
+        states=tuple(states),
+    )
+
+
+def _parse_pde(data: Mapping[str, object]) -> PdeReport:
+    """Parse the ``pde --json`` object (see ``pde.rs::render_json``)."""
+    terms_raw = _require(data, "terms", "pde")
+    if not isinstance(terms_raw, list):
+        raise AnalysisError("`lawsynth pde` JSON 'terms' must be a list")
+    terms = tuple(
+        PdeTerm(
+            label=str(_require(term, "label", "pde")),
+            u_power=_as_int(_require(term, "u_power", "pde"), "terms[].u_power"),
+            derivative_order=_as_int(
+                _require(term, "derivative_order", "pde"), "terms[].derivative_order"
+            ),
+            coefficient=_as_float(_require(term, "coefficient", "pde"), "terms[].coefficient"),
+        )
+        for term in terms_raw
+    )
+    return PdeReport(
+        source=str(data.get("source", "")),
+        variable=str(_require(data, "variable", "pde")),
+        time_snapshots=_as_int(_require(data, "time_snapshots", "pde"), "time_snapshots"),
+        spatial_points=_as_int(_require(data, "spatial_points", "pde"), "spatial_points"),
+        dx=_as_float(_require(data, "dx", "pde"), "dx"),
+        dt=_as_float(_require(data, "dt", "pde"), "dt"),
+        interior_points=_as_int(_require(data, "interior_points", "pde"), "interior_points"),
+        residual_sum_squares=_as_float(
+            _require(data, "residual_sum_squares", "pde"), "residual_sum_squares"
+        ),
+        law=str(_require(data, "law", "pde")),
+        terms=terms,
     )
 
 
@@ -1608,6 +1921,136 @@ def mpc(
         args += ["--u-max", repr(float(u_max))]
     args.append("--json")
     return _parse_mpc(_run_cli(args))
+
+
+def koopman(
+    dataset_path: str | PathLike[str],
+    *,
+    states: Sequence[str],
+    time: str = "time",
+    rank: int | None = None,
+) -> KoopmanReport:
+    """Discover the best-fit linear operator ``x' ≈ A x`` (Koopman/DMD) via the CLI engine.
+
+    Runs ``lawsynth koopman DATASET --state ... --time ... --json`` and parses the
+    result into a :class:`KoopmanReport`. Dynamic Mode Decomposition fits the
+    best-fit **linear operator** ``A`` over the dataset's snapshot pairs and
+    reports its spectrum — the discrete-time eigenvalues ``λ`` (per step, with
+    modulus ``|λ|``), the continuous-time eigenvalues ``μ = ln(λ)/Δt``, the
+    singular values, and a spectral-radius stability verdict. ``states`` names the
+    observable columns; ``time`` is the time column (default ``"time"``); ``rank``
+    truncates the SVD (default: full usable rank = ``min(states, snapshot pairs)``).
+
+    The recovered object is honestly a **linear (or lifted-linear) approximation**
+    of the dynamics, not a symbolic nonlinear world — unlike :func:`discover`, DMD
+    writes no ``.lsworld`` bundle. (Weak-form symbolic discovery is a *different*
+    method, reached via the CLI's ``discover --method weak-form``.)
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (a named state that is not a column, a
+    ``--rank`` above the usable maximum, a non-increasing time axis, ...).
+    """
+    args: list[str] = [
+        "koopman", str(dataset_path),
+        "--state", _format_identifiers(states, label="states"),
+        "--time", str(time),
+    ]
+    if rank is not None:
+        args += ["--rank", str(int(rank))]
+    args.append("--json")
+    return _parse_koopman(_run_cli(args))
+
+
+def sde(
+    dataset_path: str | PathLike[str],
+    *,
+    states: Sequence[str],
+    time: str = "time",
+    bins: int | None = None,
+    min_bin: int | None = None,
+    degree: int | None = None,
+    threshold: float | None = None,
+) -> SdeReport:
+    """Discover a stochastic (drift/diffusion) law from one sample path via the CLI engine.
+
+    Runs ``lawsynth sde OBSERVATIONS --state ... --time ... --json`` and parses the
+    result into an :class:`SdeReport`. For a diagonal-noise Itô SDE ``dX = a(X) dt
+    + b(X) dW``, the drift ``a(x)`` and diffusion ``b²(x)`` are estimated per state
+    from binned Kramers–Moyal conditional moments and sparse-regressed onto a
+    polynomial library. ``states`` names the observed state columns; ``time`` is
+    the time column (default ``"time"``); ``bins`` sets the state-space partition
+    count, ``min_bin`` the minimum occupancy a bin needs to be trusted, ``degree``
+    the library degree, and ``threshold`` the sparsity cutoff.
+
+    This is a **statistical estimator**, not an exact identity: accuracy grows with
+    path length and rarely-visited (low-occupancy) bins are unreliable; it writes
+    no ``.lsworld`` bundle.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (a named state that is not a column, ...).
+    """
+    args: list[str] = [
+        "sde", str(dataset_path),
+        "--state", _format_identifiers(states, label="states"),
+        "--time", str(time),
+    ]
+    if bins is not None:
+        args += ["--bins", str(int(bins))]
+    if min_bin is not None:
+        args += ["--min-bin", str(int(min_bin))]
+    if degree is not None:
+        args += ["--degree", str(int(degree))]
+    if threshold is not None:
+        args += ["--threshold", repr(float(threshold))]
+    args.append("--json")
+    return _parse_sde(_run_cli(args))
+
+
+def pde(
+    field_path: str | PathLike[str],
+    *,
+    dx: float,
+    dt: float,
+    degree: int | None = None,
+    order: int | None = None,
+    threshold: float | None = None,
+) -> PdeReport:
+    """Discover a 1-D evolution PDE ``u_t = F(u, u_x, u_xx, …)`` (PDE-FIND) via the CLI engine.
+
+    Runs ``lawsynth pde FIELD --dx DX --dt DT --json`` and parses the result into a
+    :class:`PdeReport`. Spatial and temporal derivatives are estimated with central
+    **finite differences** and the flattened ``u_t`` is sparse-regressed onto a
+    differential-term library. ``FIELD`` is a plain rectangular numeric grid **with
+    no header** — rows are time snapshots, columns are spatial points. ``dx`` /
+    ``dt`` are the (uniform, positive) grid steps; ``degree`` is the maximum field
+    power (``u, u², …``), ``order`` the maximum spatial-derivative order
+    (``u_x, u_xx, u_xxx``), and ``threshold`` the relative sparsity cutoff.
+
+    Finite differencing amplifies noise, so recovery is **noise-sensitive and needs
+    a resolved grid** — finer grids tighten the coefficients; it writes no
+    ``.lsworld`` bundle.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (a ragged / non-numeric grid, a
+    non-positive ``--dx``/``--dt``, ...).
+    """
+    if float(dx) <= 0.0:
+        raise ValidationError("dx must be a positive grid step")
+    if float(dt) <= 0.0:
+        raise ValidationError("dt must be a positive grid step")
+    args: list[str] = [
+        "pde", str(field_path),
+        "--dx", repr(float(dx)),
+        "--dt", repr(float(dt)),
+    ]
+    if degree is not None:
+        args += ["--degree", str(int(degree))]
+    if order is not None:
+        args += ["--order", str(int(order))]
+    if threshold is not None:
+        args += ["--threshold", repr(float(threshold))]
+    args.append("--json")
+    return _parse_pde(_run_cli(args))
 
 
 # --------------------------------------------------------------------------- #

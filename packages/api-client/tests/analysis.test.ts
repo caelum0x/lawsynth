@@ -12,6 +12,9 @@ import {
   parseBasinReport,
   parseNetworkModel,
   parseMpcResult,
+  parseKoopmanReport,
+  parseSdeReport,
+  parsePdeReport,
 } from "../dist/index.js";
 
 // Verbatim `lawsynth ... --json` fixtures (see world-schema analysis tests for
@@ -240,4 +243,109 @@ test("global-dynamics parsers reject malformed input", () => {
   assert.throws(() => parseBasinReport({ world: "w", states: ["x"] }));
   assert.throws(() => parseNetworkModel({ nodes: ["x"] }));
   assert.throws(() => parseMpcResult({ states: ["x"] }));
+});
+
+// Verbatim `lawsynth {koopman,sde,pde} --json` fixtures (source paths normalized;
+// numerics from the debug binary). These assert the discovery-engine parsers are
+// reachable from the api-client public surface and narrow the engine JSON.
+const KOOPMAN = {
+  method: "koopman-dmd",
+  source: "koop.csv",
+  states: ["x", "y"],
+  rank: 2,
+  dt: 5.00000000000000028e-2,
+  singular_values: [3.42412973113335761, 3.66106644230431433e-1],
+  discrete_eigenvalues: [
+    { re: 9.51229424500333876e-1, im: 0, modulus: 9.51229424500333876e-1 },
+    { re: 9.0483741801937545e-1, im: 0, modulus: 9.0483741801937545e-1 },
+  ],
+  continuous_eigenvalues: [
+    { re: -1.0000000000079925, im: 0 },
+    { re: -2.00000000036656589, im: 0 },
+  ],
+  spectral_radius: 9.51229424500333876e-1,
+  stable: true,
+};
+
+const SDE = {
+  method: "sde-kramers-moyal",
+  source: "sde.csv",
+  dt: 5.00000000000000028e-2,
+  increments: 19999,
+  states: [
+    {
+      state: "x",
+      trusted_bins: 8,
+      drift: {
+        terms: [
+          { label: "1", power: 0, coefficient: 1.69498814865994656e-2 },
+          { label: "x", power: 1, coefficient: -9.31835524101490953e-1 },
+        ],
+        residual_sum_squares: 2.23195137552446283e1,
+      },
+      diffusion: {
+        terms: [{ label: "1", power: 0, coefficient: 2.50711161241422897e-1 }],
+        residual_sum_squares: 6.57403329307797435e-1,
+      },
+      bins: [
+        { x_center: -1.10328016628529402, drift: 1.08292939561732893, diffusion: 2.58373134849284369e-1, count: 68 },
+        { x_center: 1.10013676770666669, drift: -1.01572190893276959, diffusion: 2.24826625914521128e-1, count: 30 },
+      ],
+    },
+  ],
+};
+
+const PDE = {
+  method: "pde-find",
+  source: "pde.csv",
+  variable: "u",
+  time_snapshots: 60,
+  spatial_points: 64,
+  dx: 9.81747704246810349e-2,
+  dt: 1.00000000000000002e-2,
+  interior_points: 3596,
+  residual_sum_squares: 1.48656280025936568e-14,
+  law: "u_t = -0.049992*u +0.050018*u_xx",
+  terms: [
+    { label: "1", u_power: 0, derivative_order: 0, coefficient: 0 },
+    { label: "u", u_power: 1, derivative_order: 0, coefficient: -4.99916540251027358e-2 },
+    { label: "u_xx", u_power: 0, derivative_order: 2, coefficient: 5.00181836393979451e-2 },
+  ],
+};
+
+test("parseKoopmanReport narrows a DMD spectrum report", () => {
+  const report = parseKoopmanReport(KOOPMAN);
+  assert.equal(report.method, "koopman-dmd");
+  assert.equal(report.rank, 2);
+  assert.equal(report.discrete_eigenvalues[0].modulus, 9.51229424500333876e-1);
+  assert.equal(report.continuous_eigenvalues[1].re, -2.00000000036656589);
+  assert.equal(report.stable, true);
+});
+
+test("parseSdeReport narrows drift/diffusion laws and a binned table", () => {
+  const report = parseSdeReport(SDE);
+  assert.equal(report.method, "sde-kramers-moyal");
+  assert.equal(report.increments, 19999);
+  assert.equal(report.states[0].trusted_bins, 8);
+  assert.equal(report.states[0].drift.terms[1].coefficient, -9.31835524101490953e-1);
+  assert.equal(report.states[0].bins[0].count, 68);
+});
+
+test("parsePdeReport narrows a PDE-FIND term list", () => {
+  const report = parsePdeReport(PDE);
+  assert.equal(report.method, "pde-find");
+  assert.equal(report.variable, "u");
+  assert.equal(report.interior_points, 3596);
+  assert.equal(report.terms[2].label, "u_xx");
+  assert.equal(report.terms[2].derivative_order, 2);
+  assert.equal(report.terms[2].coefficient, 5.00181836393979451e-2);
+});
+
+test("discovery-engine parsers reject malformed input", () => {
+  assert.throws(() => parseKoopmanReport({ ...KOOPMAN, method: "dmd" }));
+  assert.throws(() => parseKoopmanReport({ ...KOOPMAN, discrete_eigenvalues: [{ re: 0, im: 0 }] }));
+  assert.throws(() => parseSdeReport({ ...SDE, method: "kramers-moyal" }));
+  assert.throws(() => parseSdeReport({ world: "w", states: ["x"] }));
+  assert.throws(() => parsePdeReport({ ...PDE, method: "pde" }));
+  assert.throws(() => parsePdeReport({ ...PDE, terms: [{ label: "u", u_power: 0, derivative_order: 1.5, coefficient: 1 }] }));
 });

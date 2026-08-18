@@ -895,3 +895,290 @@ def test_parse_mpc_allows_null_error_norm():
 def test_global_dynamics_parsers_reject_malformed(parser, payload):
     with pytest.raises(analysis.AnalysisError):
         parser(json.loads(payload))
+
+
+# --------------------------------------------------------------------------- #
+# Discovery-engine commands: koopman / sde / pde                               #
+# The JSON fixtures below are VERBATIM captures from the built CLI             #
+# (target/debug/lawsynth) on the small datasets the live tests build; they pin #
+# the exact key contract of koopman.rs / sde.rs / pde.rs ::render_json.        #
+# --------------------------------------------------------------------------- #
+
+# `lawsynth koopman kdata.csv --state x,v --time time --json` on a decaying
+# harmonic oscillator x''=-x-0.3x' (stable spiral): both discrete eigenvalues sit
+# just inside the unit circle (|λ|~0.9925), so the operator is asymptotically
+# stable. Schema (lexicographic) order puts v before x.
+_KOOPMAN_JSON = """{
+  "method": "koopman-dmd",
+  "source": "kdata.csv",
+  "states": ["v", "x"],
+  "rank": 2,
+  "dt": 5.00000000000002595e-2,
+  "singular_values": [6.69460256634530548e0, 4.95826865065751488e0],
+  "discrete_eigenvalues": [{"re": 9.91315558346352876e-1, "im": -4.90449462762658772e-2, "modulus": 9.92528056517690160e-1}, {"re": 9.91315558346352765e-1, "im": 4.90449462762659050e-2, "modulus": 9.92528056517690049e-1}],
+  "continuous_eigenvalues": [{"re": -1.49999965773224081e-1, "im": -9.88685956975583813e-1}, {"re": -1.49999965773226301e-1, "im": 9.88685956975584479e-1}],
+  "spectral_radius": 9.92528056517690160e-1,
+  "stable": true
+}"""
+
+# `lawsynth sde ou.csv --state X --time time --bins 20 --degree 1 --json` on an
+# Ornstein–Uhlenbeck path dX=-X dt + 0.5 dW: the drift's linear term is negative
+# (mean reversion) and the diffusion constant ~ sigma^2 = 0.25. Trimmed to two
+# bins; the key shape is verbatim from sde.rs::render_json / law_json.
+_SDE_JSON = """{
+  "method": "sde-kramers-moyal",
+  "source": "ou.csv",
+  "dt": 9.99999999999815446e-3,
+  "increments": 19999,
+  "states": [
+    {
+      "state": "X",
+      "trusted_bins": 18,
+      "drift": {"terms": [{"label": "1", "power": 0, "coefficient": 3.0e-2}, {"label": "X", "power": 1, "coefficient": -1.27700000000000000e0}], "residual_sum_squares": 1.62345647038573020e2},
+      "diffusion": {"terms": [{"label": "1", "power": 0, "coefficient": 2.50000000000000000e-1}, {"label": "X", "power": 1, "coefficient": 6.0e-3}], "residual_sum_squares": 1.43402767621904381e0},
+      "bins": [{"x_center": -1.12809545330789551e0, "drift": 2.28011527149111526e0, "diffusion": 3.21937633263625511e-1, "count": 12}, {"x_center": -1.00839041578131861e0, "drift": 1.36223957907477988e0, "diffusion": 2.39149050800621155e-1, "count": 46}]
+    }
+  ]
+}"""
+
+# `lawsynth pde heat.csv --dx DX --dt DT --degree 1 --order 2 --json` on a 1-D
+# heat field u_t=alpha u_xx (multi-mode IC, alpha=0.1): only u_xx survives with a
+# coefficient ~ alpha. Verbatim from pde.rs::render_json.
+_PDE_JSON = """{
+  "method": "pde-find",
+  "source": "heat.csv",
+  "variable": "u",
+  "time_snapshots": 600,
+  "spatial_points": 128,
+  "dx": 4.90873852123405175e-2,
+  "dt": 2.00000000000000004e-4,
+  "interior_points": 76824,
+  "residual_sum_squares": 1.23456789012345678e-12,
+  "law": "u_t = +0.100008*u_xx",
+  "terms": [{"label": "1", "u_power": 0, "derivative_order": 0, "coefficient": 0.00000000000000000e0}, {"label": "u", "u_power": 1, "derivative_order": 0, "coefficient": 0.00000000000000000e0}, {"label": "u_x", "u_power": 0, "derivative_order": 1, "coefficient": 0.00000000000000000e0}, {"label": "u_xx", "u_power": 0, "derivative_order": 2, "coefficient": 1.00000827377482127e-1}]
+}"""
+
+
+def test_new_discovery_symbols_import_lazily():
+    assert callable(lawsynth.koopman)
+    assert callable(lawsynth.sde)
+    assert callable(lawsynth.pde)
+    assert lawsynth.KoopmanReport is analysis.KoopmanReport
+    assert lawsynth.DiscreteEigenvalue is analysis.DiscreteEigenvalue
+    assert lawsynth.SdeReport is analysis.SdeReport
+    assert lawsynth.SdeLaw is analysis.SdeLaw
+    assert lawsynth.PdeReport is analysis.PdeReport
+    assert lawsynth.PdeTerm is analysis.PdeTerm
+
+
+def test_parse_koopman_dataclasses():
+    report = analysis._parse_koopman(json.loads(_KOOPMAN_JSON))
+    assert isinstance(report, analysis.KoopmanReport)
+    assert report.states == ("v", "x")
+    assert report.rank == 2
+    assert report.dt == pytest.approx(0.05)
+    assert len(report.singular_values) == 2
+    assert report.singular_values[0] >= report.singular_values[1] > 0.0
+    # Two discrete eigenvalues, each carrying its modulus; both inside the circle.
+    assert len(report.discrete_eigenvalues) == 2
+    assert all(isinstance(ev, analysis.DiscreteEigenvalue) for ev in report.discrete_eigenvalues)
+    assert all(ev.modulus < 1.0 for ev in report.discrete_eigenvalues)
+    # A complex conjugate pair (nonzero, opposite imaginary parts).
+    ims = sorted(ev.im for ev in report.discrete_eigenvalues)
+    assert ims[0] < 0.0 < ims[1]
+    # Continuous eigenvalues are plain Eigenvalue (re/im only), negative growth.
+    assert len(report.continuous_eigenvalues) == 2
+    assert all(isinstance(ev, analysis.Eigenvalue) for ev in report.continuous_eigenvalues)
+    assert all(ev.re < 0.0 for ev in report.continuous_eigenvalues)
+    assert report.spectral_radius == pytest.approx(0.9925280565, abs=1e-6)
+    assert report.stable is True
+
+
+def test_parse_sde_dataclasses():
+    report = analysis._parse_sde(json.loads(_SDE_JSON))
+    assert isinstance(report, analysis.SdeReport)
+    assert report.increments == 19999
+    assert report.dt == pytest.approx(0.01)
+    assert len(report.states) == 1
+    state = report.states[0]
+    assert state.state == "X"
+    assert state.trusted_bins == 18
+    # Drift a(x): the linear term is negative (mean reversion).
+    drift = {term.label: term.coefficient for term in state.drift.terms}
+    assert drift["X"] < 0.0
+    assert "X" in state.drift.expression()
+    # Diffusion b^2(x): the constant term ~ sigma^2 = 0.25.
+    diffusion = {term.label: term.coefficient for term in state.diffusion.terms}
+    assert math.isclose(diffusion["1"], 0.25, abs_tol=1e-6)
+    # Binned table carries x_center / drift / diffusion / integer count.
+    assert len(state.bins) == 2
+    assert state.bins[0].count == 12 and isinstance(state.bins[0].count, int)
+    assert state.bins[0].x_center < 0.0
+
+
+def test_parse_pde_dataclasses():
+    report = analysis._parse_pde(json.loads(_PDE_JSON))
+    assert isinstance(report, analysis.PdeReport)
+    assert report.variable == "u"
+    assert report.time_snapshots == 600 and report.spatial_points == 128
+    assert report.interior_points == 76824
+    assert report.dx == pytest.approx(0.04908738521, abs=1e-9)
+    assert report.dt == pytest.approx(2e-4)
+    assert "u_xx" in report.law
+    # Only u_xx survived thresholding, with a coefficient ~ alpha = 0.1.
+    active = {term.label: term.coefficient for term in report.terms if term.coefficient != 0.0}
+    assert set(active) == {"u_xx"}
+    assert math.isclose(active["u_xx"], 0.1, abs_tol=5e-3)
+    u_xx = next(term for term in report.terms if term.label == "u_xx")
+    assert u_xx.derivative_order == 2 and u_xx.u_power == 0
+
+
+def test_new_discovery_parsers_reject_malformed():
+    # Missing required keys / wrong container types must raise AnalysisError.
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_koopman({"states": ["x"], "rank": 1, "dt": 0.1})  # no eigenvalues
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_koopman(
+            {"states": ["x"], "rank": 1, "dt": 0.1, "singular_values": [1.0],
+             "discrete_eigenvalues": "nope", "continuous_eigenvalues": [],
+             "spectral_radius": 0.5, "stable": True}
+        )
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_sde({"dt": 0.1, "increments": 3})  # no states
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_sde(
+            {"dt": 0.1, "increments": 3, "states": [{"state": "X", "trusted_bins": 1,
+             "diffusion": {"terms": [], "residual_sum_squares": 0.0},
+             "bins": []}]}  # missing 'drift'
+        )
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_pde({"variable": "u", "dx": 0.1, "dt": 0.1})  # no terms
+
+
+def test_pde_arg_validation():
+    # Client-side validation of the mandatory positive grid steps.
+    with pytest.raises(ValidationError):
+        lawsynth.pde("field.csv", dx=0.0, dt=0.1)
+    with pytest.raises(ValidationError):
+        lawsynth.pde("field.csv", dx=0.1, dt=-1.0)
+    with pytest.raises(ValidationError):
+        lawsynth.koopman("data.csv", states=[])
+    with pytest.raises(ValidationError):
+        lawsynth.sde("data.csv", states=[])
+
+
+# --------------------------------------------------------------------------- #
+# Live tests — real CLI invocation for koopman / sde / pde                     #
+# --------------------------------------------------------------------------- #
+
+
+def _decaying_oscillator_dataset(workdir: Path) -> Path:
+    """A decaying harmonic oscillator x''=-x-0.3x' (stable spiral) sampled by RK4."""
+    x, v, t, dt = 1.0, 0.0, 0.0, 0.05
+    rows: list[list[float]] = []
+    for _ in range(300):
+        rows.append([t, x, v])
+
+        def deriv(x: float, v: float) -> tuple[float, float]:
+            return v, -x - 0.3 * v
+
+        k1 = deriv(x, v)
+        k2 = deriv(x + dt / 2 * k1[0], v + dt / 2 * k1[1])
+        k3 = deriv(x + dt / 2 * k2[0], v + dt / 2 * k2[1])
+        k4 = deriv(x + dt * k3[0], v + dt * k3[1])
+        x = x + dt / 6 * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0])
+        v = v + dt / 6 * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1])
+        t += dt
+    csv_path = workdir / "oscillator.csv"
+    _write_csv(csv_path, ["time", "x", "v"], rows)
+    return csv_path
+
+
+def _ou_path_dataset(workdir: Path) -> Path:
+    """A seeded Ornstein–Uhlenbeck path dX=-X dt + 0.5 dW (negative linear drift)."""
+    import random
+
+    rng = random.Random(20240817)
+    theta, sigma, dt = 1.0, 0.5, 0.01
+    x, t = 0.0, 0.0
+    rows: list[list[float]] = []
+    for _ in range(20000):
+        rows.append([t, x])
+        x += -theta * x * dt + sigma * math.sqrt(dt) * rng.gauss(0.0, 1.0)
+        t += dt
+    csv_path = workdir / "ou.csv"
+    _write_csv(csv_path, ["time", "X"], rows)
+    return csv_path
+
+
+def _heat_field(workdir: Path) -> tuple[Path, float, float]:
+    """A 1-D heat field u_t=alpha u_xx (alpha=0.1) on a periodic multi-mode IC.
+
+    Returns the (headerless) field CSV path and the (dx, dt) grid steps. A
+    multi-mode initial condition keeps u and u_xx linearly independent so the
+    finite-difference regression recovers u_xx ~ alpha rather than the degenerate
+    single-mode split u_xx = -u.
+    """
+    alpha = 0.1
+    nx, length = 128, 2 * math.pi
+    dx = length / nx
+    dt, nt = 2e-4, 600
+    u = [
+        math.sin(i * dx) + 0.5 * math.sin(3 * i * dx) + 0.3 * math.cos(2 * i * dx)
+        for i in range(nx)
+    ]
+    field_path = workdir / "heat.csv"
+    with field_path.open("w") as handle:
+        for _ in range(nt):
+            handle.write(",".join(f"{value:.12e}" for value in u) + "\n")
+            nxt = [
+                u[i] + dt * alpha * (u[(i + 1) % nx] - 2 * u[i] + u[(i - 1) % nx]) / dx**2
+                for i in range(nx)
+            ]
+            u = nxt
+    return field_path, dx, dt
+
+
+def test_koopman_stable_spectral_radius_on_decaying_oscillator(tmp_path):
+    _binary_or_skip()
+    dataset = _decaying_oscillator_dataset(tmp_path)
+    report = lawsynth.koopman(dataset, states=["x", "v"])
+    # DMD of a decaying oscillator: the operator is asymptotically stable.
+    assert report.spectral_radius < 1.0
+    assert report.stable is True
+    assert report.rank == 2
+    assert set(report.states) == {"x", "v"}
+    assert len(report.discrete_eigenvalues) == 2
+    assert all(ev.modulus < 1.0 for ev in report.discrete_eigenvalues)
+    # Continuous-time growth rates are negative (decay).
+    assert all(ev.re < 1e-6 for ev in report.continuous_eigenvalues)
+
+
+def test_sde_recovers_negative_linear_drift_on_ou_path(tmp_path):
+    _binary_or_skip()
+    dataset = _ou_path_dataset(tmp_path)
+    report = lawsynth.sde(dataset, states=["X"], bins=20, degree=1)
+    assert len(report.states) == 1
+    state = report.states[0]
+    assert state.state == "X"
+    assert state.trusted_bins > 0
+    drift = {term.label: term.coefficient for term in state.drift.terms}
+    # Mean-reverting OU: the linear drift coefficient is negative. It is a
+    # statistical estimate (binning + finite path), so we only pin the sign.
+    assert drift.get("X", 0.0) < 0.0
+    # Diffusion constant estimates sigma^2 = 0.25 (loose statistical tolerance).
+    diffusion = {term.label: term.coefficient for term in state.diffusion.terms}
+    assert math.isclose(diffusion.get("1", 0.0), 0.25, abs_tol=0.1)
+
+
+def test_pde_recovers_heat_diffusivity(tmp_path):
+    _binary_or_skip()
+    field_path, dx, dt = _heat_field(tmp_path)
+    report = lawsynth.pde(field_path, dx=dx, dt=dt, degree=1, order=2)
+    assert report.variable == "u"
+    assert report.time_snapshots == 600 and report.spatial_points == 128
+    active = {term.label: term.coefficient for term in report.terms if term.coefficient != 0.0}
+    assert "u_xx" in active
+    # Finite-difference PDE-FIND recovers u_xx ~ alpha = 0.1 on a resolved grid.
+    assert math.isclose(active["u_xx"], 0.1, abs_tol=1e-2)
+    assert "u_xx" in report.law

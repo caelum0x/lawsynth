@@ -18,6 +18,12 @@
  *   (see `crates/lawsynth-cli/src/estimate.rs::render_json`)
  * - `lawsynth reduce ... --json`       ->  {@link ReductionReport}
  *   (see `crates/lawsynth-cli/src/reduce.rs::render_json`)
+ * - `lawsynth koopman ... --json`      ->  {@link KoopmanReport}
+ *   (see `crates/lawsynth-cli/src/koopman.rs::render_json`)
+ * - `lawsynth sde ... --json`          ->  {@link SdeReport}
+ *   (see `crates/lawsynth-cli/src/sde.rs::render_json`)
+ * - `lawsynth pde ... --json`          ->  {@link PdeReport}
+ *   (see `crates/lawsynth-cli/src/pde.rs::render_json`)
  *
  * The parsers below are pure: they validate `unknown` engine JSON and narrow it
  * into the typed model, or throw. They never touch the network — the engine runs
@@ -964,6 +970,332 @@ export function validateMpcResult(input: unknown): ValidationResult<MpcResult> {
 /** Parses a `lawsynth mpc --json` result, throwing {@link SchemaValidationError} on any issue. */
 export function parseMpcResult(input: unknown): MpcResult {
   const checked = validateMpcResult(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- discovery engine: koopman / sde / pde ---------------------------------
+// These mirror the `lawsynth {koopman,sde,pde} --json` render functions in
+// crates/lawsynth-cli/src/{koopman,sde,pde}.rs. Keys, nesting, and the fixed
+// `method` tokens were confirmed against those `render_json` sources AND against
+// verbatim output captured from the debug binary.
+
+/**
+ * The fixed `method` token each command stamps into its `--json` output. These
+ * are string literals hard-coded by the engine's `render_json` functions
+ * (`"method": "koopman-dmd"` etc.), not free-form values — the parsers reject
+ * anything else.
+ */
+export const KOOPMAN_METHOD = "koopman-dmd";
+export const SDE_METHOD = "sde-kramers-moyal";
+export const PDE_METHOD = "pde-find";
+
+// --- koopman / DMD linear-operator spectrum --------------------------------
+
+/**
+ * One discrete-time DMD eigenvalue `λ = re + im i` with its precomputed modulus
+ * `|λ|`. Unlike the bare {@link Eigenvalue} `{ re, im }`, koopman's discrete
+ * spectrum carries a third `modulus` key (the engine writes `value.abs()`), so
+ * it has its own type. The continuous-time spectrum `ln(λ)/dt` has no modulus and
+ * reuses {@link Eigenvalue}.
+ */
+export interface KoopmanEigenvalue {
+  readonly re: number;
+  readonly im: number;
+  /** `|λ|` — the per-step growth factor; `< 1` decaying, `> 1` growing. */
+  readonly modulus: number;
+}
+
+/** `lawsynth koopman ... --json` — a DMD linear-operator spectrum. */
+export interface KoopmanReport {
+  /** Always {@link KOOPMAN_METHOD} (`"koopman-dmd"`). */
+  readonly method: typeof KOOPMAN_METHOD;
+  readonly source: string;
+  /** State ordering used by the operator rows (dataset schema / lexicographic). */
+  readonly states: readonly Identifier[];
+  /** The truncated SVD rank the operator was fitted at. */
+  readonly rank: number;
+  /** Mean sampling interval `Δt`, used to map discrete eigenvalues to continuous. */
+  readonly dt: number;
+  readonly singular_values: readonly number[];
+  /** Discrete-time eigenvalues of `A` (`x' ≈ A x`, per step), each with `|λ|`. */
+  readonly discrete_eigenvalues: readonly KoopmanEigenvalue[];
+  /** Continuous-time eigenvalues `ln(λ)/dt` (growth in `re`, angular freq in `im`). */
+  readonly continuous_eigenvalues: readonly Eigenvalue[];
+  /** Spectral radius `ρ = max|λ|`. */
+  readonly spectral_radius: number;
+  /** Exactly `ρ < 1 - 1e-9` — asymptotic stability of the discrete operator. */
+  readonly stable: boolean;
+}
+
+// --- sde / stochastic drift & diffusion discovery --------------------------
+
+/** One active term `coefficient · variable^power` of a discovered SDE law. */
+export interface SdeLawTerm {
+  readonly label: string;
+  /** The monomial power of the state variable (`0` is the constant term). */
+  readonly power: number;
+  readonly coefficient: number;
+}
+
+/** A discovered closed-form law (drift `a(x)` or diffusion `b²(x)`). */
+export interface SdeLaw {
+  /** Only the active (non-thresholded) terms, in ascending power order. */
+  readonly terms: readonly SdeLawTerm[];
+  readonly residual_sum_squares: number;
+}
+
+/** One row of the binned Kramers–Moyal conditional-moment table. */
+export interface SdeBin {
+  readonly x_center: number;
+  readonly drift: number;
+  readonly diffusion: number;
+  /** Bin occupancy (a `usize` count of increments that fell in the bin). */
+  readonly count: number;
+}
+
+/** Per-state drift/diffusion laws plus the binned conditional-moment table. */
+export interface SdeStateModel {
+  readonly state: Identifier;
+  /** Number of bins with enough occupancy to be trusted. */
+  readonly trusted_bins: number;
+  readonly drift: SdeLaw;
+  readonly diffusion: SdeLaw;
+  readonly bins: readonly SdeBin[];
+}
+
+/** `lawsynth sde ... --json` — Kramers–Moyal drift/diffusion discovery. */
+export interface SdeReport {
+  /** Always {@link SDE_METHOD} (`"sde-kramers-moyal"`). */
+  readonly method: typeof SDE_METHOD;
+  readonly source: string;
+  readonly dt: number;
+  /** Number of increments (`Δx` samples) fed to the estimator. */
+  readonly increments: number;
+  readonly states: readonly SdeStateModel[];
+}
+
+// --- pde / evolution-PDE discovery (PDE-FIND) ------------------------------
+
+/** One candidate library term `coefficient · u^u_power · D_derivative_order`. */
+export interface PdeTerm {
+  readonly label: string;
+  /** The field power `p` in `u^p` (a `usize`; `0` is the constant factor). */
+  readonly u_power: number;
+  /** The spatial-derivative order `m` (a `usize`; `0` is no derivative). */
+  readonly derivative_order: number;
+  /** The fitted coefficient (`0` for a term thresholded out of the sparse fit). */
+  readonly coefficient: number;
+}
+
+/** `lawsynth pde ... --json` — a discovered `u_t = F(u, u_x, u_xx, …)` law. */
+export interface PdeReport {
+  /** Always {@link PDE_METHOD} (`"pde-find"`). */
+  readonly method: typeof PDE_METHOD;
+  readonly source: string;
+  /** The field variable name (`u`). */
+  readonly variable: Identifier;
+  readonly time_snapshots: number;
+  readonly spatial_points: number;
+  readonly dx: number;
+  readonly dt: number;
+  /** Interior grid points that fed the regression. */
+  readonly interior_points: number;
+  readonly residual_sum_squares: number;
+  /** The discovered law rendered as a readable string (e.g. `u_t = 0.05*u_xx`). */
+  readonly law: string;
+  /** ALL library terms (both active and thresholded-out, with `coefficient` 0). */
+  readonly terms: readonly PdeTerm[];
+}
+
+/**
+ * Reads a fixed `method` token, recording an issue if it is not exactly
+ * `expected` (the engine hard-codes one literal per command).
+ */
+function readMethod<T extends string>(value: unknown, expected: T, path: string, issues: ValidationIssue[]): T {
+  if (value !== expected) {
+    issue(issues, path, "value", `method must be '${expected}'`);
+  }
+  return expected;
+}
+
+// --- koopman parser --------------------------------------------------------
+
+function readKoopmanEigenvalue(value: unknown, path: string, issues: ValidationIssue[]): KoopmanEigenvalue {
+  if (!record(value)) {
+    issue(issues, path, "type", "discrete eigenvalue must be an object");
+    return { re: Number.NaN, im: Number.NaN, modulus: Number.NaN };
+  }
+  return {
+    re: num(value.re, `${path}/re`, issues),
+    im: num(value.im, `${path}/im`, issues),
+    modulus: num(value.modulus, `${path}/modulus`, issues),
+  };
+}
+
+function readKoopmanEigenvalueArray(value: unknown, path: string, issues: ValidationIssue[]): KoopmanEigenvalue[] {
+  if (!Array.isArray(value)) {
+    issue(issues, path, "type", "must be an array");
+    return [];
+  }
+  return value.map((item, index) => readKoopmanEigenvalue(item, `${path}/${index}`, issues));
+}
+
+/** Validates a `lawsynth koopman --json` report without throwing. */
+export function validateKoopmanReport(input: unknown): ValidationResult<KoopmanReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "koopman report must be an object");
+    return result(input, issues);
+  }
+  const report: KoopmanReport = {
+    method: readMethod(input.method, KOOPMAN_METHOD, "/method", issues),
+    source: str(input.source, "/source", issues),
+    states: stringArray(input.states, "/states", issues),
+    rank: count(input.rank, "/rank", issues),
+    dt: num(input.dt, "/dt", issues),
+    singular_values: numberArray(input.singular_values, "/singular_values", issues),
+    discrete_eigenvalues: readKoopmanEigenvalueArray(input.discrete_eigenvalues, "/discrete_eigenvalues", issues),
+    continuous_eigenvalues: readEigenvalueArray(input.continuous_eigenvalues, "/continuous_eigenvalues", issues),
+    spectral_radius: num(input.spectral_radius, "/spectral_radius", issues),
+    stable: bool(input.stable, "/stable", issues),
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth koopman --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseKoopmanReport(input: unknown): KoopmanReport {
+  const checked = validateKoopmanReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- sde parser ------------------------------------------------------------
+
+function readSdeLawTerm(value: unknown, path: string, issues: ValidationIssue[]): SdeLawTerm {
+  if (!record(value)) {
+    issue(issues, path, "type", "sde law term must be an object");
+    return { label: "", power: Number.NaN, coefficient: Number.NaN };
+  }
+  return {
+    label: str(value.label, `${path}/label`, issues),
+    power: count(value.power, `${path}/power`, issues),
+    coefficient: num(value.coefficient, `${path}/coefficient`, issues),
+  };
+}
+
+function readSdeLaw(value: unknown, path: string, issues: ValidationIssue[]): SdeLaw {
+  if (!record(value)) {
+    issue(issues, path, "type", "sde law must be an object");
+    return { terms: [], residual_sum_squares: Number.NaN };
+  }
+  const terms = Array.isArray(value.terms)
+    ? value.terms.map((item, index) => readSdeLawTerm(item, `${path}/terms/${index}`, issues))
+    : (issue(issues, `${path}/terms`, "type", "must be an array"), [] as SdeLawTerm[]);
+  return { terms, residual_sum_squares: num(value.residual_sum_squares, `${path}/residual_sum_squares`, issues) };
+}
+
+function readSdeBin(value: unknown, path: string, issues: ValidationIssue[]): SdeBin {
+  if (!record(value)) {
+    issue(issues, path, "type", "sde bin must be an object");
+    return { x_center: Number.NaN, drift: Number.NaN, diffusion: Number.NaN, count: Number.NaN };
+  }
+  return {
+    x_center: num(value.x_center, `${path}/x_center`, issues),
+    drift: num(value.drift, `${path}/drift`, issues),
+    diffusion: num(value.diffusion, `${path}/diffusion`, issues),
+    count: count(value.count, `${path}/count`, issues),
+  };
+}
+
+function readSdeStateModel(value: unknown, path: string, issues: ValidationIssue[]): SdeStateModel {
+  if (!record(value)) {
+    issue(issues, path, "type", "sde state model must be an object");
+    return { state: "", trusted_bins: Number.NaN, drift: { terms: [], residual_sum_squares: Number.NaN }, diffusion: { terms: [], residual_sum_squares: Number.NaN }, bins: [] };
+  }
+  const bins = Array.isArray(value.bins)
+    ? value.bins.map((item, index) => readSdeBin(item, `${path}/bins/${index}`, issues))
+    : (issue(issues, `${path}/bins`, "type", "must be an array"), [] as SdeBin[]);
+  return {
+    state: str(value.state, `${path}/state`, issues),
+    trusted_bins: count(value.trusted_bins, `${path}/trusted_bins`, issues),
+    drift: readSdeLaw(value.drift, `${path}/drift`, issues),
+    diffusion: readSdeLaw(value.diffusion, `${path}/diffusion`, issues),
+    bins,
+  };
+}
+
+/** Validates a `lawsynth sde --json` report without throwing. */
+export function validateSdeReport(input: unknown): ValidationResult<SdeReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "sde report must be an object");
+    return result(input, issues);
+  }
+  const states = Array.isArray(input.states)
+    ? input.states.map((item, index) => readSdeStateModel(item, `/states/${index}`, issues))
+    : (issue(issues, "/states", "type", "must be an array"), [] as SdeStateModel[]);
+  const report: SdeReport = {
+    method: readMethod(input.method, SDE_METHOD, "/method", issues),
+    source: str(input.source, "/source", issues),
+    dt: num(input.dt, "/dt", issues),
+    increments: count(input.increments, "/increments", issues),
+    states,
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth sde --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseSdeReport(input: unknown): SdeReport {
+  const checked = validateSdeReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- pde parser ------------------------------------------------------------
+
+function readPdeTerm(value: unknown, path: string, issues: ValidationIssue[]): PdeTerm {
+  if (!record(value)) {
+    issue(issues, path, "type", "pde term must be an object");
+    return { label: "", u_power: Number.NaN, derivative_order: Number.NaN, coefficient: Number.NaN };
+  }
+  return {
+    label: str(value.label, `${path}/label`, issues),
+    u_power: count(value.u_power, `${path}/u_power`, issues),
+    derivative_order: count(value.derivative_order, `${path}/derivative_order`, issues),
+    coefficient: num(value.coefficient, `${path}/coefficient`, issues),
+  };
+}
+
+/** Validates a `lawsynth pde --json` report without throwing. */
+export function validatePdeReport(input: unknown): ValidationResult<PdeReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "pde report must be an object");
+    return result(input, issues);
+  }
+  const terms = Array.isArray(input.terms)
+    ? input.terms.map((item, index) => readPdeTerm(item, `/terms/${index}`, issues))
+    : (issue(issues, "/terms", "type", "must be an array"), [] as PdeTerm[]);
+  const report: PdeReport = {
+    method: readMethod(input.method, PDE_METHOD, "/method", issues),
+    source: str(input.source, "/source", issues),
+    variable: str(input.variable, "/variable", issues),
+    time_snapshots: count(input.time_snapshots, "/time_snapshots", issues),
+    spatial_points: count(input.spatial_points, "/spatial_points", issues),
+    dx: num(input.dx, "/dx", issues),
+    dt: num(input.dt, "/dt", issues),
+    interior_points: count(input.interior_points, "/interior_points", issues),
+    residual_sum_squares: num(input.residual_sum_squares, "/residual_sum_squares", issues),
+    law: str(input.law, "/law", issues),
+    terms,
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth pde --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parsePdeReport(input: unknown): PdeReport {
+  const checked = validatePdeReport(input);
   if (!checked.ok) throw new SchemaValidationError(checked.issues);
   return checked.value;
 }
