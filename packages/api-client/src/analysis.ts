@@ -18,16 +18,30 @@
  */
 
 export {
+  BIFURCATION_KINDS,
   CLASSIFICATIONS,
+  OBSERVER_METHODS,
+  parseBifurcationReport,
   parseControlledModel,
   parseDomainRun,
+  parseEstimateReport,
+  parseReductionReport,
+  parseSensitivityReport,
   parseStabilityReport,
+  validateBifurcationReport,
   validateControlledModel,
   validateDomainRun,
+  validateEstimateReport,
+  validateReductionReport,
+  validateSensitivityReport,
   validateStabilityReport,
 } from "@lawsynth/world-schema";
 
 export type {
+  Bifurcation,
+  BifurcationKind,
+  BifurcationRange,
+  BifurcationReport,
   Classification,
   ControlEquation,
   ControlPerStateScore,
@@ -37,6 +51,13 @@ export type {
   DomainRecovery,
   DomainRunReport,
   Eigenvalue,
+  EstimateReport,
   FixedPoint,
+  Matrix,
+  ObserverMethod,
+  ReducedSystem,
+  ReductionReport,
+  SensitivityEntry,
+  SensitivityReport,
   StabilityReport,
 } from "@lawsynth/world-schema";

@@ -1,6 +1,10 @@
 import {
+  parseBifurcationReport,
   parseControlledModel,
   parseDomainRun,
+  parseEstimateReport,
+  parseReductionReport,
+  parseSensitivityReport,
   parseStabilityReport,
   validateStabilityReport,
 } from "../src/analysis.js";
@@ -93,6 +97,108 @@ const DOMAIN_RUN = `{
   ]
 }`;
 
+// `lawsynth bifurcation van-der-pol.lsworld --parameter mu --range -1:1 --box
+// -3:3,-3:3 --steps 21 --json` — the Van der Pol origin loses stability at mu=0
+// (a Hopf). Captured verbatim from the debug binary; only the "world" path string
+// was normalized to a clean bundle name (all numerics are the engine's output).
+const BIFURCATION_HOPF = `{
+  "world": "van-der-pol.lsworld",
+  "states": ["x", "y"],
+  "parameter": "mu",
+  "range": {"min": -1.00000000000000000e0, "max": 1.00000000000000000e0},
+  "steps": 21,
+  "branch_count": 1,
+  "bifurcations": [
+    {
+      "parameter_value": -2.00000000007485914e-9,
+      "kind": "hopf",
+      "branch_id": 0,
+      "fixed_point": [0.00000000000000000e0, 0.00000000000000000e0],
+      "eigenvalue": {"re": -1.00000000003742957e-9, "im": 1.00000000000000000e0}
+    }
+  ]
+}`;
+
+// `lawsynth sensitivity lotka-volterra.lsworld --parameters alpha,beta --initial
+// x=1 --initial y=1 --dt 0.01 --steps 50 --json` (world path normalized).
+const SENSITIVITY = `{
+  "world": "lotka-volterra.lsworld",
+  "states": ["x", "y"],
+  "parameters": ["alpha", "beta"],
+  "final_time": 5.00000000000000000e-1,
+  "sensitivities": [
+    {"state": "x", "parameter": "alpha", "value": 7.18024197761129912e-1},
+    {"state": "x", "parameter": "beta", "value": -6.68825445802069152e-1},
+    {"state": "y", "parameter": "alpha", "value": 1.38592584652729028e-2},
+    {"state": "y", "parameter": "beta", "value": -1.31930603898465209e-2}
+  ]
+}`;
+
+// `lawsynth estimate pendulum.lsworld --box -0.5:0.5,-0.5:0.5 --measure theta
+// --poles -2,-3 --json` — pole placement, so covariance is null (world path
+// normalized; numerics verbatim).
+const ESTIMATE_POLES = `{
+  "world": "pendulum.lsworld",
+  "states": ["omega", "theta"],
+  "fixed_point": [0.00000000000000000e0, -1.21079836152941656e-14],
+  "fixed_points_found": 1,
+  "measured": ["theta"],
+  "method": "pole_placement",
+  "gain": [[-1.87500000000000000e-1], [4.75000000000000000e0]],
+  "error_poles": [{"re": -2.99999999999999956e0, "im": 0.00000000000000000e0}, {"re": -2.00000000000000044e0, "im": 0.00000000000000000e0}],
+  "convergent": true,
+  "covariance": null
+}`;
+
+// `lawsynth estimate pendulum.lsworld --box -0.5:0.5,-0.5:0.5 --measure theta
+// --kalman --json` — the Kalman branch emits a non-null covariance matrix.
+const ESTIMATE_KALMAN = `{
+  "world": "pendulum.lsworld",
+  "states": ["omega", "theta"],
+  "fixed_point": [0.00000000000000000e0, -1.21079836152941656e-14],
+  "fixed_points_found": 1,
+  "measured": ["theta"],
+  "method": "kalman",
+  "gain": [[-1.14400404642057738e-1], [8.78179475230368101e-1]],
+  "error_poles": [{"re": -5.64089737615184106e-1, "im": 2.18790932903600144e0}, {"re": -5.64089737615183995e-1, "im": -2.18790932903600099e0}],
+  "convergent": true,
+  "covariance": [[4.26183318767662200e0, -1.14400404642057738e-1], [-1.14400404642057738e-1, 8.78179475230368101e-1]]
+}`;
+
+// `lawsynth reduce pendulum.lsworld --box -0.5:0.5,-0.5:0.5 --order 1 --json` —
+// no --measure, so "measured" is null and C defaults to I (world path normalized).
+const REDUCTION = `{
+  "world": "pendulum.lsworld",
+  "states": ["omega", "theta"],
+  "fixed_point": [0.00000000000000000e0, -1.21079836152941656e-14],
+  "measured": null,
+  "hankel_singular_values": [5.57534663944548292e0, 5.17456615089844707e0],
+  "order": 1,
+  "error_bound": 1.03491323017968941e1,
+  "reduced": {
+    "a": [[-1.20339723954469680e-1]],
+    "b": [[4.39580802799826253e-1, -1.07174627076214346e0]],
+    "c": [[1.04223883190820343e0], [-5.05578449249294404e-1]]
+  }
+}`;
+
+// `lawsynth reduce pendulum.lsworld --box -0.5:0.5,-0.5:0.5 --tolerance 0.4
+// --measure theta --json` — --measure selects C, so "measured" is a string array.
+const REDUCTION_MEASURED = `{
+  "world": "pendulum.lsworld",
+  "states": ["omega", "theta"],
+  "fixed_point": [0.00000000000000000e0, -1.21079836152941656e-14],
+  "measured": ["theta"],
+  "hankel_singular_values": [2.21592595653845903e0, 2.16801687150702760e0],
+  "order": 2,
+  "error_bound": -0.00000000000000000e0,
+  "reduced": {
+    "a": [[-1.78191631255412930e-1, 2.32365196620965264e0], [-2.14627854005638996e0, -7.18083687445867369e-2]],
+    "b": [[2.27703601385121773e-1, 8.58993592403251238e-1], [3.62637167908169578e-1, -4.24096444643041415e-1]],
+    "c": [[8.88661308864968524e-1, -5.57999560848684850e-1]]
+  }
+}`;
+
 export function runAnalysisTests(): void {
   // --- stability: stable node ---
   const stable = parseStabilityReport(JSON.parse(STABILITY_STABLE_NODE));
@@ -177,6 +283,126 @@ export function runAnalysisTests(): void {
   throws(() => parseControlledModel({ source: "s", states: [], controls: [], equations: [{ state: "x" }], validation: null }), "equation missing residual/terms");
   throws(() => parseDomainRun({ preset: "p", recovered: true, tolerance: 1e-3, laws: [1], recovery: [] }), "law must be a string");
   throws(() => parseDomainRun({ preset: "p", recovered: "yes", tolerance: 1e-3, laws: [], recovery: [] }), "recovered must be a boolean");
+
+  // --- bifurcation: a real Hopf on the Van der Pol origin ---
+  const bifurcation = parseBifurcationReport(JSON.parse(BIFURCATION_HOPF));
+  equal(bifurcation.world, "van-der-pol.lsworld");
+  equal(bifurcation.parameter, "mu");
+  equal(bifurcation.range.min, -1);
+  equal(bifurcation.range.max, 1);
+  equal(bifurcation.steps, 21);
+  equal(bifurcation.branch_count, 1);
+  equal(bifurcation.bifurcations.length, 1);
+  const hopf = bifurcation.bifurcations[0]!;
+  equal(hopf.kind, "hopf");
+  equal(hopf.branch_id, 0);
+  equal(hopf.parameter_value, -2.00000000007485914e-9);
+  equal(hopf.fixed_point.length, 2);
+  equal(hopf.eigenvalue.im, 1);
+
+  // --- sensitivity: dx_i/dtheta_j at the final time ---
+  const sensitivity = parseSensitivityReport(JSON.parse(SENSITIVITY));
+  equal(sensitivity.states.length, 2);
+  equal(sensitivity.parameters[0], "alpha");
+  equal(sensitivity.final_time, 0.5);
+  equal(sensitivity.sensitivities.length, 4);
+  equal(sensitivity.sensitivities[0]!.state, "x");
+  equal(sensitivity.sensitivities[0]!.parameter, "alpha");
+  equal(sensitivity.sensitivities[0]!.value, 7.18024197761129912e-1);
+  equal(sensitivity.sensitivities[3]!.parameter, "beta");
+
+  // --- estimate: pole placement (covariance null) ---
+  const estimate = parseEstimateReport(JSON.parse(ESTIMATE_POLES));
+  equal(estimate.method, "pole_placement");
+  equal(estimate.states[0], "omega");
+  equal(estimate.fixed_points_found, 1);
+  equal(estimate.measured[0], "theta");
+  equal(estimate.gain.length, 2);
+  equal(estimate.gain[0]![0], -1.875e-1);
+  equal(estimate.error_poles.length, 2);
+  equal(estimate.error_poles[0]!.re, -2.99999999999999956e0);
+  equal(estimate.convergent, true);
+  equal(estimate.covariance, null);
+
+  // --- estimate: Kalman branch carries a non-null covariance matrix ---
+  const kalman = parseEstimateReport(JSON.parse(ESTIMATE_KALMAN));
+  equal(kalman.method, "kalman");
+  ok(kalman.covariance !== null, "kalman estimate has a covariance matrix");
+  equal(kalman.covariance!.length, 2);
+  equal(kalman.covariance![0]!.length, 2);
+  equal(kalman.covariance![0]![0], 4.261833187676622e0);
+  equal(kalman.error_poles[1]!.im, -2.18790932903600099e0);
+
+  // --- reduce: order truncation with C = I (measured null) ---
+  const reduction = parseReductionReport(JSON.parse(REDUCTION));
+  equal(reduction.measured, null);
+  equal(reduction.hankel_singular_values.length, 2);
+  equal(reduction.order, 1);
+  equal(reduction.error_bound, 1.03491323017968941e1);
+  equal(reduction.reduced.a.length, 1);
+  equal(reduction.reduced.a[0]![0], -1.2033972395446968e-1);
+  equal(reduction.reduced.b[0]!.length, 2);
+  equal(reduction.reduced.c.length, 2);
+
+  // --- reduce: --measure selects C, so measured is a string array ---
+  const reductionMeasured = parseReductionReport(JSON.parse(REDUCTION_MEASURED));
+  ok(reductionMeasured.measured !== null, "measured is present when --measure is given");
+  equal(reductionMeasured.measured![0], "theta");
+  equal(reductionMeasured.order, 2);
+
+  // --- error paths: malformed input is rejected per shape ---
+  throws(() => parseBifurcationReport(null), "null is not a bifurcation report");
+  // Unknown bifurcation kind token must be rejected.
+  throws(
+    () =>
+      parseBifurcationReport({
+        world: "w",
+        states: ["x"],
+        parameter: "p",
+        range: { min: 0, max: 1 },
+        steps: 2,
+        branch_count: 1,
+        bifurcations: [{ parameter_value: 0, kind: "transcritical", branch_id: 0, fixed_point: [0], eigenvalue: { re: 0, im: 0 } }],
+      }),
+    "unknown bifurcation kind is rejected",
+  );
+  // range must be an object with numeric min/max.
+  throws(
+    () => parseBifurcationReport({ world: "w", states: [], parameter: "p", range: { min: 0 }, steps: 1, branch_count: 0, bifurcations: [] }),
+    "range missing max is rejected",
+  );
+  throws(() => parseSensitivityReport({ world: "w", states: [], parameters: [] }), "missing final_time/sensitivities");
+  throws(
+    () => parseSensitivityReport({ world: "w", states: [], parameters: [], final_time: 1, sensitivities: [{ state: "x", parameter: "a" }] }),
+    "sensitivity entry missing value",
+  );
+  // Unknown observer method token must be rejected.
+  throws(
+    () =>
+      parseEstimateReport({
+        world: "w",
+        states: ["x"],
+        fixed_point: [0],
+        fixed_points_found: 1,
+        measured: ["x"],
+        method: "luenberger",
+        gain: [[1]],
+        error_poles: [{ re: -1, im: 0 }],
+        convergent: true,
+        covariance: null,
+      }),
+    "unknown observer method is rejected",
+  );
+  // covariance is required (null when not --kalman); omitting it is an error.
+  throws(
+    () => parseEstimateReport({ world: "w", states: ["x"], fixed_point: [0], fixed_points_found: 1, measured: ["x"], method: "kalman", gain: [[1]], error_poles: [], convergent: true }),
+    "missing covariance key is rejected",
+  );
+  throws(() => parseReductionReport({ world: "w", states: [], fixed_point: [], measured: null, hankel_singular_values: [], order: 1, error_bound: 0 }), "missing reduced block");
+  throws(
+    () => parseReductionReport({ world: "w", states: [], fixed_point: [], measured: null, hankel_singular_values: [], order: 1.5, error_bound: 0, reduced: { a: [[1]], b: [[1]], c: [[1]] } }),
+    "fractional reduced order is rejected",
+  );
 
   // --- validate* returns issues instead of throwing ---
   const bad = validateStabilityReport({ world: 5 });

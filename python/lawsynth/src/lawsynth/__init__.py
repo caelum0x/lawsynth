@@ -157,8 +157,11 @@ def __getattr__(name):
         return getattr(_tracking, name)
     if name in {
         "stability", "discover_controlled", "domains", "domain_show", "domain_run",
+        "bifurcation", "sensitivity", "estimate", "reduce",
         "StabilityReport", "FixedPoint", "Eigenvalue",
         "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
+        "Bifurcation", "BifurcationReport", "Sensitivity", "SensitivityReport",
+        "EstimateReport", "ReducedSystem", "ReductionReport",
         "AnalysisError", "CliError", "MissingBinaryError",
     }:
         from . import analysis as _analysis
@@ -187,8 +190,11 @@ __all__ = [
     "ExportError", "MissingDependencyError", "JaxDynamics",
     "run_record", "log_to_mlflow", "log_to_wandb", "RunRecord", "RunArtifact", "TrackingError",
     "stability", "discover_controlled", "domains", "domain_show", "domain_run",
+    "bifurcation", "sensitivity", "estimate", "reduce",
     "StabilityReport", "FixedPoint", "Eigenvalue",
     "ControlledModel", "ControlEquation", "ControlTerm", "StateScore", "ControlValidation",
+    "Bifurcation", "BifurcationReport", "Sensitivity", "SensitivityReport",
+    "EstimateReport", "ReducedSystem", "ReductionReport",
     "AnalysisError", "CliError", "MissingBinaryError",
     "__version__",
 ]

@@ -10,6 +10,14 @@
  *   (see `crates/lawsynth-cli/src/control.rs::render_json`)
  * - `lawsynth domains run NAME --json`  ->  {@link DomainRunReport}
  *   (see `crates/lawsynth-cli/src/domains.rs::render_run_json`)
+ * - `lawsynth bifurcation ... --json`  ->  {@link BifurcationReport}
+ *   (see `crates/lawsynth-cli/src/bifurcation.rs::render_json`)
+ * - `lawsynth sensitivity ... --json`  ->  {@link SensitivityReport}
+ *   (see `crates/lawsynth-cli/src/sensitivity.rs::render_json`)
+ * - `lawsynth estimate ... --json`     ->  {@link EstimateReport}
+ *   (see `crates/lawsynth-cli/src/estimate.rs::render_json`)
+ * - `lawsynth reduce ... --json`       ->  {@link ReductionReport}
+ *   (see `crates/lawsynth-cli/src/reduce.rs::render_json`)
  *
  * The parsers below are pure: they validate `unknown` engine JSON and narrow it
  * into the typed model, or throw. They never touch the network — the engine runs
@@ -136,6 +144,130 @@ export interface DomainRunReport {
   readonly recovery: readonly DomainRecovery[];
 }
 
+// --- bifurcation continuation ----------------------------------------------
+
+/**
+ * The stable JSON tokens for a detected bifurcation's kind.
+ *
+ * These are exactly the strings emitted by `kind_token` in
+ * `crates/lawsynth-cli/src/bifurcation.rs` (confirmed at
+ * `bifurcation.rs::kind_token`): a real eigenvalue through zero is reported
+ * generically as a `"fold"` (saddle-node / transcritical / pitchfork), a complex
+ * pair crossing the imaginary axis as a `"hopf"`. They are NOT the longer
+ * human-readable `kind_label` strings used by the text renderer.
+ */
+export const BIFURCATION_KINDS = ["fold", "hopf"] as const;
+
+export type BifurcationKind = (typeof BIFURCATION_KINDS)[number];
+
+const BIFURCATION_KIND_SET: ReadonlySet<string> = new Set(BIFURCATION_KINDS);
+
+/** The swept parameter interval `[min, max]`. Mirrors `{ "min", "max" }`. */
+export interface BifurcationRange {
+  readonly min: number;
+  readonly max: number;
+}
+
+/** One detected bifurcation along a continued branch. */
+export interface Bifurcation {
+  readonly parameter_value: number;
+  readonly kind: BifurcationKind;
+  /** Index of the branch the bifurcation sits on (a `usize` count). */
+  readonly branch_id: number;
+  readonly fixed_point: readonly number[];
+  /** The Jacobian eigenvalue that crosses the imaginary axis here. */
+  readonly eigenvalue: Eigenvalue;
+}
+
+/** `lawsynth bifurcation ... --json`. */
+export interface BifurcationReport {
+  readonly world: string;
+  readonly states: readonly Identifier[];
+  readonly parameter: Identifier;
+  readonly range: BifurcationRange;
+  readonly steps: number;
+  readonly branch_count: number;
+  readonly bifurcations: readonly Bifurcation[];
+}
+
+// --- forward sensitivity ---------------------------------------------------
+
+/** One final-time trajectory sensitivity `∂ state / ∂ parameter`. */
+export interface SensitivityEntry {
+  readonly state: Identifier;
+  readonly parameter: Identifier;
+  readonly value: number;
+}
+
+/** `lawsynth sensitivity ... --json`. */
+export interface SensitivityReport {
+  readonly world: string;
+  readonly states: readonly Identifier[];
+  readonly parameters: readonly Identifier[];
+  readonly final_time: number;
+  /** The `dx_i/dtheta_j` matrix at `final_time`, flattened row-major over (state, parameter). */
+  readonly sensitivities: readonly SensitivityEntry[];
+}
+
+// --- state estimator design ------------------------------------------------
+
+/**
+ * The stable JSON tokens for the estimator design method.
+ *
+ * Exactly the strings written by `render_json` in
+ * `crates/lawsynth-cli/src/estimate.rs` (confirmed at the `match observer.method`
+ * there): Ackermann pole placement is `"pole_placement"`, the steady-state Kalman
+ * filter is `"kalman"`.
+ */
+export const OBSERVER_METHODS = ["pole_placement", "kalman"] as const;
+
+export type ObserverMethod = (typeof OBSERVER_METHODS)[number];
+
+const OBSERVER_METHOD_SET: ReadonlySet<string> = new Set(OBSERVER_METHODS);
+
+/** A dense row-major matrix, mirroring the engine's `matrix_json` (`[[...], ...]`). */
+export type Matrix = readonly (readonly number[])[];
+
+/** `lawsynth estimate ... --json`. */
+export interface EstimateReport {
+  readonly world: string;
+  readonly states: readonly Identifier[];
+  /** The located fixed point the field was linearized at. */
+  readonly fixed_point: readonly number[];
+  readonly fixed_points_found: number;
+  readonly measured: readonly Identifier[];
+  readonly method: ObserverMethod;
+  /** Observer gain `L`. */
+  readonly gain: Matrix;
+  /** Eigenvalues of the error dynamics `A - L C`. */
+  readonly error_poles: readonly Eigenvalue[];
+  readonly convergent: boolean;
+  /** Steady-state error covariance `P` (present only for `--kalman`; otherwise `null`). */
+  readonly covariance: Matrix | null;
+}
+
+// --- balanced-truncation model reduction -----------------------------------
+
+/** The reduced linear system `(A, B, C)`. */
+export interface ReducedSystem {
+  readonly a: Matrix;
+  readonly b: Matrix;
+  readonly c: Matrix;
+}
+
+/** `lawsynth reduce ... --json`. */
+export interface ReductionReport {
+  readonly world: string;
+  readonly states: readonly Identifier[];
+  readonly fixed_point: readonly number[];
+  /** Measured states selected for `C`; `null` when `C = I` (no `--measure`). */
+  readonly measured: readonly Identifier[] | null;
+  readonly hankel_singular_values: readonly number[];
+  readonly order: number;
+  readonly error_bound: number;
+  readonly reduced: ReducedSystem;
+}
+
 // --- validation helpers ----------------------------------------------------
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -200,6 +332,15 @@ function numberArray(value: unknown, path: string, issues: ValidationIssue[]): n
     return [];
   }
   return value.map((item, index) => num(item, `${path}/${index}`, issues));
+}
+
+/** Reads a dense row-major matrix (`number[][]`), mirroring the engine's `matrix_json`. */
+function readMatrix(value: unknown, path: string, issues: ValidationIssue[]): number[][] {
+  if (!Array.isArray(value)) {
+    issue(issues, path, "type", "matrix must be an array of rows");
+    return [];
+  }
+  return value.map((row, index) => numberArray(row, `${path}/${index}`, issues));
 }
 
 function readEigenvalue(value: unknown, path: string, issues: ValidationIssue[]): Eigenvalue {
@@ -383,6 +524,209 @@ export function validateDomainRun(input: unknown): ValidationResult<DomainRunRep
 /** Parses a `lawsynth domains run NAME --json` report, throwing {@link SchemaValidationError} on any issue. */
 export function parseDomainRun(input: unknown): DomainRunReport {
   const checked = validateDomainRun(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- bifurcation parser ----------------------------------------------------
+
+function readBifurcationKind(value: unknown, path: string, issues: ValidationIssue[]): BifurcationKind {
+  if (typeof value !== "string" || !BIFURCATION_KIND_SET.has(value)) {
+    issue(issues, path, "value", "kind must be one of the engine's tokens ('fold' | 'hopf')");
+    return "fold";
+  }
+  return value as BifurcationKind;
+}
+
+function readRange(value: unknown, path: string, issues: ValidationIssue[]): BifurcationRange {
+  if (!record(value)) {
+    issue(issues, path, "type", "range must be an object");
+    return { min: Number.NaN, max: Number.NaN };
+  }
+  return { min: num(value.min, `${path}/min`, issues), max: num(value.max, `${path}/max`, issues) };
+}
+
+function readBifurcation(value: unknown, path: string, issues: ValidationIssue[]): Bifurcation {
+  if (!record(value)) {
+    issue(issues, path, "type", "bifurcation must be an object");
+    return { parameter_value: Number.NaN, kind: "fold", branch_id: Number.NaN, fixed_point: [], eigenvalue: { re: Number.NaN, im: Number.NaN } };
+  }
+  return {
+    parameter_value: num(value.parameter_value, `${path}/parameter_value`, issues),
+    kind: readBifurcationKind(value.kind, `${path}/kind`, issues),
+    branch_id: count(value.branch_id, `${path}/branch_id`, issues),
+    fixed_point: numberArray(value.fixed_point, `${path}/fixed_point`, issues),
+    eigenvalue: readEigenvalue(value.eigenvalue, `${path}/eigenvalue`, issues),
+  };
+}
+
+/** Validates a `lawsynth bifurcation --json` report without throwing. */
+export function validateBifurcationReport(input: unknown): ValidationResult<BifurcationReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "bifurcation report must be an object");
+    return result(input, issues);
+  }
+  const bifurcations = Array.isArray(input.bifurcations)
+    ? input.bifurcations.map((item, index) => readBifurcation(item, `/bifurcations/${index}`, issues))
+    : (issue(issues, "/bifurcations", "type", "must be an array"), [] as Bifurcation[]);
+  const report: BifurcationReport = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    parameter: str(input.parameter, "/parameter", issues),
+    range: readRange(input.range, "/range", issues),
+    steps: count(input.steps, "/steps", issues),
+    branch_count: count(input.branch_count, "/branch_count", issues),
+    bifurcations,
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth bifurcation --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseBifurcationReport(input: unknown): BifurcationReport {
+  const checked = validateBifurcationReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- sensitivity parser ----------------------------------------------------
+
+function readSensitivityEntry(value: unknown, path: string, issues: ValidationIssue[]): SensitivityEntry {
+  if (!record(value)) {
+    issue(issues, path, "type", "sensitivity entry must be an object");
+    return { state: "", parameter: "", value: Number.NaN };
+  }
+  return {
+    state: str(value.state, `${path}/state`, issues),
+    parameter: str(value.parameter, `${path}/parameter`, issues),
+    value: num(value.value, `${path}/value`, issues),
+  };
+}
+
+/** Validates a `lawsynth sensitivity --json` report without throwing. */
+export function validateSensitivityReport(input: unknown): ValidationResult<SensitivityReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "sensitivity report must be an object");
+    return result(input, issues);
+  }
+  const sensitivities = Array.isArray(input.sensitivities)
+    ? input.sensitivities.map((item, index) => readSensitivityEntry(item, `/sensitivities/${index}`, issues))
+    : (issue(issues, "/sensitivities", "type", "must be an array"), [] as SensitivityEntry[]);
+  const report: SensitivityReport = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    parameters: stringArray(input.parameters, "/parameters", issues),
+    final_time: num(input.final_time, "/final_time", issues),
+    sensitivities,
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth sensitivity --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseSensitivityReport(input: unknown): SensitivityReport {
+  const checked = validateSensitivityReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- estimate parser -------------------------------------------------------
+
+function readObserverMethod(value: unknown, path: string, issues: ValidationIssue[]): ObserverMethod {
+  if (typeof value !== "string" || !OBSERVER_METHOD_SET.has(value)) {
+    issue(issues, path, "value", "method must be one of the engine's tokens ('pole_placement' | 'kalman')");
+    return "pole_placement";
+  }
+  return value as ObserverMethod;
+}
+
+function readEigenvalueArray(value: unknown, path: string, issues: ValidationIssue[]): Eigenvalue[] {
+  if (!Array.isArray(value)) {
+    issue(issues, path, "type", "must be an array");
+    return [];
+  }
+  return value.map((item, index) => readEigenvalue(item, `${path}/${index}`, issues));
+}
+
+function readCovariance(value: unknown, path: string, issues: ValidationIssue[]): number[][] | null {
+  if (value === null) return null;
+  return readMatrix(value, path, issues);
+}
+
+/** Validates a `lawsynth estimate --json` report without throwing. */
+export function validateEstimateReport(input: unknown): ValidationResult<EstimateReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "estimate report must be an object");
+    return result(input, issues);
+  }
+  if (!("covariance" in input)) issue(issues, "/covariance", "required", "missing 'covariance' (use null when not --kalman)");
+  const report: EstimateReport = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    fixed_point: numberArray(input.fixed_point, "/fixed_point", issues),
+    fixed_points_found: count(input.fixed_points_found, "/fixed_points_found", issues),
+    measured: stringArray(input.measured, "/measured", issues),
+    method: readObserverMethod(input.method, "/method", issues),
+    gain: readMatrix(input.gain, "/gain", issues),
+    error_poles: readEigenvalueArray(input.error_poles, "/error_poles", issues),
+    convergent: bool(input.convergent, "/convergent", issues),
+    covariance: readCovariance(input.covariance, "/covariance", issues),
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth estimate --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseEstimateReport(input: unknown): EstimateReport {
+  const checked = validateEstimateReport(input);
+  if (!checked.ok) throw new SchemaValidationError(checked.issues);
+  return checked.value;
+}
+
+// --- reduce parser ---------------------------------------------------------
+
+function readReducedSystem(value: unknown, path: string, issues: ValidationIssue[]): ReducedSystem {
+  if (!record(value)) {
+    issue(issues, path, "type", "reduced system must be an object");
+    return { a: [], b: [], c: [] };
+  }
+  return {
+    a: readMatrix(value.a, `${path}/a`, issues),
+    b: readMatrix(value.b, `${path}/b`, issues),
+    c: readMatrix(value.c, `${path}/c`, issues),
+  };
+}
+
+function readMeasuredOrNull(value: unknown, path: string, issues: ValidationIssue[]): string[] | null {
+  if (value === null) return null;
+  return stringArray(value, path, issues);
+}
+
+/** Validates a `lawsynth reduce --json` report without throwing. */
+export function validateReductionReport(input: unknown): ValidationResult<ReductionReport> {
+  const issues: ValidationIssue[] = [];
+  if (!record(input)) {
+    issue(issues, "", "type", "reduction report must be an object");
+    return result(input, issues);
+  }
+  if (!("measured" in input)) issue(issues, "/measured", "required", "missing 'measured' (use null when C = I)");
+  if (!("reduced" in input)) issue(issues, "/reduced", "required", "missing 'reduced' system block");
+  const report: ReductionReport = {
+    world: str(input.world, "/world", issues),
+    states: stringArray(input.states, "/states", issues),
+    fixed_point: numberArray(input.fixed_point, "/fixed_point", issues),
+    measured: readMeasuredOrNull(input.measured, "/measured", issues),
+    hankel_singular_values: numberArray(input.hankel_singular_values, "/hankel_singular_values", issues),
+    order: count(input.order, "/order", issues),
+    error_bound: num(input.error_bound, "/error_bound", issues),
+    reduced: readReducedSystem(input.reduced, "/reduced", issues),
+  };
+  return issues.length === 0 ? { ok: true, value: report, issues: [] } : { ok: false, issues };
+}
+
+/** Parses a `lawsynth reduce --json` report, throwing {@link SchemaValidationError} on any issue. */
+export function parseReductionReport(input: unknown): ReductionReport {
+  const checked = validateReductionReport(input);
   if (!checked.ok) throw new SchemaValidationError(checked.issues);
   return checked.value;
 }

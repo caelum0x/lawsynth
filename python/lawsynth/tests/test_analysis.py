@@ -78,6 +78,22 @@ def _discover_stable_node(binary: Path, workdir: Path) -> Path:
     return world
 
 
+def _new_world(binary: Path, workdir: Path, template: str) -> Path:
+    """Instantiate a canonical parameterized world via ``lawsynth new TEMPLATE``.
+
+    Discovered worlds inline their coefficients as constants (no free parameter),
+    so bifurcation / sensitivity — which differentiate w.r.t. declared parameters —
+    need a template world that actually declares them.
+    """
+    world = workdir / f"{template}.lsworld"
+    completed = subprocess.run(
+        [str(binary), "new", template, "--output", str(world)],
+        capture_output=True, text=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return world
+
+
 def _forced_dataset(workdir: Path) -> Path:
     """A forced linear system dx/dt=-x+u with u=cos(t), integrated by RK4."""
     def deriv(x: float, u: float) -> float:
@@ -174,6 +190,96 @@ _DOMAINS_SHOW_TEXT = (
     "  unit hints:         (none)\n"
 )
 
+# Verbatim `--json` output captured from the built CLI (target/debug/lawsynth) on
+# the worlds the live tests below build. These pin the exact key contract each
+# parser depends on (bifurcation.rs / sensitivity.rs / estimate.rs / reduce.rs).
+
+# `lawsynth new van-der-pol` then bifurcation --parameter mu --range -0.5:0.5
+# --box -0.5:0.5,-0.5:0.5 --steps 21: a Hopf at mu* ~ 0 (complex pair crossing).
+_BIFURCATION_JSON = """{
+  "world": "/tmp/vdp.lsworld",
+  "states": ["x", "y"],
+  "parameter": "mu",
+  "range": {"min": -5.00000000000000000e-1, "max": 5.00000000000000000e-1},
+  "steps": 21,
+  "branch_count": 1,
+  "bifurcations": [
+    {
+      "parameter_value": -2.00000000003149048e-9,
+      "kind": "hopf",
+      "branch_id": 0,
+      "fixed_point": [-6.25000051712731874e-11, 0.00000000000000000e0],
+      "eigenvalue": {"re": -1.00000000001574524e-9, "im": 1.00000000000000000e0}
+    }
+  ]
+}
+"""
+
+# `lawsynth new sir` then sensitivity --parameters beta --initial S=0.99
+# --initial I=0.01 --dt 0.01 --steps 100. State order is I, R, S.
+_SENSITIVITY_JSON = """{
+  "world": "/tmp/sir.lsworld",
+  "states": ["I", "R", "S"],
+  "parameters": ["beta"],
+  "final_time": 1.00000000000000000e0,
+  "sensitivities": [
+    {"state": "I", "parameter": "beta", "value": 1.60633892812004908e-2},
+    {"state": "R", "parameter": "beta", "value": 6.88354736877626262e-4},
+    {"state": "S", "parameter": "beta", "value": -1.67517440180781144e-2}
+  ]
+}
+"""
+
+# `lawsynth estimate vdp --box -0.5:0.5,-0.5:0.5 --measure x --poles -2,-3`:
+# pole placement, error poles land at -2 and -3, gain L is 2x1, covariance null.
+_ESTIMATE_POLE_JSON = """{
+  "world": "/tmp/vdp.lsworld",
+  "states": ["x", "y"],
+  "fixed_point": [0.00000000000000000e0, 0.00000000000000000e0],
+  "fixed_points_found": 1,
+  "measured": ["x"],
+  "method": "pole_placement",
+  "gain": [[6.00000000000000000e0], [1.10000000000000000e1]],
+  "error_poles": [{"re": -3.00000000000000044e0, "im": 0.00000000000000000e0}, {"re": -2.00000000000000000e0, "im": 0.00000000000000000e0}],
+  "convergent": true,
+  "covariance": null
+}
+"""
+
+# `lawsynth estimate node --box -1:1,-1:1 --measure x,y --kalman` on the stable
+# node diag(-1,-2): steady-state Kalman gain and covariance P (both 2x2).
+_ESTIMATE_KALMAN_JSON = """{
+  "world": "/tmp/node.lsworld",
+  "states": ["x", "y"],
+  "fixed_point": [0.00000000000000000e0, 0.00000000000000000e0],
+  "fixed_points_found": 1,
+  "measured": ["x", "y"],
+  "method": "kalman",
+  "gain": [[4.14194036553732658e-1, 0.00000000000000000e0], [0.00000000000000000e0, 2.36011680217161873e-1]],
+  "error_poles": [{"re": -2.23654505621828381e0, "im": 0.00000000000000000e0}, {"re": -1.41426070455349362e0, "im": 0.00000000000000000e0}],
+  "convergent": true,
+  "covariance": [[4.14194036553732658e-1, 0.00000000000000000e0], [0.00000000000000000e0, 2.36011680217161873e-1]]
+}
+"""
+
+# `lawsynth reduce node --box -1:1,-1:1 --order 1` on the stable node diag(-1,-2):
+# Hankel singular values, reduced order 1, and the reduced A/B/C matrices.
+_REDUCE_JSON = """{
+  "world": "/tmp/node.lsworld",
+  "states": ["x", "y"],
+  "fixed_point": [0.00000000000000000e0, 0.00000000000000000e0],
+  "measured": null,
+  "hankel_singular_values": [4.99966668222282473e-1, 2.49933345775741528e-1],
+  "order": 1,
+  "error_bound": 4.99866691551483056e-1,
+  "reduced": {
+    "a": [[-1.00006666799976052e0]],
+    "b": [[9.99999999999999889e-1, 0.00000000000000000e0]],
+    "c": [[9.99999999999999889e-1], [0.00000000000000000e0]]
+  }
+}
+"""
+
 
 # --------------------------------------------------------------------------- #
 # Import & error typing (no binary required)                                   #
@@ -184,8 +290,16 @@ def test_public_symbols_import_lazily():
     assert callable(lawsynth.stability)
     assert callable(lawsynth.discover_controlled)
     assert callable(lawsynth.domains)
+    assert callable(lawsynth.bifurcation)
+    assert callable(lawsynth.sensitivity)
+    assert callable(lawsynth.estimate)
+    assert callable(lawsynth.reduce)
     assert lawsynth.StabilityReport is analysis.StabilityReport
     assert lawsynth.ControlledModel is analysis.ControlledModel
+    assert lawsynth.BifurcationReport is analysis.BifurcationReport
+    assert lawsynth.SensitivityReport is analysis.SensitivityReport
+    assert lawsynth.EstimateReport is analysis.EstimateReport
+    assert lawsynth.ReductionReport is analysis.ReductionReport
     assert lawsynth.CliError is analysis.CliError
     assert lawsynth.MissingBinaryError is analysis.MissingBinaryError
 
@@ -263,6 +377,143 @@ def test_parse_domain_show():
     assert show["discovery"]["polynomial_degree"] == 2
     assert show["discovery"]["trigonometric"] is False
     assert "text" in show
+
+
+def test_parse_bifurcation_dataclasses():
+    report = analysis._parse_bifurcation(json.loads(_BIFURCATION_JSON))
+    assert isinstance(report, analysis.BifurcationReport)
+    assert report.states == ("x", "y")
+    assert report.parameter == "mu"
+    assert report.range_min == pytest.approx(-0.5)
+    assert report.range_max == pytest.approx(0.5)
+    assert report.steps == 21
+    assert report.branch_count == 1
+    assert len(report.bifurcations) == 1
+    bif = report.bifurcations[0]
+    # A Hopf: complex pair crossing the imaginary axis near mu* = 0.
+    assert bif.kind == "hopf"
+    assert bif.branch_id == 0
+    assert abs(bif.parameter_value) < 1e-6
+    assert bif.eigenvalue.im != 0.0
+    assert abs(bif.eigenvalue.re) < 1e-6
+    assert bif.at(report.states)["x"] == pytest.approx(bif.fixed_point[0])
+
+
+def test_parse_sensitivity_dataclasses():
+    report = analysis._parse_sensitivity(json.loads(_SENSITIVITY_JSON))
+    assert isinstance(report, analysis.SensitivityReport)
+    assert report.states == ("I", "R", "S")
+    assert report.parameters == ("beta",)
+    assert report.final_time == pytest.approx(1.0)
+    # More infectiousness pushes S down and I up: signs are physically fixed.
+    assert report.value("S", "beta") < 0.0
+    assert report.value("I", "beta") > 0.0
+    matrix = report.matrix()
+    assert len(matrix) == 3 and all(len(row) == 1 for row in matrix)
+    with pytest.raises(KeyError):
+        report.value("S", "gamma")
+
+
+def test_parse_estimate_pole_placement():
+    report = analysis._parse_estimate(json.loads(_ESTIMATE_POLE_JSON))
+    assert isinstance(report, analysis.EstimateReport)
+    assert report.method == "pole_placement"
+    assert report.measured == ("x",)
+    assert report.fixed_points_found == 1
+    # L is states x outputs = 2 x 1.
+    assert len(report.gain) == 2 and all(len(row) == 1 for row in report.gain)
+    poles = sorted(pole.re for pole in report.error_poles)
+    assert poles == pytest.approx([-3.0, -2.0])
+    assert all(pole.im == 0.0 for pole in report.error_poles)
+    assert report.convergent is True
+    assert report.covariance is None
+
+
+def test_parse_estimate_kalman_has_covariance():
+    report = analysis._parse_estimate(json.loads(_ESTIMATE_KALMAN_JSON))
+    assert report.method == "kalman"
+    assert report.measured == ("x", "y")
+    assert report.covariance is not None
+    assert len(report.covariance) == 2 and len(report.covariance[0]) == 2
+    # Stable error dynamics: every eigenvalue has negative real part.
+    assert all(pole.re < 0.0 for pole in report.error_poles)
+    assert report.convergent is True
+
+
+def test_parse_reduce_dataclasses():
+    report = analysis._parse_reduce(json.loads(_REDUCE_JSON))
+    assert isinstance(report, analysis.ReductionReport)
+    assert report.states == ("x", "y")
+    assert report.measured is None
+    assert report.order == 1
+    # Hankel singular values are non-increasing and positive.
+    sigmas = report.hankel_singular_values
+    assert len(sigmas) == 2 and sigmas[0] > sigmas[1] > 0.0
+    assert report.error_bound > 0.0
+    # Reduced A is 1x1, B is 1x2, C is 2x1 (order 1 from a 2-state system).
+    assert len(report.reduced.a) == 1 and len(report.reduced.a[0]) == 1
+    assert len(report.reduced.b) == 1 and len(report.reduced.b[0]) == 2
+    assert len(report.reduced.c) == 2 and len(report.reduced.c[0]) == 1
+
+
+def test_parse_new_reports_reject_malformed_input():
+    # Missing required keys / wrong container types must raise AnalysisError, not
+    # silently produce a half-filled dataclass.
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_bifurcation({"states": ["x"], "parameter": "mu"})  # no 'range'
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_bifurcation(
+            {"states": ["x"], "parameter": "mu", "range": {"min": 0.0, "max": 1.0},
+             "steps": 3, "branch_count": 0, "bifurcations": {"not": "a list"}}
+        )
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_sensitivity({"states": ["x"], "parameters": ["a"]})  # no sensitivities
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_estimate(
+            {"states": ["x"], "fixed_point": [0.0], "fixed_points_found": 1,
+             "measured": ["x"], "method": "pole_placement", "gain": [[1.0]],
+             "error_poles": "nope", "convergent": True, "covariance": None}
+        )
+    with pytest.raises(analysis.AnalysisError):
+        analysis._parse_reduce(
+            {"states": ["x"], "fixed_point": [0.0], "measured": None,
+             "hankel_singular_values": [1.0], "order": 1, "error_bound": 0.1,
+             "reduced": {"a": [[1.0]], "b": [[1.0]]}}  # missing 'c'
+        )
+
+
+def test_new_report_arg_validation():
+    # Client-side validation happens before any subprocess is spawned.
+    with pytest.raises(ValidationError):
+        lawsynth.bifurcation("w.lsworld", parameter="  ", range=(0.0, 1.0), box=[(-1.0, 1.0)])
+    with pytest.raises(ValidationError):
+        lawsynth.bifurcation("w.lsworld", parameter="mu", range=(1.0, 0.0), box=[(-1.0, 1.0)])
+    with pytest.raises(ValidationError):
+        lawsynth.sensitivity("w.lsworld", parameters=[])
+    with pytest.raises(ValidationError):
+        lawsynth.estimate("w.lsworld", box=[(-1.0, 1.0)], measure=["x"])  # no poles, no kalman
+    with pytest.raises(ValidationError):
+        lawsynth.estimate("w.lsworld", box=[(-1.0, 1.0)], measure=["x"], poles=[-1.0], kalman=True)
+    with pytest.raises(ValidationError):
+        lawsynth.reduce("w.lsworld", box=[(-1.0, 1.0)])  # neither order nor tolerance
+    with pytest.raises(ValidationError):
+        lawsynth.reduce("w.lsworld", box=[(-1.0, 1.0)], order=1, tolerance=0.1)
+
+
+def test_format_helpers_for_new_commands():
+    assert analysis._format_range("0:1") == "0:1"
+    assert analysis._format_range((-0.5, 0.5)) == "-0.5:0.5"
+    with pytest.raises(ValidationError):
+        analysis._format_range("   ")
+    assert analysis._format_poles([-2.0, -3.0]) == "-2.0,-3.0"
+    assert analysis._format_poles([(-1.0, 2.0)]) == "-1.0:2.0"
+    assert analysis._format_poles(["-1:2"]) == "-1:2"
+    assert analysis._format_identifiers(["a", "b"], label="x") == "a,b"
+    with pytest.raises(ValidationError):
+        analysis._format_identifiers([], label="x")
+    assert analysis._initial_args({"S": 0.99}) == ["--initial", "S=0.99"]
+    assert analysis._initial_args([("I", 0.01)]) == ["--initial", "I=0.01"]
+    assert analysis._initial_args(None) == []
 
 
 def test_run_cli_rejects_non_object_json(monkeypatch):
@@ -403,3 +654,125 @@ def test_cli_error_on_unknown_preset():
     _binary_or_skip()
     with pytest.raises(analysis.CliError):
         lawsynth.domain_run("navier-stokes-not-a-preset")
+
+
+def test_bifurcation_detects_hopf_in_van_der_pol(tmp_path):
+    binary = _binary_or_skip()
+    world = _new_world(binary, tmp_path, "van-der-pol")
+    # Van der Pol dx/dt=y, dy/dt=mu(1-x^2)y - x: at the origin the Jacobian is
+    # [[0,1],[-1,mu]], whose complex-pair eigenvalues cross i-axis at mu*=0 (Hopf).
+    report = lawsynth.bifurcation(
+        world, parameter="mu", range=(-0.5, 0.5), box=[(-0.5, 0.5), (-0.5, 0.5)], steps=21
+    )
+    assert report.parameter == "mu"
+    assert report.states == ("x", "y")
+    assert report.branch_count >= 1
+    assert any(bif.kind == "hopf" for bif in report.bifurcations)
+    hopf = next(bif for bif in report.bifurcations if bif.kind == "hopf")
+    assert abs(hopf.parameter_value) < 1e-3
+    assert hopf.eigenvalue.im != 0.0
+
+
+def test_bifurcation_rejects_unparameterized_world(tmp_path):
+    binary = _binary_or_skip()
+    # A discovered world inlines coefficients as constants: no free parameter.
+    world = _discover_stable_node(binary, tmp_path)
+    with pytest.raises(analysis.CliError):
+        lawsynth.bifurcation(
+            world, parameter="mu", range=(-1.0, 1.0), box=[(-1.0, 1.0), (-1.0, 1.0)]
+        )
+
+
+def test_sensitivity_signs_in_sir(tmp_path):
+    binary = _binary_or_skip()
+    world = _new_world(binary, tmp_path, "sir")
+    # dS/dt=-beta*S*I: a larger transmission rate drives S down and I up, so the
+    # signs of the final-time sensitivities are physically determined.
+    report = lawsynth.sensitivity(
+        world, parameters=["beta"], initial={"S": 0.99, "I": 0.01}, dt=0.01, steps=100
+    )
+    assert "beta" in report.parameters
+    assert report.final_time == pytest.approx(1.0)
+    assert report.value("S", "beta") < 0.0
+    assert report.value("I", "beta") > 0.0
+
+
+def test_estimate_pole_placement_on_van_der_pol(tmp_path):
+    binary = _binary_or_skip()
+    # Van der Pol's origin has the coupled Jacobian [[0,1],[-1,mu]], which is
+    # observable from x — so single-output pole placement is well posed there.
+    # (A diagonal, decoupled node would be unobservable from a single state.)
+    world = _new_world(binary, tmp_path, "van-der-pol")
+    report = lawsynth.estimate(
+        world, box=[(-0.5, 0.5), (-0.5, 0.5)], measure=["x"], poles=[-2.0, -3.0]
+    )
+    assert report.method == "pole_placement"
+    assert report.measured == ("x",)
+    # L is states x outputs = 2 x 1.
+    assert len(report.gain) == 2 and all(len(row) == 1 for row in report.gain)
+    placed = sorted(pole.re for pole in report.error_poles)
+    assert placed == pytest.approx([-3.0, -2.0], abs=1e-6)
+    # Error poles at -2, -3 have negative real part: the observer converges.
+    assert report.convergent is True
+    assert report.covariance is None
+
+
+def test_estimate_kalman_on_stable_node(tmp_path):
+    binary = _binary_or_skip()
+    world = _discover_stable_node(binary, tmp_path)
+    # Full measurement (x and y) keeps the system observable for the Kalman design.
+    report = lawsynth.estimate(
+        world, box=[(-1.0, 1.0), (-1.0, 1.0)], measure=["x", "y"], kalman=True
+    )
+    assert report.method == "kalman"
+    assert report.covariance is not None
+    assert len(report.covariance) == 2 and len(report.covariance[0]) == 2
+    assert all(pole.re < 0.0 for pole in report.error_poles)
+    assert report.convergent is True
+
+
+def test_reduce_stable_node_to_order_one(tmp_path):
+    binary = _binary_or_skip()
+    world = _discover_stable_node(binary, tmp_path)
+    # A = diag(-1,-2) is Hurwitz, so balanced truncation is well posed.
+    report = lawsynth.reduce(world, box=[(-1.0, 1.0), (-1.0, 1.0)], order=1)
+    assert report.order == 1
+    assert report.measured is None
+    sigmas = report.hankel_singular_values
+    assert len(sigmas) == 2 and sigmas[0] >= sigmas[1] > 0.0
+    assert report.error_bound > 0.0
+    assert len(report.reduced.a) == 1 and len(report.reduced.a[0]) == 1
+
+
+def test_reduce_rejects_unstable_fixed_point(tmp_path):
+    binary = _binary_or_skip()
+    # Van der Pol's origin (mu=1) is an unstable focus: not Hurwitz, so balanced
+    # truncation is rejected by the engine with an honest error.
+    world = _new_world(binary, tmp_path, "van-der-pol")
+    with pytest.raises(analysis.CliError):
+        lawsynth.reduce(world, box=[(-0.5, 0.5), (-0.5, 0.5)], order=1)
+
+
+def test_new_analysis_convenience_methods_on_result(tmp_path):
+    _binary_or_skip()
+    try:
+        import lawsynth._native  # noqa: F401
+    except ModuleNotFoundError as error:
+        if error.name == "lawsynth._native":
+            pytest.skip("native extension not built; convenience methods need a live world")
+        raise
+    times = [i * 0.02 for i in range(400)]
+    columns = {
+        "x": [math.exp(-t) for t in times],
+        "y": [math.exp(-2 * t) for t in times],
+    }
+    study = lawsynth.Study.from_columns(times, columns, state=["x", "y"], name="node")
+    result = study.discover(polynomial_degree=1)
+    # The discovered (Hurwitz) node supports reduce/estimate via the attached
+    # convenience methods, mirroring .stability(). The node is diagonal, so the
+    # Kalman observer uses full (x, y) measurement to stay observable.
+    assert hasattr(result, "reduce") and hasattr(result, "estimate")
+    reduction = result.reduce(box=[(-1.0, 1.0), (-1.0, 1.0)], order=1)
+    assert reduction.order == 1
+    observer = result.estimate(box=[(-1.0, 1.0), (-1.0, 1.0)], measure=["x", "y"], kalman=True)
+    assert observer.convergent is True

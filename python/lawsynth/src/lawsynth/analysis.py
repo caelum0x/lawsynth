@@ -58,11 +58,22 @@ __all__ = [
     "StateScore",
     "ControlValidation",
     "ControlledModel",
+    "Bifurcation",
+    "BifurcationReport",
+    "Sensitivity",
+    "SensitivityReport",
+    "EstimateReport",
+    "ReducedSystem",
+    "ReductionReport",
     "stability",
     "discover_controlled",
     "domains",
     "domain_show",
     "domain_run",
+    "bifurcation",
+    "sensitivity",
+    "estimate",
+    "reduce",
 ]
 
 
@@ -214,6 +225,155 @@ class ControlledModel:
     validation: ControlValidation | None
 
 
+@dataclass(frozen=True, slots=True)
+class Bifurcation:
+    """One detected bifurcation on a continuation branch.
+
+    ``parameter_value`` is the swept parameter's value ``μ*`` at the crossing;
+    ``kind`` is the engine's stable token (``"fold"`` for a real eigenvalue
+    through zero — saddle-node / transcritical / pitchfork — or ``"hopf"`` for a
+    complex pair crossing). ``fixed_point`` is ordered like the report's
+    ``states``; ``eigenvalue`` is the Jacobian eigenvalue on the imaginary axis.
+    """
+
+    parameter_value: float
+    kind: str
+    branch_id: int
+    fixed_point: tuple[float, ...]
+    eigenvalue: Eigenvalue
+
+    def at(self, states: Sequence[str]) -> dict[str, float]:
+        """Map the bifurcation's fixed point onto ``states`` (``{state: value}``)."""
+        return {str(name): value for name, value in zip(states, self.fixed_point)}
+
+
+@dataclass(frozen=True, slots=True)
+class BifurcationReport:
+    """The parsed result of ``lawsynth bifurcation WORLD --parameter ... --json``.
+
+    Continuation sweeps a free parameter across ``[range_min, range_max]`` in
+    ``steps`` grid points, re-locating the fixed points at each value and
+    stitching them into ``branch_count`` branches. An empty ``bifurcations``
+    means the fixed points kept their stability across the whole range, not that
+    the system cannot bifurcate — widen the range or refine the steps. The named
+    parameter must actually appear in a law (a discovered world that inlines its
+    coefficients as constants has no free parameter, and the CLI says so via a
+    :class:`CliError`).
+    """
+
+    world: str
+    states: tuple[str, ...]
+    parameter: str
+    range_min: float
+    range_max: float
+    steps: int
+    branch_count: int
+    bifurcations: tuple[Bifurcation, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Sensitivity:
+    """One trajectory sensitivity ``∂state/∂parameter`` at the final time."""
+
+    state: str
+    parameter: str
+    value: float
+
+
+@dataclass(frozen=True, slots=True)
+class SensitivityReport:
+    """The parsed result of ``lawsynth sensitivity WORLD --parameters ... --json``.
+
+    Forward (variational) sensitivities ``∂x_i/∂θ_j`` at ``final_time`` for each
+    ``state`` × ``parameter`` pair. Each requested parameter must be a declared
+    world parameter (its value is read from the world); a parameter that never
+    appears in the laws differentiates to exactly zero (the correct, non-fabricated
+    answer). ``sensitivities`` is flattened in state-major, parameter-minor order.
+    """
+
+    world: str
+    states: tuple[str, ...]
+    parameters: tuple[str, ...]
+    final_time: float
+    sensitivities: tuple[Sensitivity, ...]
+
+    def value(self, state: str, parameter: str) -> float:
+        """Return ``∂state/∂parameter`` at the final time, or raise :class:`KeyError`."""
+        for entry in self.sensitivities:
+            if entry.state == state and entry.parameter == parameter:
+                return entry.value
+        raise KeyError(f"no sensitivity for state {state!r} / parameter {parameter!r}")
+
+    def matrix(self) -> tuple[tuple[float, ...], ...]:
+        """The sensitivity matrix as rows over ``states`` and columns over ``parameters``."""
+        return tuple(
+            tuple(self.value(state, parameter) for parameter in self.parameters)
+            for state in self.states
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EstimateReport:
+    """The parsed result of ``lawsynth estimate WORLD --box ... --measure ... --json``.
+
+    The world's field is linearized at the **first** fixed point inside ``--box``
+    (``A = ∂f/∂x`` there; ``fixed_points_found`` reports how many were located so
+    the choice is auditable), ``measured`` states form the output map ``C``, and a
+    state estimator is designed. ``method`` is ``"pole_placement"`` (Ackermann,
+    single measured state) or ``"kalman"`` (steady-state, several measured states).
+    ``gain`` is the observer gain ``L`` (rows over states, columns over outputs);
+    ``error_poles`` are the eigenvalues of ``A − L C`` and ``convergent`` is true
+    when all have negative real part (the estimate ``x̂ → x``). ``covariance`` is the
+    steady-state error covariance ``P`` for the Kalman design, else ``None``.
+    """
+
+    world: str
+    states: tuple[str, ...]
+    fixed_point: tuple[float, ...]
+    fixed_points_found: int
+    measured: tuple[str, ...]
+    method: str
+    gain: tuple[tuple[float, ...], ...]
+    error_poles: tuple[Eigenvalue, ...]
+    convergent: bool
+    covariance: tuple[tuple[float, ...], ...] | None
+
+
+@dataclass(frozen=True, slots=True)
+class ReducedSystem:
+    """The reduced linear system ``(A, B, C)`` from balanced truncation.
+
+    Each matrix is stored row-major as a tuple of row tuples.
+    """
+
+    a: tuple[tuple[float, ...], ...]
+    b: tuple[tuple[float, ...], ...]
+    c: tuple[tuple[float, ...], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ReductionReport:
+    """The parsed result of ``lawsynth reduce WORLD --box ... --json``.
+
+    The world's field is linearized at the first fixed point inside ``--box``
+    (``A = ∂f/∂x``) and reduced by balanced truncation. Balanced truncation
+    requires a *stable* (Hurwitz) fixed point; an unstable equilibrium is rejected
+    by the engine with a clear :class:`CliError`. ``hankel_singular_values`` are
+    non-increasing; ``order`` is the retained order; ``error_bound`` is the
+    ``H∞`` bound ``‖G − Gr‖∞``; ``reduced`` carries the reduced ``A/B/C``.
+    ``measured`` is the selected output states, or ``None`` when ``C = I``.
+    """
+
+    world: str
+    states: tuple[str, ...]
+    fixed_point: tuple[float, ...]
+    measured: tuple[str, ...] | None
+    hankel_singular_values: tuple[float, ...]
+    order: int
+    error_bound: float
+    reduced: ReducedSystem
+
+
 # --------------------------------------------------------------------------- #
 # Parsers — the JSON/text shapes each CLI subcommand emits                     #
 #                                                                              #
@@ -320,6 +480,142 @@ def _parse_controlled(data: Mapping[str, object]) -> ControlledModel:
         controls=tuple(str(control) for control in _require(data, "controls", "control")),  # type: ignore[union-attr]
         equations=tuple(equations),
         validation=_parse_validation(validation if isinstance(validation, Mapping) else None),
+    )
+
+
+def _parse_eigenvalue(item: object, field: str) -> Eigenvalue:
+    """Parse a ``{"re": .., "im": ..}`` object into an :class:`Eigenvalue`."""
+    if not isinstance(item, Mapping):
+        raise AnalysisError(f"CLI JSON field {field!r} must be an object with 're'/'im'")
+    return Eigenvalue(
+        re=_as_float(item.get("re"), f"{field}.re"),
+        im=_as_float(item.get("im"), f"{field}.im"),
+    )
+
+
+def _as_matrix(value: object, field: str) -> tuple[tuple[float, ...], ...]:
+    """Parse a row-major list-of-lists (``matrix_json``) into nested float tuples."""
+    if not isinstance(value, list):
+        raise AnalysisError(f"CLI JSON field {field!r} must be a list of rows")
+    rows: list[tuple[float, ...]] = []
+    for row_index, row in enumerate(value):
+        if not isinstance(row, list):
+            raise AnalysisError(f"CLI JSON field {field!r}[{row_index}] must be a list")
+        rows.append(tuple(_as_float(cell, f"{field}[{row_index}][]") for cell in row))
+    return tuple(rows)
+
+
+def _parse_bifurcation(data: Mapping[str, object]) -> BifurcationReport:
+    """Parse the ``bifurcation --json`` object (see ``bifurcation.rs::render_json``)."""
+    range_raw = _require(data, "range", "bifurcation")
+    if not isinstance(range_raw, Mapping):
+        raise AnalysisError("`lawsynth bifurcation` JSON 'range' must be an object")
+    bifurcations_raw = _require(data, "bifurcations", "bifurcation")
+    if not isinstance(bifurcations_raw, list):
+        raise AnalysisError("`lawsynth bifurcation` JSON 'bifurcations' must be a list")
+    bifurcations = tuple(
+        Bifurcation(
+            parameter_value=_as_float(
+                _require(entry, "parameter_value", "bifurcation"), "bifurcations[].parameter_value"
+            ),
+            kind=str(_require(entry, "kind", "bifurcation")),
+            branch_id=_as_int(_require(entry, "branch_id", "bifurcation"), "bifurcations[].branch_id"),
+            fixed_point=tuple(
+                _as_float(value, "bifurcations[].fixed_point[]")
+                for value in entry.get("fixed_point", [])
+            ),
+            eigenvalue=_parse_eigenvalue(
+                _require(entry, "eigenvalue", "bifurcation"), "bifurcations[].eigenvalue"
+            ),
+        )
+        for entry in bifurcations_raw
+    )
+    return BifurcationReport(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "bifurcation")),  # type: ignore[union-attr]
+        parameter=str(_require(data, "parameter", "bifurcation")),
+        range_min=_as_float(_require(range_raw, "min", "bifurcation"), "range.min"),
+        range_max=_as_float(_require(range_raw, "max", "bifurcation"), "range.max"),
+        steps=_as_int(_require(data, "steps", "bifurcation"), "steps"),
+        branch_count=_as_int(_require(data, "branch_count", "bifurcation"), "branch_count"),
+        bifurcations=bifurcations,
+    )
+
+
+def _parse_sensitivity(data: Mapping[str, object]) -> SensitivityReport:
+    """Parse the ``sensitivity --json`` object (see ``sensitivity.rs::render_json``)."""
+    entries_raw = _require(data, "sensitivities", "sensitivity")
+    if not isinstance(entries_raw, list):
+        raise AnalysisError("`lawsynth sensitivity` JSON 'sensitivities' must be a list")
+    sensitivities = tuple(
+        Sensitivity(
+            state=str(_require(entry, "state", "sensitivity")),
+            parameter=str(_require(entry, "parameter", "sensitivity")),
+            value=_as_float(_require(entry, "value", "sensitivity"), "sensitivities[].value"),
+        )
+        for entry in entries_raw
+    )
+    return SensitivityReport(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "sensitivity")),  # type: ignore[union-attr]
+        parameters=tuple(str(name) for name in _require(data, "parameters", "sensitivity")),  # type: ignore[union-attr]
+        final_time=_as_float(_require(data, "final_time", "sensitivity"), "final_time"),
+        sensitivities=sensitivities,
+    )
+
+
+def _parse_estimate(data: Mapping[str, object]) -> EstimateReport:
+    """Parse the ``estimate --json`` object (see ``estimate.rs::render_json``)."""
+    poles_raw = _require(data, "error_poles", "estimate")
+    if not isinstance(poles_raw, list):
+        raise AnalysisError("`lawsynth estimate` JSON 'error_poles' must be a list")
+    covariance = data.get("covariance")
+    return EstimateReport(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "estimate")),  # type: ignore[union-attr]
+        fixed_point=tuple(
+            _as_float(value, "fixed_point[]") for value in _require(data, "fixed_point", "estimate")  # type: ignore[union-attr]
+        ),
+        fixed_points_found=_as_int(
+            _require(data, "fixed_points_found", "estimate"), "fixed_points_found"
+        ),
+        measured=tuple(str(name) for name in _require(data, "measured", "estimate")),  # type: ignore[union-attr]
+        method=str(_require(data, "method", "estimate")),
+        gain=_as_matrix(_require(data, "gain", "estimate"), "gain"),
+        error_poles=tuple(
+            _parse_eigenvalue(item, "error_poles[]") for item in poles_raw
+        ),
+        convergent=bool(_require(data, "convergent", "estimate")),
+        covariance=_as_matrix(covariance, "covariance") if covariance is not None else None,
+    )
+
+
+def _parse_reduce(data: Mapping[str, object]) -> ReductionReport:
+    """Parse the ``reduce --json`` object (see ``reduce.rs::render_json``)."""
+    sigma_raw = _require(data, "hankel_singular_values", "reduce")
+    if not isinstance(sigma_raw, list):
+        raise AnalysisError("`lawsynth reduce` JSON 'hankel_singular_values' must be a list")
+    reduced_raw = _require(data, "reduced", "reduce")
+    if not isinstance(reduced_raw, Mapping):
+        raise AnalysisError("`lawsynth reduce` JSON 'reduced' must be an object")
+    measured = data.get("measured")
+    return ReductionReport(
+        world=str(data.get("world", "")),
+        states=tuple(str(state) for state in _require(data, "states", "reduce")),  # type: ignore[union-attr]
+        fixed_point=tuple(
+            _as_float(value, "fixed_point[]") for value in _require(data, "fixed_point", "reduce")  # type: ignore[union-attr]
+        ),
+        measured=tuple(str(name) for name in measured) if isinstance(measured, list) else None,
+        hankel_singular_values=tuple(
+            _as_float(value, "hankel_singular_values[]") for value in sigma_raw
+        ),
+        order=_as_int(_require(data, "order", "reduce"), "order"),
+        error_bound=_as_float(_require(data, "error_bound", "reduce"), "error_bound"),
+        reduced=ReducedSystem(
+            a=_as_matrix(_require(reduced_raw, "a", "reduce"), "reduced.a"),
+            b=_as_matrix(_require(reduced_raw, "b", "reduce"), "reduced.b"),
+            c=_as_matrix(_require(reduced_raw, "c", "reduce"), "reduced.c"),
+        ),
     )
 
 
@@ -483,6 +779,61 @@ def _format_box(box: str | Sequence[tuple[float, float]]) -> str:
     return ",".join(parts)
 
 
+def _format_range(value: str | tuple[float, float] | Sequence[float]) -> str:
+    """Format a sweep range as ``MIN:MAX`` (pass-through for strings)."""
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            raise ValidationError("range must not be empty")
+        return text
+    low, high = value  # type: ignore[misc]
+    low, high = float(low), float(high)
+    if low > high:
+        raise ValidationError(f"range ({low}, {high}) has minimum above maximum")
+    return f"{low}:{high}"
+
+
+def _format_identifiers(names: Sequence[str], *, label: str) -> str:
+    """Join a non-empty sequence of identifier names as ``A,B,C``."""
+    parts = [str(name).strip() for name in names]
+    if not parts or any(not part for part in parts):
+        raise ValidationError(f"{label} must contain at least one non-empty name")
+    return ",".join(parts)
+
+
+def _format_poles(poles: Sequence[object]) -> str:
+    """Format desired poles as ``RE[:IM][,RE[:IM]...]``.
+
+    Accepts real floats (``-2.0``), ``(re, im)`` pairs for complex poles, or raw
+    ``"RE"``/``"RE:IM"`` strings passed straight through.
+    """
+    parts: list[str] = []
+    for pole in poles:
+        if isinstance(pole, str):
+            parts.append(pole.strip())
+        elif isinstance(pole, (tuple, list)):
+            real, imag = pole
+            parts.append(f"{float(real)}:{float(imag)}")
+        else:
+            parts.append(f"{float(pole)}")  # type: ignore[arg-type]
+    if not parts:
+        raise ValidationError("poles must contain at least one pole")
+    return ",".join(parts)
+
+
+def _initial_args(
+    initial: Mapping[str, float] | Sequence[tuple[str, float]] | None,
+) -> list[str]:
+    """Build repeated ``--initial NAME=VALUE`` flags from a mapping or pairs."""
+    if initial is None:
+        return []
+    items = initial.items() if isinstance(initial, Mapping) else initial
+    args: list[str] = []
+    for name, value in items:
+        args += ["--initial", f"{str(name)}={float(value)}"]
+    return args
+
+
 def stability(
     world_path: str | PathLike[str],
     *,
@@ -600,33 +951,230 @@ def domain_run(name: str) -> dict[str, object]:
     return _run_cli(["domains", "run", str(name), "--json"])
 
 
+def bifurcation(
+    world_path: str | PathLike[str],
+    *,
+    parameter: str,
+    range: str | tuple[float, float] | Sequence[float],  # noqa: A002 - mirrors --range
+    box: str | Sequence[tuple[float, float]],
+    steps: int | None = None,
+    grid: int | None = None,
+) -> BifurcationReport:
+    """Continue a free parameter and detect bifurcations via the CLI engine.
+
+    Runs ``lawsynth bifurcation WORLD --parameter NAME --range MIN:MAX --box ...
+    --json`` and parses the result into a :class:`BifurcationReport`. ``parameter``
+    names the swept symbol (it **must appear in at least one law**: a discovered
+    world that inlines its coefficients as constants has no free parameter to
+    sweep, and the CLI rejects it with a :class:`CliError`). ``range`` is the
+    ``MIN:MAX`` sweep interval (string or ``(min, max)``); ``box`` is the per-state
+    search box (as in :func:`stability`); ``steps`` sets the number of parameter
+    grid points and ``grid`` the fixed-point search resolution. Every other
+    declared parameter is pinned at its stored value.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` if the command fails (unreadable world, un-parameterized
+    field, ...).
+    """
+    param = str(parameter).strip()
+    if not param:
+        raise ValidationError("parameter must be a non-empty name")
+    args: list[str] = [
+        "bifurcation", str(world_path),
+        "--parameter", param,
+        "--range", _format_range(range),
+        "--box", _format_box(box),
+    ]
+    if steps is not None:
+        args += ["--steps", str(int(steps))]
+    if grid is not None:
+        args += ["--grid", str(int(grid))]
+    args.append("--json")
+    return _parse_bifurcation(_run_cli(args))
+
+
+def sensitivity(
+    world_path: str | PathLike[str],
+    *,
+    parameters: Sequence[str],
+    initial: Mapping[str, float] | Sequence[tuple[str, float]] | None = None,
+    start: float | None = None,
+    dt: float | None = None,
+    steps: int | None = None,
+) -> SensitivityReport:
+    """Compute forward sensitivities ``∂x_i/∂θ_j`` at the final time via the CLI engine.
+
+    Runs ``lawsynth sensitivity WORLD --parameters ... --json`` and parses the
+    result into a :class:`SensitivityReport`. Each name in ``parameters`` must be a
+    declared world parameter (its value is read from the world; every other
+    declared parameter is pinned). ``initial`` sets initial state components
+    (mapping ``{state: value}`` or ``(state, value)`` pairs); unset states default
+    to ``0``. ``start`` / ``dt`` / ``steps`` control the integration window.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (e.g. a name that is not a declared
+    parameter).
+    """
+    args: list[str] = [
+        "sensitivity", str(world_path),
+        "--parameters", _format_identifiers(parameters, label="parameters"),
+    ]
+    args += _initial_args(initial)
+    if start is not None:
+        args += ["--start", repr(float(start))]
+    if dt is not None:
+        args += ["--dt", repr(float(dt))]
+    if steps is not None:
+        args += ["--steps", str(int(steps))]
+    args.append("--json")
+    return _parse_sensitivity(_run_cli(args))
+
+
+def estimate(
+    world_path: str | PathLike[str],
+    *,
+    box: str | Sequence[tuple[float, float]],
+    measure: Sequence[str],
+    poles: Sequence[object] | None = None,
+    kalman: bool = False,
+    process_var: float | None = None,
+    measurement_var: float | None = None,
+    grid: int | None = None,
+) -> EstimateReport:
+    """Design a state estimator (observer / Kalman) via the CLI engine.
+
+    Runs ``lawsynth estimate WORLD --box ... --measure ... --json`` and parses the
+    result into an :class:`EstimateReport`. The world's field is linearized at the
+    first fixed point inside ``box``; ``measure`` names the measured states (the
+    output map ``C``). With ``poles`` the error poles of ``A − L C`` are placed by
+    Ackermann's formula — this is **single-output** (pass exactly one ``measure``
+    state) and needs one pole per state; each pole is a real float, a ``(re, im)``
+    pair, or a raw ``"RE"``/``"RE:IM"`` string. With ``kalman=True`` the
+    steady-state Kalman gain is designed instead (``process_var`` / ``measurement_var``
+    scale ``Q = qI`` / ``R = rI``, default ``1``), accepting several measured
+    states. ``poles`` and ``kalman`` are mutually exclusive. ``grid`` sets the
+    fixed-point search resolution.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (no fixed point in the box, a
+    single-output constraint violation, ...).
+    """
+    if kalman and poles is not None:
+        raise ValidationError("choose either poles (pole placement) or kalman, not both")
+    args: list[str] = [
+        "estimate", str(world_path),
+        "--box", _format_box(box),
+        "--measure", _format_identifiers(measure, label="measure"),
+    ]
+    if kalman:
+        args.append("--kalman")
+        if process_var is not None:
+            args += ["--process-var", repr(float(process_var))]
+        if measurement_var is not None:
+            args += ["--measurement-var", repr(float(measurement_var))]
+    else:
+        if poles is None:
+            raise ValidationError("pole placement needs poles=..., or pass kalman=True")
+        args += ["--poles", _format_poles(poles)]
+    if grid is not None:
+        args += ["--grid", str(int(grid))]
+    args.append("--json")
+    return _parse_estimate(_run_cli(args))
+
+
+def reduce(
+    world_path: str | PathLike[str],
+    *,
+    box: str | Sequence[tuple[float, float]],
+    order: int | None = None,
+    tolerance: float | None = None,
+    measure: Sequence[str] | None = None,
+    grid: int | None = None,
+) -> ReductionReport:
+    """Reduce the linearized model by balanced truncation via the CLI engine.
+
+    Runs ``lawsynth reduce WORLD --box ... --json`` and parses the result into a
+    :class:`ReductionReport`. The world's field is linearized at the first fixed
+    point inside ``box``; balanced truncation additionally requires that fixed
+    point to be **stable (Hurwitz)** — an unstable equilibrium is rejected by the
+    engine with a :class:`CliError`. Choose the reduced order with ``order`` (keep
+    ``K`` states) **or** ``tolerance`` (keep the fewest states whose discarded
+    Hankel energy fraction is at most ``T``); exactly one is required. ``measure``
+    selects the output states for ``C`` (default ``C = I``); ``grid`` sets the
+    fixed-point search resolution.
+
+    Raises :class:`MissingBinaryError` if the CLI is not built and
+    :class:`CliError` on a non-zero exit (no fixed point, an unstable fixed point,
+    ...).
+    """
+    if order is not None and tolerance is not None:
+        raise ValidationError("choose either order=K or tolerance=T, not both")
+    if order is None and tolerance is None:
+        raise ValidationError("one of order=K or tolerance=T is required")
+    args: list[str] = ["reduce", str(world_path), "--box", _format_box(box)]
+    if order is not None:
+        args += ["--order", str(int(order))]
+    if tolerance is not None:
+        args += ["--tolerance", repr(float(tolerance))]
+    if measure is not None:
+        args += ["--measure", _format_identifiers(measure, label="measure")]
+    if grid is not None:
+        args += ["--grid", str(int(grid))]
+    args.append("--json")
+    return _parse_reduce(_run_cli(args))
+
+
 # --------------------------------------------------------------------------- #
 # Attach convenience methods to DiscoveryResult / Study (best-effort, lazy)     #
 # --------------------------------------------------------------------------- #
 
 
 def _install() -> None:
-    """Attach ``.stability(...)`` to Study / DiscoveryResult (mirrors export/tracking).
+    """Attach world-analysis convenience methods to Study / DiscoveryResult.
 
-    The stability CLI reads a ``.lsworld`` bundle, so the convenience method saves
-    the in-memory discovered world to a temporary bundle and analyses that.
+    Each of the CLI's world analyses reads a ``.lsworld`` bundle, so the
+    convenience methods save the in-memory discovered world to a temporary bundle
+    and analyse that (mirrors export/tracking). Note that ``bifurcation`` and
+    ``sensitivity`` require *declared parameters* in the laws — a discovered world
+    that inlines its coefficients as constants exposes none, and the CLI will say
+    so honestly via :class:`CliError`. ``reduce`` requires a stable (Hurwitz)
+    fixed point. The methods are thin pass-throughs; the engine's honest errors
+    surface unchanged.
     """
     try:
         from .study import DiscoveryResult, Study
     except Exception:  # pragma: no cover - defensive at import time
         return
 
-    def _stability_method(self: object, **kwargs: object) -> StabilityReport:
-        import tempfile
+    def _make_method(function):
+        def _method(self: object, **kwargs: object):
+            import tempfile
 
-        with tempfile.TemporaryDirectory(prefix="lawsynth-stability-") as tmp:
-            target = Path(tmp) / "world.lsworld"
-            self.save(target)  # type: ignore[attr-defined]
-            return stability(target, **kwargs)  # type: ignore[arg-type]
+            with tempfile.TemporaryDirectory(prefix="lawsynth-analysis-") as tmp:
+                target = Path(tmp) / "world.lsworld"
+                self.save(target)  # type: ignore[attr-defined]
+                return function(target, **kwargs)
 
+        _method.__name__ = function.__name__
+        _method.__qualname__ = function.__name__
+        _method.__doc__ = (
+            f"Convenience wrapper: save this world to a temporary bundle and call "
+            f"``lawsynth.analysis.{function.__name__}`` on it. See that function for "
+            f"parameters and honest preconditions."
+        )
+        return _method
+
+    methods = {
+        "stability": stability,
+        "bifurcation": bifurcation,
+        "sensitivity": sensitivity,
+        "estimate": estimate,
+        "reduce": reduce,
+    }
     for cls in (Study, DiscoveryResult):
-        if not hasattr(cls, "stability"):
-            cls.stability = _stability_method  # type: ignore[attr-defined]
+        for name, function in methods.items():
+            if not hasattr(cls, name):
+                setattr(cls, name, _make_method(function))
 
 
 _install()

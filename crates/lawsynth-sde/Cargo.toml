@@ -1,0 +1,16 @@
+[package]
+name = "lawsynth-sde"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Deterministic stochastic (SDE) law discovery — drift and diffusion from noisy trajectories."
+
+[dependencies]
+lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-features = { path = "../lawsynth-features" }
+lawsynth-sparse = { path = "../lawsynth-sparse" }
+
+[lib]
+path = "src/lib.rs"

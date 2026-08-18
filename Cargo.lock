@@ -136,6 +136,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-discrete"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-koopman",
+]
+
+[[package]]
 name = "lawsynth-domains"
 version = "0.1.0"
 dependencies = [
@@ -357,6 +365,16 @@ version = "0.1.0"
 dependencies = [
  "lawsynth-core",
  "lawsynth-expr",
+]
+
+[[package]]
+name = "lawsynth-sde"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
+ "lawsynth-data",
+ "lawsynth-features",
+ "lawsynth-sparse",
 ]
 
 [[package]]
