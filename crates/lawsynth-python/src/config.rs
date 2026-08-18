@@ -5,8 +5,6 @@ pub struct PythonConfig {
 }
 impl Default for PythonConfig {
     fn default() -> Self {
-        Self {
-            reject_unknown_keyword_data: true,
-        }
+        Self { reject_unknown_keyword_data: true }
     }
 }

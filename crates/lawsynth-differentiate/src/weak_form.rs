@@ -23,11 +23,7 @@ pub fn weak_derivative_integral(
     if time
         .windows(2)
         .any(|pair| !pair[0].is_finite() || !pair[1].is_finite() || pair[1] <= pair[0])
-        || values
-            .iter()
-            .chain(test)
-            .chain(test_derivative)
-            .any(|value| !value.is_finite())
+        || values.iter().chain(test).chain(test_derivative).any(|value| !value.is_finite())
     {
         return Err(DifferentiationError::SingularFit);
     }

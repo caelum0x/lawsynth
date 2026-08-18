@@ -10,8 +10,5 @@ fn main() {
         symbols += black_box(expression_symbols(&expression)).len();
     }
     assert_eq!(symbols, 500_000);
-    println!(
-        "walked {symbols} unique symbol references in {:?}",
-        started.elapsed()
-    );
+    println!("walked {symbols} unique symbol references in {:?}", started.elapsed());
 }

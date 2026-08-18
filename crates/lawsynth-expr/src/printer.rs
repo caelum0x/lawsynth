@@ -12,11 +12,7 @@ pub fn print(expression: &Expr) -> String {
             UnaryOperator::Sin => format!("sin({})", print(operand)),
             UnaryOperator::Cos => format!("cos({})", print(operand)),
         },
-        Expr::Binary {
-            operator,
-            left,
-            right,
-        } => {
+        Expr::Binary { operator, left, right } => {
             let operator = match operator {
                 BinaryOperator::Add => "+",
                 BinaryOperator::Subtract => "-",

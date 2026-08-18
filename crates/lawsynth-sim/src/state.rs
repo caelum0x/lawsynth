@@ -8,8 +8,5 @@ pub(crate) fn offset_state(
     derivative: &BTreeMap<Identifier, f64>,
     scale: f64,
 ) -> BTreeMap<Identifier, f64> {
-    state
-        .iter()
-        .map(|(id, value)| (id.clone(), value + derivative[id] * scale))
-        .collect()
+    state.iter().map(|(id, value)| (id.clone(), value + derivative[id] * scale)).collect()
 }

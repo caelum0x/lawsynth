@@ -38,21 +38,12 @@ impl Project {
     ) -> Result<Self, ApiValidationError> {
         let display_name = display_name.into();
         if display_name.trim().is_empty() {
-            return Err(ApiValidationError::Empty {
-                field: "display_name",
-            });
+            return Err(ApiValidationError::Empty { field: "display_name" });
         }
         if display_name.len() > 256 {
-            return Err(ApiValidationError::TooLong {
-                field: "display_name",
-                maximum: 256,
-            });
+            return Err(ApiValidationError::TooLong { field: "display_name", maximum: 256 });
         }
-        Ok(Self {
-            id,
-            display_name,
-            created_at_ms,
-        })
+        Ok(Self { id, display_name, created_at_ms })
     }
 }
 
@@ -67,9 +58,8 @@ pub(crate) fn validate_identifier(
     if value.len() > maximum {
         return Err(ApiValidationError::TooLong { field, maximum });
     }
-    let valid = value
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
+    let valid =
+        value.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
     if !valid {
         return Err(ApiValidationError::Invalid {
             field,

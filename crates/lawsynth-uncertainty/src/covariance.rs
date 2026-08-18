@@ -11,10 +11,7 @@ impl CovarianceMatrix {
     /// Estimates an unbiased covariance matrix from row-major observations.
     pub fn from_observations(rows: &[Vec<f64>]) -> Result<Self, UncertaintyError> {
         if rows.len() < 2 {
-            return Err(UncertaintyError::TooFewSamples {
-                minimum: 2,
-                actual: rows.len(),
-            });
+            return Err(UncertaintyError::TooFewSamples { minimum: 2, actual: rows.len() });
         }
         let dimension = rows.first().map_or(0, Vec::len);
         if dimension == 0 {

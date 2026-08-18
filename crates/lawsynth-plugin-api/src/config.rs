@@ -9,10 +9,7 @@ pub struct ProtocolConfig {
 
 impl Default for ProtocolConfig {
     fn default() -> Self {
-        Self {
-            version: PROTOCOL_VERSION,
-            max_frame_bytes: crate::MAX_FRAME_BYTES,
-        }
+        Self { version: PROTOCOL_VERSION, max_frame_bytes: crate::MAX_FRAME_BYTES }
     }
 }
 

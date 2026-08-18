@@ -16,9 +16,6 @@ pub fn dataset_from_columns(
             ))
         })
         .collect::<Result<Vec<_>, String>>()?;
-    Dataset::new(
-        TimeAxis::new(time).map_err(|error| error.to_string())?,
-        columns,
-    )
-    .map_err(|error| error.to_string())
+    Dataset::new(TimeAxis::new(time).map_err(|error| error.to_string())?, columns)
+        .map_err(|error| error.to_string())
 }

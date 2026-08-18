@@ -14,8 +14,6 @@ impl Default for HistogramConfig {
 
 impl HistogramConfig {
     pub fn validate(self) -> Result<Self, StatsError> {
-        (self.bins > 0)
-            .then_some(self)
-            .ok_or(StatsError::InvalidHistogramConfig)
+        (self.bins > 0).then_some(self).ok_or(StatsError::InvalidHistogramConfig)
     }
 }

@@ -6,18 +6,11 @@ use lawsynth_uncertainty::{
 #[test]
 fn deterministic_bootstrap_has_a_finite_percentile_interval() {
     let samples = Samples::new(vec![1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
-    let config = BootstrapConfig {
-        replicates: 512,
-        seed: 41,
-    };
-    let first = bootstrap(&samples, config, |draw| {
-        draw.iter().sum::<f64>() / draw.len() as f64
-    })
-    .unwrap();
-    let second = bootstrap(&samples, config, |draw| {
-        draw.iter().sum::<f64>() / draw.len() as f64
-    })
-    .unwrap();
+    let config = BootstrapConfig { replicates: 512, seed: 41 };
+    let first =
+        bootstrap(&samples, config, |draw| draw.iter().sum::<f64>() / draw.len() as f64).unwrap();
+    let second =
+        bootstrap(&samples, config, |draw| draw.iter().sum::<f64>() / draw.len() as f64).unwrap();
     assert_eq!(first, second);
     let (lower, upper) = confidence_interval(&first, IntervalConfig { confidence: 0.95 }).unwrap();
     assert!(lower <= first.observed && first.observed <= upper);
@@ -27,22 +20,13 @@ fn deterministic_bootstrap_has_a_finite_percentile_interval() {
 #[test]
 fn empirical_propagation_and_profile_fit_use_real_observations() {
     let input = Samples::new(vec![1.0, 2.0, 3.0]).unwrap();
-    let propagated = monte_carlo_propagate(
-        &[input],
-        PropagationConfig {
-            draws: 128,
-            seed: 8,
-        },
-        |values| values[0] * 2.0,
-    )
-    .unwrap();
+    let propagated =
+        monte_carlo_propagate(&[input], PropagationConfig { draws: 128, seed: 8 }, |values| {
+            values[0] * 2.0
+        })
+        .unwrap();
     assert_eq!(propagated.len(), 128);
-    assert!(
-        propagated
-            .as_slice()
-            .iter()
-            .all(|value| [2.0, 4.0, 6.0].contains(value))
-    );
+    assert!(propagated.as_slice().iter().all(|value| [2.0, 4.0, 6.0].contains(value)));
 
     let points: Vec<ProfilePoint> = [-1.0, 0.0, 1.0, 2.0, 3.0]
         .into_iter()

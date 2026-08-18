@@ -9,9 +9,7 @@ pub fn simulate_rk4(
 ) -> Result<Trajectory, WasmError> {
     config.validate()?;
     if !start.is_finite() || !end.is_finite() || !step.is_finite() || step <= 0.0 || end < start {
-        return Err(WasmError::Simulation(
-            "start, end, and step are invalid".into(),
-        ));
+        return Err(WasmError::Simulation("start, end, and step are invalid".into()));
     }
     let estimated = ((end - start) / step).ceil() as usize + 1;
     if estimated > config.max_steps {
@@ -28,10 +26,7 @@ pub fn simulate_rk4(
         let h = (end - time).min(step);
         let k1 = world.derivative_at(time, &state)?;
         let stage = |base: &[f64], derivative: &[f64], scale: f64| -> Vec<f64> {
-            base.iter()
-                .zip(derivative)
-                .map(|(v, d)| v + d * scale)
-                .collect()
+            base.iter().zip(derivative).map(|(v, d)| v + d * scale).collect()
         };
         let k2 = world.derivative_at(time + h / 2.0, &stage(&state, &k1, h / 2.0))?;
         let k3 = world.derivative_at(time + h / 2.0, &stage(&state, &k2, h / 2.0))?;

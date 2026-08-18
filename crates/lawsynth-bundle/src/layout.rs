@@ -69,16 +69,12 @@ pub(crate) fn write_archive(entries: &BTreeMap<String, Vec<u8>>) -> Result<Vec<u
 
 pub(crate) fn read_archive(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, BundleError> {
     if bytes.len() < 22 {
-        return Err(BundleError::InvalidArchive(
-            "missing end of central directory",
-        ));
+        return Err(BundleError::InvalidArchive("missing end of central directory"));
     }
     let end_offset = bytes
         .len()
         .checked_sub(22)
-        .ok_or(BundleError::InvalidArchive(
-            "missing end of central directory",
-        ))?;
+        .ok_or(BundleError::InvalidArchive("missing end of central directory"))?;
     if read_u32(bytes, end_offset)? != END_OF_CENTRAL_DIRECTORY {
         return Err(BundleError::InvalidArchive(
             "archive comments and ZIP64 are not supported by this format version",
@@ -88,37 +84,25 @@ pub(crate) fn read_archive(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Bu
         || read_u16(bytes, end_offset + 6)? != 0
         || read_u16(bytes, end_offset + 20)? != 0
     {
-        return Err(BundleError::InvalidArchive(
-            "multi-disk archives are not supported",
-        ));
+        return Err(BundleError::InvalidArchive("multi-disk archives are not supported"));
     }
     let count = usize::from(read_u16(bytes, end_offset + 10)?);
     let central_size = usize::try_from(read_u32(bytes, end_offset + 12)?)
         .map_err(|_| BundleError::InvalidArchive("central directory is too large"))?;
     let central_offset = usize::try_from(read_u32(bytes, end_offset + 16)?)
         .map_err(|_| BundleError::InvalidArchive("central directory offset is invalid"))?;
-    if central_offset
-        .checked_add(central_size)
-        .filter(|end| *end == end_offset)
-        .is_none()
-    {
-        return Err(BundleError::InvalidArchive(
-            "central directory bounds are invalid",
-        ));
+    if central_offset.checked_add(central_size).filter(|end| *end == end_offset).is_none() {
+        return Err(BundleError::InvalidArchive("central directory bounds are invalid"));
     }
 
     let mut offset = central_offset;
     let mut entries = BTreeMap::new();
     for _ in 0..count {
         if read_u32(bytes, offset)? != CENTRAL_HEADER {
-            return Err(BundleError::InvalidArchive(
-                "invalid central directory header",
-            ));
+            return Err(BundleError::InvalidArchive("invalid central directory header"));
         }
         if read_u16(bytes, offset + 10)? != 0 {
-            return Err(BundleError::InvalidArchive(
-                "compressed entries are not supported",
-            ));
+            return Err(BundleError::InvalidArchive("compressed entries are not supported"));
         }
         let checksum = read_u32(bytes, offset + 16)?;
         let compressed_size = usize::try_from(read_u32(bytes, offset + 20)?)
@@ -126,9 +110,7 @@ pub(crate) fn read_archive(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Bu
         let uncompressed_size = usize::try_from(read_u32(bytes, offset + 24)?)
             .map_err(|_| BundleError::InvalidArchive("entry is too large"))?;
         if compressed_size != uncompressed_size {
-            return Err(BundleError::InvalidArchive(
-                "stored entry has inconsistent sizes",
-            ));
+            return Err(BundleError::InvalidArchive("stored entry has inconsistent sizes"));
         }
         let name_length = usize::from(read_u16(bytes, offset + 28)?);
         let extra_length = usize::from(read_u16(bytes, offset + 30)?);
@@ -151,9 +133,7 @@ pub(crate) fn read_archive(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Bu
             return Err(BundleError::InvalidArchive("invalid local entry header"));
         }
         if read_u16(bytes, local_offset + 8)? != 0 {
-            return Err(BundleError::InvalidArchive(
-                "compressed entries are not supported",
-            ));
+            return Err(BundleError::InvalidArchive("compressed entries are not supported"));
         }
         let local_name_length = usize::from(read_u16(bytes, local_offset + 26)?);
         let local_extra_length = usize::from(read_u16(bytes, local_offset + 28)?);
@@ -173,14 +153,12 @@ pub(crate) fn read_archive(bytes: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, Bu
         if entries.insert(path.clone(), content).is_some() {
             return Err(BundleError::InvalidPath(path));
         }
-        offset = name_end.checked_add(extra_length + comment_length).ok_or(
-            BundleError::InvalidArchive("central directory entry is too large"),
-        )?;
+        offset = name_end
+            .checked_add(extra_length + comment_length)
+            .ok_or(BundleError::InvalidArchive("central directory entry is too large"))?;
     }
     if offset != central_offset + central_size {
-        return Err(BundleError::InvalidArchive(
-            "central directory has trailing data",
-        ));
+        return Err(BundleError::InvalidArchive("central directory has trailing data"));
     }
     Ok(entries)
 }
@@ -189,9 +167,7 @@ fn validate_path(path: &str) -> Result<(), BundleError> {
     if path.is_empty()
         || path.starts_with('/')
         || path.as_bytes().contains(&92)
-        || path
-            .split('/')
-            .any(|part| part.is_empty() || part == "." || part == "..")
+        || path.split('/').any(|part| part.is_empty() || part == "." || part == "..")
     {
         return Err(BundleError::InvalidPath(path.to_owned()));
     }
@@ -203,11 +179,8 @@ fn crc32(bytes: &[u8]) -> u32 {
     for byte in bytes {
         checksum ^= u32::from(*byte);
         for _ in 0..8 {
-            checksum = if checksum & 1 == 1 {
-                (checksum >> 1) ^ 0xedb8_8320
-            } else {
-                checksum >> 1
-            };
+            checksum =
+                if checksum & 1 == 1 { (checksum >> 1) ^ 0xedb8_8320 } else { checksum >> 1 };
         }
     }
     !checksum
@@ -254,9 +227,6 @@ mod tests {
             ("world/world.bin".to_owned(), vec![3, 1, 4]),
             ("manifest.json".to_owned(), b"{}".to_vec()),
         ]);
-        assert_eq!(
-            read_archive(&write_archive(&entries).unwrap()).unwrap(),
-            entries
-        );
+        assert_eq!(read_archive(&write_archive(&entries).unwrap()).unwrap(), entries);
     }
 }

@@ -11,10 +11,7 @@ pub fn identifier_values(
             if !value.is_finite() {
                 return Err(format!("value for '{name}' must be finite"));
             }
-            Ok((
-                Identifier::new(name).map_err(|error| error.to_string())?,
-                value,
-            ))
+            Ok((Identifier::new(name).map_err(|error| error.to_string())?, value))
         })
         .collect()
 }

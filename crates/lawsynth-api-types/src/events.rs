@@ -54,18 +54,9 @@ impl ApiEvent {
                 | EventKind::RunCancelled
         ) && run_id.is_none()
         {
-            return Err(ApiValidationError::Inconsistent {
-                reason: "run event requires run_id",
-            });
+            return Err(ApiValidationError::Inconsistent { reason: "run event requires run_id" });
         }
-        Ok(Self {
-            sequence,
-            occurred_at_ms,
-            project_id,
-            run_id,
-            kind,
-            payload,
-        })
+        Ok(Self { sequence, occurred_at_ms, project_id, run_id, kind, payload })
     }
 }
 

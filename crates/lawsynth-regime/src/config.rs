@@ -6,10 +6,7 @@ pub struct SegmentationConfig {
 }
 impl Default for SegmentationConfig {
     fn default() -> Self {
-        Self {
-            penalty: 8.0,
-            min_segment_len: 3,
-        }
+        Self { penalty: 8.0, min_segment_len: 3 }
     }
 }
 impl SegmentationConfig {

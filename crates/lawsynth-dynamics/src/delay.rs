@@ -30,11 +30,7 @@ impl DelayedProblem {
         if lag == 0 || lag >= dataset.time().len() {
             return Err(DynamicsError::InvalidLag);
         }
-        Ok(Self {
-            dataset,
-            state,
-            lag,
-        })
+        Ok(Self { dataset, state, lag })
     }
 
     pub fn lag(&self) -> usize {
@@ -43,12 +39,7 @@ impl DelayedProblem {
 
     pub fn samples(&self) -> DelaySamples {
         let current = (self.lag..self.dataset.time().len())
-            .map(|row| {
-                self.state
-                    .iter()
-                    .map(|id| self.dataset.columns()[id].values[row])
-                    .collect()
-            })
+            .map(|row| self.state.iter().map(|id| self.dataset.columns()[id].values[row]).collect())
             .collect();
         let lagged = (self.lag..self.dataset.time().len())
             .map(|row| {
@@ -58,11 +49,7 @@ impl DelayedProblem {
                     .collect()
             })
             .collect();
-        DelaySamples {
-            start_index: self.lag,
-            current,
-            lagged,
-        }
+        DelaySamples { start_index: self.lag, current, lagged }
     }
 }
 
@@ -81,10 +68,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            DelayedProblem::new(dataset, [x], 1)
-                .unwrap()
-                .samples()
-                .lagged,
+            DelayedProblem::new(dataset, [x], 1).unwrap().samples().lagged,
             vec![vec![1.0], vec![2.0]]
         );
     }

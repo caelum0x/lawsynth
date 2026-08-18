@@ -14,14 +14,8 @@ fn converts_valid_python_mapping_to_sorted_typed_values() {
 
     assert_eq!(converted.len(), 2);
     assert_eq!(converted.keys().next().expect("first id").as_str(), "alpha");
-    assert_eq!(
-        converted[&Identifier::new("alpha").expect("valid identifier")],
-        1.25
-    );
-    assert_eq!(
-        converted[&Identifier::new("z").expect("valid identifier")],
-        -2.5
-    );
+    assert_eq!(converted[&Identifier::new("alpha").expect("valid identifier")], 1.25);
+    assert_eq!(converted[&Identifier::new("z").expect("valid identifier")], -2.5);
 }
 
 #[test]

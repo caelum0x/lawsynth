@@ -8,11 +8,7 @@ pub fn residual_sum_squares(predicted: &[f64], observed: &[f64]) -> Result<f64, 
     if predicted.len() != observed.len() {
         return Err(OptimizationError::LengthMismatch);
     }
-    if predicted
-        .iter()
-        .chain(observed)
-        .any(|value| !value.is_finite())
-    {
+    if predicted.iter().chain(observed).any(|value| !value.is_finite()) {
         return Err(OptimizationError::NonFiniteInput);
     }
     Ok(predicted

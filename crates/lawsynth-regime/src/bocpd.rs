@@ -8,12 +8,7 @@ pub struct BocpdConfig {
 }
 impl Default for BocpdConfig {
     fn default() -> Self {
-        Self {
-            hazard: 0.02,
-            prior_mean: 0.0,
-            observation_variance: 1.0,
-            prior_precision: 1e-3,
-        }
+        Self { hazard: 0.02, prior_mean: 0.0, observation_variance: 1.0, prior_precision: 1e-3 }
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,11 +64,7 @@ pub fn bocpd(data: &[f64], config: BocpdConfig) -> Result<Vec<BocpdPoint>> {
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
             .map(|(i, _)| i)
             .unwrap();
-        out.push(BocpdPoint {
-            index,
-            change_probability: cp,
-            most_likely_run_length: best,
-        });
+        out.push(BocpdPoint { index, change_probability: cp, most_likely_run_length: best });
         let mut new_counts = Vec::with_capacity(counts.len() + 1);
         let mut new_sums = Vec::with_capacity(sums.len() + 1);
         new_counts.push(0);

@@ -21,11 +21,7 @@ impl Diagnostic {
         code: impl Into<String>,
         message: impl Into<String>,
     ) -> Self {
-        Self {
-            severity,
-            code: code.into(),
-            message: message.into(),
-        }
+        Self { severity, code: code.into(), message: message.into() }
     }
 }
 
@@ -57,8 +53,6 @@ impl Diagnostics {
     }
 
     pub fn has_errors(&self) -> bool {
-        self.entries
-            .iter()
-            .any(|entry| entry.severity == DiagnosticSeverity::Error)
+        self.entries.iter().any(|entry| entry.severity == DiagnosticSeverity::Error)
     }
 }

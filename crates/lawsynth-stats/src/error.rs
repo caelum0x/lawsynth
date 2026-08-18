@@ -21,10 +21,9 @@ impl fmt::Display for StatsError {
             Self::EmptyInput => write!(formatter, "statistical input cannot be empty"),
             Self::InvalidBootstrapConfig => write!(formatter, "invalid bootstrap configuration"),
             Self::InvalidConfidence => write!(formatter, "confidence must be between zero and one"),
-            Self::InvalidProbability => write!(
-                formatter,
-                "probability must be finite and between zero and one"
-            ),
+            Self::InvalidProbability => {
+                write!(formatter, "probability must be finite and between zero and one")
+            }
             Self::LengthMismatch => write!(formatter, "statistical inputs must have equal lengths"),
             Self::TooFewValues => write!(formatter, "at least two values are required"),
             Self::NonFiniteValue => write!(formatter, "statistical inputs must be finite"),

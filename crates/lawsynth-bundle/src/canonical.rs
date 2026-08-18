@@ -10,9 +10,7 @@ pub fn canonical_entry_order(
         if path.is_empty()
             || path.starts_with('/')
             || path.contains('\\')
-            || path
-                .split('/')
-                .any(|part| part.is_empty() || matches!(part, "." | ".."))
+            || path.split('/').any(|part| part.is_empty() || matches!(part, "." | ".."))
         {
             return Err(BundleError::InvalidPath(path));
         }

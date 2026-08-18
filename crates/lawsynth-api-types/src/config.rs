@@ -39,10 +39,6 @@ impl ApiLimits {
                 reason: "must be positive",
             });
         }
-        Ok(Self {
-            maximum_page_size,
-            maximum_artifact_bytes,
-            maximum_event_payload_bytes,
-        })
+        Ok(Self { maximum_page_size, maximum_artifact_bytes, maximum_event_payload_bytes })
     }
 }

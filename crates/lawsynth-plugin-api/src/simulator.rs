@@ -40,14 +40,10 @@ impl SimulationRequest {
             ));
         }
         if self.initial_state.iter().any(|value| !value.is_finite()) {
-            return Err(PluginError::InvalidData(
-                "simulation initial state must be finite".into(),
-            ));
+            return Err(PluginError::InvalidData("simulation initial state must be finite".into()));
         }
         if self.times.is_empty() {
-            return Err(PluginError::InvalidData(
-                "simulation times must not be empty".into(),
-            ));
+            return Err(PluginError::InvalidData("simulation times must not be empty".into()));
         }
         if self.times.len() > max_points {
             return Err(PluginError::ResourceLimit(format!(
@@ -56,9 +52,7 @@ impl SimulationRequest {
             )));
         }
         if self.times.iter().any(|time| !time.is_finite()) {
-            return Err(PluginError::InvalidData(
-                "simulation times must be finite".into(),
-            ));
+            return Err(PluginError::InvalidData("simulation times must be finite".into()));
         }
         if self.times.windows(2).any(|window| window[1] <= window[0]) {
             return Err(PluginError::InvalidData(

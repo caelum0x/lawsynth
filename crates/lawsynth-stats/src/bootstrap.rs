@@ -12,11 +12,7 @@ pub struct BootstrapConfig {
 
 impl Default for BootstrapConfig {
     fn default() -> Self {
-        Self {
-            replicates: 100,
-            block_size: 8,
-            seed: 0,
-        }
+        Self { replicates: 100, block_size: 8, seed: 0 }
     }
 }
 
@@ -70,10 +66,7 @@ pub fn percentile_interval(
     let mut sorted = values.to_vec();
     sorted.sort_by(f64::total_cmp);
     let tail = (1.0 - confidence) / 2.0;
-    Ok(PercentileInterval {
-        lower: quantile(&sorted, tail),
-        upper: quantile(&sorted, 1.0 - tail),
-    })
+    Ok(PercentileInterval { lower: quantile(&sorted, tail), upper: quantile(&sorted, 1.0 - tail) })
 }
 
 fn quantile(values: &[f64], probability: f64) -> f64 {
@@ -89,17 +82,11 @@ mod tests {
 
     #[test]
     fn block_bootstrap_is_reproducible_and_aligned() {
-        let config = BootstrapConfig {
-            replicates: 3,
-            block_size: 2,
-            seed: 42,
-        };
+        let config = BootstrapConfig { replicates: 3, block_size: 2, seed: 42 };
         let first = bootstrap_indices(7, &config).unwrap();
         assert_eq!(first, bootstrap_indices(7, &config).unwrap());
         assert!(
-            first
-                .iter()
-                .all(|sample| sample.len() == 7 && sample.iter().all(|index| *index < 7))
+            first.iter().all(|sample| sample.len() == 7 && sample.iter().all(|index| *index < 7))
         );
     }
 
@@ -107,10 +94,7 @@ mod tests {
     fn computes_a_percentile_interval() {
         assert_eq!(
             percentile_interval(&[1.0, 2.0, 3.0, 4.0, 5.0], 0.5).unwrap(),
-            PercentileInterval {
-                lower: 2.0,
-                upper: 4.0
-            }
+            PercentileInterval { lower: 2.0, upper: 4.0 }
         );
     }
 }

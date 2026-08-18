@@ -11,11 +11,7 @@ pub struct Parameter {
 
 impl Parameter {
     pub fn new(id: Identifier, value: f64) -> Self {
-        Self {
-            id,
-            value,
-            unit: None,
-        }
+        Self { id, value, unit: None }
     }
 
     pub fn with_unit(mut self, unit: Unit) -> Self {

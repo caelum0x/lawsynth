@@ -43,10 +43,7 @@ pub(crate) fn encode_world(world: &World) -> Result<Vec<u8>, BundleError> {
         b"LSW1",
         world.variables().values(),
         world.parameters().values(),
-        world
-            .laws()
-            .values()
-            .map(|law| (&law.target, &law.expression)),
+        world.laws().values().map(|law| (&law.target, &law.expression)),
     )
 }
 
@@ -55,10 +52,7 @@ pub(crate) fn encode_discrete_world(world: &DiscreteWorld) -> Result<Vec<u8>, Bu
         b"LSD1",
         world.variables().values(),
         world.parameters().values(),
-        world
-            .laws()
-            .values()
-            .map(|law| (&law.target, &law.expression)),
+        world.laws().values().map(|law| (&law.target, &law.expression)),
     )
 }
 
@@ -114,9 +108,7 @@ fn put_expr(output: &mut Vec<u8>, expression: &Expr, depth: u8) -> Result<(), Bu
             output.extend(value.to_le_bytes());
         }
         Expr::Constant(_) => {
-            return Err(BundleError::InvalidWorld(
-                "expression constants must be finite",
-            ));
+            return Err(BundleError::InvalidWorld("expression constants must be finite"));
         }
         Expr::Symbol(id) => {
             output.push(1);
@@ -133,11 +125,7 @@ fn put_expr(output: &mut Vec<u8>, expression: &Expr, depth: u8) -> Result<(), Bu
             });
             put_expr(output, operand, depth + 1)?;
         }
-        Expr::Binary {
-            operator,
-            left,
-            right,
-        } => {
+        Expr::Binary { operator, left, right } => {
             output.push(3);
             output.push(match operator {
                 BinaryOperator::Add => 0,

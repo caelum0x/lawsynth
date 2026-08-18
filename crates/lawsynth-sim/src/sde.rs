@@ -40,10 +40,7 @@ where
     let mut rng = config.seed.rng();
     let mut time = config.start;
     let mut state = initial.to_vec();
-    let mut trajectory = SdeTrajectory {
-        time: vec![time],
-        values: vec![state.clone()],
-    };
+    let mut trajectory = SdeTrajectory { time: vec![time], values: vec![state.clone()] };
     while time < config.end {
         let dt = (config.end - time).min(config.step);
         let drift = drift(time, &state);

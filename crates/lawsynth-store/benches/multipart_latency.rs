@@ -11,8 +11,5 @@ fn main() {
         upload.add_part(2, vec![2; 512]).unwrap();
         black_box(upload.complete(&store).unwrap());
     }
-    println!(
-        "multipart completion: {:.2} us/op",
-        start.elapsed().as_secs_f64() * 1e6 / 1000.0
-    );
+    println!("multipart completion: {:.2} us/op", start.elapsed().as_secs_f64() * 1e6 / 1000.0);
 }

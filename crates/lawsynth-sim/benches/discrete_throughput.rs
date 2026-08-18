@@ -9,10 +9,7 @@ fn main() {
     let world = DiscreteWorld::new(
         [Variable::new(x.clone(), VariableRole::State)],
         [],
-        [DiscreteLaw::new(
-            x.clone(),
-            Expr::sum(Expr::symbol(x.clone()), Expr::constant(1.0)),
-        )],
+        [DiscreteLaw::new(x.clone(), Expr::sum(Expr::symbol(x.clone()), Expr::constant(1.0)))],
     )
     .unwrap();
     let config = DiscreteSimulationConfig::new(0.0, 1_000).unwrap();
@@ -22,8 +19,5 @@ fn main() {
     for _ in 0..100 {
         samples += black_box(simulate_discrete(&world, config, &request).unwrap()).samples();
     }
-    println!(
-        "simulated {samples} recurrence samples in {:?}",
-        started.elapsed()
-    );
+    println!("simulated {samples} recurrence samples in {:?}", started.elapsed());
 }

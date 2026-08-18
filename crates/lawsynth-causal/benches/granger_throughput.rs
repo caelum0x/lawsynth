@@ -13,11 +13,7 @@ fn main() {
             granger_test(
                 &x,
                 &y,
-                CausalConfig {
-                    max_lag: 2,
-                    min_samples: 20,
-                    ..Default::default()
-                },
+                CausalConfig { max_lag: 2, min_samples: 20, ..Default::default() },
             )
             .unwrap(),
         );

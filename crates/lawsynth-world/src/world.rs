@@ -42,10 +42,7 @@ impl DiscreteWorld {
     ) -> Result<Self, WorldError> {
         let mut variable_map = BTreeMap::new();
         for variable in variables {
-            if variable_map
-                .insert(variable.id.clone(), variable.clone())
-                .is_some()
-            {
+            if variable_map.insert(variable.id.clone(), variable.clone()).is_some() {
                 return Err(WorldError::DuplicateVariable(variable.id));
             }
         }
@@ -57,10 +54,7 @@ impl DiscreteWorld {
             if !parameter.value.is_finite() {
                 return Err(WorldError::NonFiniteParameter(parameter.id));
             }
-            if parameter_map
-                .insert(parameter.id.clone(), parameter.clone())
-                .is_some()
-            {
+            if parameter_map.insert(parameter.id.clone(), parameter.clone()).is_some() {
                 return Err(WorldError::DuplicateParameter(parameter.id));
             }
         }
@@ -84,11 +78,8 @@ impl DiscreteWorld {
             }
         }
         if config.validate_expression_symbols {
-            let symbols = variable_map
-                .keys()
-                .chain(parameter_map.keys())
-                .cloned()
-                .collect::<BTreeSet<_>>();
+            let symbols =
+                variable_map.keys().chain(parameter_map.keys()).cloned().collect::<BTreeSet<_>>();
             for law in law_map.values() {
                 if let Some(symbol) = expression_symbols(&law.expression)
                     .into_iter()
@@ -101,16 +92,10 @@ impl DiscreteWorld {
         let units = variable_map
             .values()
             .filter_map(|variable| {
-                variable
-                    .unit
-                    .as_ref()
-                    .map(|unit| (variable.id.clone(), unit.clone()))
+                variable.unit.as_ref().map(|unit| (variable.id.clone(), unit.clone()))
             })
             .chain(parameter_map.values().filter_map(|parameter| {
-                parameter
-                    .unit
-                    .as_ref()
-                    .map(|unit| (parameter.id.clone(), unit.clone()))
+                parameter.unit.as_ref().map(|unit| (parameter.id.clone(), unit.clone()))
             }))
             .collect::<BTreeMap<_, Unit>>();
         for law in law_map.values().filter(|_| config.validate_units) {
@@ -121,11 +106,7 @@ impl DiscreteWorld {
                 return Err(WorldError::UnitMismatch(law.target.clone()));
             }
         }
-        Ok(Self {
-            variables: variable_map,
-            parameters: parameter_map,
-            laws: law_map,
-        })
+        Ok(Self { variables: variable_map, parameters: parameter_map, laws: law_map })
     }
 
     pub fn variables(&self) -> &BTreeMap<Identifier, Variable> {
@@ -173,10 +154,7 @@ impl World {
     ) -> Result<Self, WorldError> {
         let mut variable_map = BTreeMap::new();
         for variable in variables {
-            if variable_map
-                .insert(variable.id.clone(), variable.clone())
-                .is_some()
-            {
+            if variable_map.insert(variable.id.clone(), variable.clone()).is_some() {
                 return Err(WorldError::DuplicateVariable(variable.id));
             }
         }
@@ -189,10 +167,7 @@ impl World {
             if !parameter.value.is_finite() {
                 return Err(WorldError::NonFiniteParameter(parameter.id));
             }
-            if parameter_map
-                .insert(parameter.id.clone(), parameter.clone())
-                .is_some()
-            {
+            if parameter_map.insert(parameter.id.clone(), parameter.clone()).is_some() {
                 return Err(WorldError::DuplicateParameter(parameter.id));
             }
         }
@@ -220,11 +195,8 @@ impl World {
         }
 
         if config.validate_expression_symbols {
-            let symbols = variable_map
-                .keys()
-                .chain(parameter_map.keys())
-                .cloned()
-                .collect::<BTreeSet<_>>();
+            let symbols =
+                variable_map.keys().chain(parameter_map.keys()).cloned().collect::<BTreeSet<_>>();
             for law in law_map.values() {
                 if let Some(symbol) = expression_symbols(&law.expression)
                     .into_iter()
@@ -237,16 +209,10 @@ impl World {
         let units = variable_map
             .values()
             .filter_map(|variable| {
-                variable
-                    .unit
-                    .as_ref()
-                    .map(|unit| (variable.id.clone(), unit.clone()))
+                variable.unit.as_ref().map(|unit| (variable.id.clone(), unit.clone()))
             })
             .chain(parameter_map.values().filter_map(|parameter| {
-                parameter
-                    .unit
-                    .as_ref()
-                    .map(|unit| (parameter.id.clone(), unit.clone()))
+                parameter.unit.as_ref().map(|unit| (parameter.id.clone(), unit.clone()))
             }))
             .collect::<BTreeMap<_, Unit>>();
         for law in law_map.values().filter(|_| config.validate_units) {
@@ -263,11 +229,7 @@ impl World {
             }
         }
 
-        Ok(Self {
-            variables: variable_map,
-            parameters: parameter_map,
-            laws: law_map,
-        })
+        Ok(Self { variables: variable_map, parameters: parameter_map, laws: law_map })
     }
 
     pub fn variables(&self) -> &BTreeMap<Identifier, Variable> {
@@ -332,10 +294,7 @@ mod tests {
             [Parameter::new(id("x"), 1.0)],
             [ContinuousLaw::new(id("x"), Expr::constant(-1.0))],
         );
-        assert_eq!(
-            result,
-            Err(WorldError::ParameterConflictsWithVariable(id("x")))
-        );
+        assert_eq!(result, Err(WorldError::ParameterConflictsWithVariable(id("x"))));
     }
 
     #[test]
@@ -353,10 +312,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            world.dependency_graph()[&id("x")]
-                .iter()
-                .cloned()
-                .collect::<Vec<_>>(),
+            world.dependency_graph()[&id("x")].iter().cloned().collect::<Vec<_>>(),
             vec![id("rate"), id("y")]
         );
     }
@@ -377,15 +333,9 @@ mod tests {
             [Variable::new(id("x"), VariableRole::State)],
             [],
             [ContinuousLaw::new(id("x"), Expr::symbol(id("external")))],
-            WorldConfig {
-                validate_expression_symbols: false,
-                ..Default::default()
-            },
+            WorldConfig { validate_expression_symbols: false, ..Default::default() },
         )
         .unwrap();
-        assert_eq!(
-            world.laws()[&id("x")].expression,
-            Expr::symbol(id("external"))
-        );
+        assert_eq!(world.laws()[&id("x")].expression, Expr::symbol(id("external")));
     }
 }

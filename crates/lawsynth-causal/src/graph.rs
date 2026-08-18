@@ -57,42 +57,23 @@ impl CausalGraph {
     }
     pub fn parents(&self, variable: &str) -> Result<Vec<&str>> {
         self.require(variable)?;
-        Ok(self
-            .edges
-            .iter()
-            .filter(|e| e.to == variable)
-            .map(|e| e.from.as_str())
-            .collect())
+        Ok(self.edges.iter().filter(|e| e.to == variable).map(|e| e.from.as_str()).collect())
     }
     pub fn children(&self, variable: &str) -> Result<Vec<&str>> {
         self.require(variable)?;
-        Ok(self
-            .edges
-            .iter()
-            .filter(|e| e.from == variable)
-            .map(|e| e.to.as_str())
-            .collect())
+        Ok(self.edges.iter().filter(|e| e.from == variable).map(|e| e.to.as_str()).collect())
     }
     pub fn topological_order(&self) -> Vec<&str> {
         let mut degree: BTreeMap<&str, usize> = self.variables().map(|v| (v, 0)).collect();
         for edge in &self.edges {
-            *degree
-                .get_mut(edge.to.as_str())
-                .expect("registered endpoint") += 1;
+            *degree.get_mut(edge.to.as_str()).expect("registered endpoint") += 1;
         }
-        let mut ready: BTreeSet<&str> = degree
-            .iter()
-            .filter_map(|(v, d)| (*d == 0).then_some(*v))
-            .collect();
+        let mut ready: BTreeSet<&str> =
+            degree.iter().filter_map(|(v, d)| (*d == 0).then_some(*v)).collect();
         let mut out = Vec::with_capacity(degree.len());
         while let Some(v) = ready.pop_first() {
             out.push(v);
-            for child in self
-                .edges
-                .iter()
-                .filter(|e| e.from == v)
-                .map(|e| e.to.as_str())
-            {
+            for child in self.edges.iter().filter(|e| e.from == v).map(|e| e.to.as_str()) {
                 let d = degree.get_mut(child).expect("registered endpoint");
                 *d -= 1;
                 if *d == 0 {
@@ -103,10 +84,7 @@ impl CausalGraph {
         out
     }
     pub fn has_edge(&self, from: &str, to: &str) -> bool {
-        self.edges.contains(&Edge {
-            from: from.into(),
-            to: to.into(),
-        })
+        self.edges.contains(&Edge { from: from.into(), to: to.into() })
     }
     fn require(&self, variable: &str) -> Result<()> {
         if self.variables.contains(variable) {

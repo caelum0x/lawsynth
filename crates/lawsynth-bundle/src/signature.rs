@@ -14,19 +14,13 @@ impl BundleSignature {
 }
 
 pub fn verify_signature(secret: &[u8], bytes: &[u8], signature: &BundleSignature) -> bool {
-    constant_time_eq(
-        signature.0.as_bytes(),
-        hmac_sha256_hex(secret, bytes).as_bytes(),
-    )
+    constant_time_eq(signature.0.as_bytes(), hmac_sha256_hex(secret, bytes).as_bytes())
 }
 
 fn hmac_sha256_hex(secret: &[u8], bytes: &[u8]) -> String {
     const BLOCK: usize = 64;
-    let mut key = if secret.len() > BLOCK {
-        hex_to_bytes(&sha256_hex(secret))
-    } else {
-        secret.to_vec()
-    };
+    let mut key =
+        if secret.len() > BLOCK { hex_to_bytes(&sha256_hex(secret)) } else { secret.to_vec() };
     key.resize(BLOCK, 0);
     let mut inner = key.iter().map(|byte| byte ^ 0x36).collect::<Vec<_>>();
     inner.extend_from_slice(bytes);
@@ -48,10 +42,7 @@ fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
     if left.len() != right.len() {
         return false;
     }
-    left.iter()
-        .zip(right)
-        .fold(0u8, |difference, (left, right)| difference | (left ^ right))
-        == 0
+    left.iter().zip(right).fold(0u8, |difference, (left, right)| difference | (left ^ right)) == 0
 }
 
 #[cfg(test)]

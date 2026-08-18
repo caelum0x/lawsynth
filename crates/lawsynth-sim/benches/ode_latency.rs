@@ -11,10 +11,7 @@ fn world() -> (World, Identifier) {
         [],
         [ContinuousLaw::new(
             x.clone(),
-            Expr::unary(
-                lawsynth_expr::UnaryOperator::Negate,
-                Expr::symbol(x.clone()),
-            ),
+            Expr::unary(lawsynth_expr::UnaryOperator::Negate, Expr::symbol(x.clone())),
         )],
     )
     .unwrap();
@@ -29,8 +26,5 @@ fn main() {
     for _ in 0..100 {
         samples += black_box(simulate(&world, config, &request).unwrap()).samples();
     }
-    println!(
-        "integrated {samples} RK4 samples in {:?}",
-        started.elapsed()
-    );
+    println!("integrated {samples} RK4 samples in {:?}", started.elapsed());
 }

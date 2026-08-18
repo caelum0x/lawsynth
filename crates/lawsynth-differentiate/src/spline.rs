@@ -14,13 +14,8 @@ pub fn cubic_spline_derivative(
     if time.len() < 3 {
         return Err(DifferentiationError::TooFewSamples);
     }
-    let intervals = time
-        .windows(2)
-        .map(|pair| pair[1] - pair[0])
-        .collect::<Vec<_>>();
-    if intervals
-        .iter()
-        .any(|step| !step.is_finite() || *step <= 0.0)
+    let intervals = time.windows(2).map(|pair| pair[1] - pair[0]).collect::<Vec<_>>();
+    if intervals.iter().any(|step| !step.is_finite() || *step <= 0.0)
         || values.iter().any(|value| !value.is_finite())
     {
         return Err(DifferentiationError::SingularFit);
@@ -86,10 +81,7 @@ mod tests {
     #[test]
     fn supports_an_irregular_grid() {
         let time = [0.0, 0.5, 2.0, 3.0];
-        let values = time
-            .iter()
-            .map(|value| 3.0 * value + 2.0)
-            .collect::<Vec<_>>();
+        let values = time.iter().map(|value| 3.0 * value + 2.0).collect::<Vec<_>>();
         let derivative = cubic_spline_derivative(&time, &values).unwrap();
         assert!(derivative.iter().all(|value| (*value - 3.0).abs() < 1e-12));
     }

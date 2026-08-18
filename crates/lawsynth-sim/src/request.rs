@@ -80,15 +80,13 @@ impl SimulationRequest {
 
     /// Schedules a parameter value to take effect at `time`.
     pub fn with_scheduled_parameter(mut self, time: f64, id: Identifier, value: f64) -> Self {
-        self.scheduled_parameters
-            .push(ScheduledValue { time, id, value });
+        self.scheduled_parameters.push(ScheduledValue { time, id, value });
         self
     }
 
     /// Schedules a control/input value to take effect at `time`.
     pub fn with_scheduled_input(mut self, time: f64, id: Identifier, value: f64) -> Self {
-        self.scheduled_inputs
-            .push(ScheduledValue { time, id, value });
+        self.scheduled_inputs.push(ScheduledValue { time, id, value });
         self
     }
 
@@ -171,14 +169,9 @@ fn values_with(
     predicate: impl Fn(&ScheduledValue) -> bool,
 ) -> BTreeMap<Identifier, f64> {
     let mut values = base.clone();
-    let mut scheduled = scheduled
-        .iter()
-        .filter(|change| predicate(change))
-        .collect::<Vec<_>>();
+    let mut scheduled = scheduled.iter().filter(|change| predicate(change)).collect::<Vec<_>>();
     scheduled.sort_by(|left, right| {
-        left.time
-            .total_cmp(&right.time)
-            .then_with(|| left.id.cmp(&right.id))
+        left.time.total_cmp(&right.time).then_with(|| left.id.cmp(&right.id))
     });
     for change in scheduled {
         values.insert(change.id.clone(), change.value);

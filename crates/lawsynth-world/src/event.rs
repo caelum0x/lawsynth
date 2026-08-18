@@ -18,11 +18,7 @@ pub struct Event {
 
 impl Event {
     pub fn new(id: Identifier, time: f64, direction: EventDirection) -> Option<Self> {
-        time.is_finite().then_some(Self {
-            id,
-            time,
-            direction,
-        })
+        time.is_finite().then_some(Self { id, time, direction })
     }
 }
 

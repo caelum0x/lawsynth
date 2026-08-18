@@ -38,9 +38,7 @@ mod tests {
             Expr::product(Expr::symbol(id("x")), Expr::symbol(id("z"))),
         );
         assert_eq!(
-            expression_symbols(&expression)
-                .into_iter()
-                .collect::<Vec<_>>(),
+            expression_symbols(&expression).into_iter().collect::<Vec<_>>(),
             vec![id("x"), id("z")]
         );
     }

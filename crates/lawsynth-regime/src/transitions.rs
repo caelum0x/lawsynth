@@ -27,10 +27,7 @@ impl TransitionMatrix {
                 }
             })
             .collect();
-        Ok(Self {
-            probabilities,
-            counts,
-        })
+        Ok(Self { probabilities, counts })
     }
     pub fn probability(&self, from: usize, to: usize) -> Option<f64> {
         self.probabilities.get(from)?.get(to).copied()

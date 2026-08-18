@@ -26,15 +26,9 @@ impl Event {
     ) -> Result<Self, WasmError> {
         let name = name.into();
         if name.is_empty() || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-            return Err(WasmError::InvalidWorld(
-                "event name must be an identifier".into(),
-            ));
+            return Err(WasmError::InvalidWorld("event name must be an identifier".into()));
         }
-        Ok(Self {
-            name,
-            condition,
-            direction,
-        })
+        Ok(Self { name, condition, direction })
     }
     pub fn crosses(&self, before: f64, after: f64) -> bool {
         match self.direction {

@@ -23,15 +23,9 @@ pub fn profile_quadratic(
 ) -> Result<ProfileResult, UncertaintyError> {
     config.validate()?;
     if points.len() < 3 {
-        return Err(UncertaintyError::TooFewSamples {
-            minimum: 3,
-            actual: points.len(),
-        });
+        return Err(UncertaintyError::TooFewSamples { minimum: 3, actual: points.len() });
     }
-    if points
-        .iter()
-        .any(|p| !p.parameter.is_finite() || !p.objective.is_finite())
-    {
+    if points.iter().any(|p| !p.parameter.is_finite() || !p.objective.is_finite()) {
         return Err(UncertaintyError::NonFiniteValue);
     }
     let mut normal = [[0.0; 3]; 3];
@@ -84,9 +78,8 @@ fn solve_3(mut matrix: [[f64; 3]; 3], mut rhs: [f64; 3]) -> Result<[f64; 3], Unc
         for other in 0..3 {
             if other != pivot {
                 let factor = matrix[other][pivot];
-                for (target, source) in matrix[other][pivot..]
-                    .iter_mut()
-                    .zip(normalized_pivot[pivot..].iter())
+                for (target, source) in
+                    matrix[other][pivot..].iter_mut().zip(normalized_pivot[pivot..].iter())
                 {
                     *target -= factor * source;
                 }
@@ -122,12 +115,8 @@ fn inverse_normal(p: f64) -> f64 {
         4.374_664_141_464_97,
         2.938_163_982_698_78,
     ];
-    let d = [
-        0.007_784_695_709_041_46,
-        0.322_467_129_070_04,
-        2.445_134_137_143,
-        3.754_408_661_907_42,
-    ];
+    let d =
+        [0.007_784_695_709_041_46, 0.322_467_129_070_04, 2.445_134_137_143, 3.754_408_661_907_42];
     if p < 0.02425 {
         let q = (-2.0 * p.ln()).sqrt();
         return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5])

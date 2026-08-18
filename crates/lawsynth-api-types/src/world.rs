@@ -37,9 +37,7 @@ impl WorldRevision {
         }
         let canonical_sha256 = canonical_sha256.into();
         if canonical_sha256.len() != 64
-            || !canonical_sha256
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit())
+            || !canonical_sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
         {
             return Err(ApiValidationError::Invalid {
                 field: "canonical_sha256",

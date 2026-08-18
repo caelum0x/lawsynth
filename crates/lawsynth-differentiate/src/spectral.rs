@@ -31,13 +31,10 @@ pub fn spectral_derivative(time: &[f64], values: &[f64]) -> Result<Vec<f64>, Dif
     let count = values.len();
     let spectrum = (0..count)
         .map(|frequency| {
-            values
-                .iter()
-                .enumerate()
-                .fold((0.0, 0.0), |(real, imaginary), (index, value)| {
-                    let angle = TAU * frequency as f64 * index as f64 / count as f64;
-                    (real + value * angle.cos(), imaginary - value * angle.sin())
-                })
+            values.iter().enumerate().fold((0.0, 0.0), |(real, imaginary), (index, value)| {
+                let angle = TAU * frequency as f64 * index as f64 / count as f64;
+                (real + value * angle.cos(), imaginary - value * angle.sin())
+            })
         })
         .collect::<Vec<_>>();
     Ok((0..count)
@@ -70,13 +67,8 @@ mod tests {
     #[test]
     fn differentiates_a_periodic_sine_wave() {
         let count = 64;
-        let time = (0..count)
-            .map(|index| index as f64 / count as f64)
-            .collect::<Vec<_>>();
-        let values = time
-            .iter()
-            .map(|time| (TAU * time).sin())
-            .collect::<Vec<_>>();
+        let time = (0..count).map(|index| index as f64 / count as f64).collect::<Vec<_>>();
+        let values = time.iter().map(|time| (TAU * time).sin()).collect::<Vec<_>>();
         let derivative = spectral_derivative(&time, &values).unwrap();
         assert!(
             derivative

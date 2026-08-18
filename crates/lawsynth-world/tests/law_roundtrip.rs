@@ -8,11 +8,6 @@ fn event_marker_preserves_typed_identity_and_direction() {
     assert_eq!(event.id, id);
     assert!(crosses_zero(-0.01, 0.02, event.direction));
     assert!(
-        Event::new(
-            Identifier::new("invalid").unwrap(),
-            f64::NAN,
-            EventDirection::Any
-        )
-        .is_none()
+        Event::new(Identifier::new("invalid").unwrap(), f64::NAN, EventDirection::Any).is_none()
     );
 }

@@ -26,15 +26,9 @@ fn python_value_maps_drive_a_real_simulation_and_return_string_keyed_values() {
     let u = id("u");
     let rate = id("rate");
     let world = World::new(
-        [
-            Variable::new(x.clone(), VariableRole::State),
-            Variable::new(u, VariableRole::Control),
-        ],
+        [Variable::new(x.clone(), VariableRole::State), Variable::new(u, VariableRole::Control)],
         [Parameter::new(rate, 0.5)],
-        [ContinuousLaw::new(
-            x.clone(),
-            parse("rate * x + u").expect("valid law"),
-        )],
+        [ContinuousLaw::new(x.clone(), parse("rate * x + u").expect("valid law"))],
     )
     .expect("valid world");
     let request = request_from_values(
@@ -48,12 +42,9 @@ fn python_value_maps_drive_a_real_simulation_and_return_string_keyed_values() {
     assert_eq!(request.parameter_overrides[&id("rate")], 1.0);
     assert_eq!(request.inputs[&id("u")], 3.0);
 
-    let trajectory = simulate(
-        &world,
-        SimulationConfig::new(0.0, 0.5, 0.1).expect("valid grid"),
-        &request,
-    )
-    .expect("request should execute against the world");
+    let trajectory =
+        simulate(&world, SimulationConfig::new(0.0, 0.5, 0.1).expect("valid grid"), &request)
+            .expect("request should execute against the world");
     let values = trajectory_values(&trajectory);
 
     assert_eq!(trajectory.time.first(), Some(&0.0));

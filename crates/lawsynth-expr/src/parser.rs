@@ -181,9 +181,9 @@ impl Parser {
                     _ => Err(self.error("unknown function")),
                 }
             }
-            Token::Symbol(name) => Identifier::new(name)
-                .map(Expr::symbol)
-                .map_err(|_| self.error("invalid symbol")),
+            Token::Symbol(name) => {
+                Identifier::new(name).map(Expr::symbol).map_err(|_| self.error("invalid symbol"))
+            }
             Token::LeftParen => {
                 let expression = self.sum()?;
                 if matches!(self.advance().1, Token::RightParen) {
@@ -209,10 +209,7 @@ impl Parser {
     }
 
     fn error(&self, message: &str) -> ParseError {
-        ParseError {
-            position: self.tokens[self.index].0,
-            message: message.to_owned(),
-        }
+        ParseError { position: self.tokens[self.index].0, message: message.to_owned() }
     }
 }
 
@@ -227,11 +224,9 @@ mod tests {
     #[test]
     fn respects_precedence_and_functions() {
         let expression = parse("2 * x + log(exp(1))").unwrap();
-        let value = evaluate(
-            &expression,
-            &Environment::from([(Identifier::new("x").unwrap(), 3.0)]),
-        )
-        .unwrap();
+        let value =
+            evaluate(&expression, &Environment::from([(Identifier::new("x").unwrap(), 3.0)]))
+                .unwrap();
         assert!((value - 7.0).abs() < 1e-12);
     }
 

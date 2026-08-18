@@ -44,9 +44,5 @@ pub fn classify_result<T>(
         ),
         Err(error) => (ExecutionStatus::Failed, Some(error.to_string())),
     };
-    ExecutionReport {
-        work_id: work_id.into(),
-        status,
-        message,
-    }
+    ExecutionReport { work_id: work_id.into(), status, message }
 }

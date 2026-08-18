@@ -6,15 +6,8 @@ pub enum Expression {
     Constant(f64),
     Variable(String),
     Neg(Box<Self>),
-    Binary {
-        op: BinaryOp,
-        left: Box<Self>,
-        right: Box<Self>,
-    },
-    Function {
-        name: Function,
-        argument: Box<Self>,
-    },
+    Binary { op: BinaryOp, left: Box<Self>, right: Box<Self> },
+    Function { name: Function, argument: Box<Self> },
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BinaryOp {
@@ -39,9 +32,7 @@ impl Expression {
         let mut parser = Parser::new(tokenize(source)?);
         let expression = parser.sum()?;
         if parser.peek().is_some() {
-            return Err(WasmError::InvalidExpression(
-                "unexpected trailing token".into(),
-            ));
+            return Err(WasmError::InvalidExpression("unexpected trailing token".into()));
         }
         Ok(expression)
     }
@@ -97,9 +88,7 @@ impl Expression {
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(WasmError::Simulation(
-                "expression evaluated to a non-finite value".into(),
-            ))
+            Err(WasmError::Simulation("expression evaluated to a non-finite value".into()))
         }
     }
     pub fn source(&self) -> String {
@@ -221,9 +210,7 @@ fn tokenize(source: &str) -> Result<Vec<Token>, WasmError> {
                 Token::Name(chars[start..at].iter().collect())
             }
             _ => {
-                return Err(WasmError::InvalidExpression(format!(
-                    "unsupported character {c}"
-                )));
+                return Err(WasmError::InvalidExpression(format!("unsupported character {c}")));
             }
         };
         tokens.push(token);
@@ -258,11 +245,8 @@ impl Parser {
                 _ => return Ok(left),
             };
             self.take();
-            left = Expression::Binary {
-                op,
-                left: Box::new(left),
-                right: Box::new(self.product()?),
-            };
+            left =
+                Expression::Binary { op, left: Box::new(left), right: Box::new(self.product()?) };
         }
     }
     fn product(&mut self) -> Result<Expression, WasmError> {
@@ -274,11 +258,7 @@ impl Parser {
                 _ => return Ok(left),
             };
             self.take();
-            left = Expression::Binary {
-                op,
-                left: Box::new(left),
-                right: Box::new(self.power()?),
-            };
+            left = Expression::Binary { op, left: Box::new(left), right: Box::new(self.power()?) };
         }
     }
     fn power(&mut self) -> Result<Expression, WasmError> {
@@ -309,9 +289,7 @@ impl Parser {
                 self.take();
                 let argument = self.sum()?;
                 if !matches!(self.take(), Some(Token::RightParen)) {
-                    return Err(WasmError::InvalidExpression(
-                        "unclosed function call".into(),
-                    ));
+                    return Err(WasmError::InvalidExpression("unclosed function call".into()));
                 }
                 let function = match name.as_str() {
                     "sin" => Function::Sin,
@@ -326,10 +304,7 @@ impl Parser {
                         )));
                     }
                 };
-                Ok(Expression::Function {
-                    name: function,
-                    argument: Box::new(argument),
-                })
+                Ok(Expression::Function { name: function, argument: Box::new(argument) })
             }
             Some(Token::Name(name)) => Ok(Expression::Variable(name)),
             Some(Token::LeftParen) => {
@@ -339,9 +314,7 @@ impl Parser {
                 }
                 Ok(expression)
             }
-            _ => Err(WasmError::InvalidExpression(
-                "expected an expression".into(),
-            )),
+            _ => Err(WasmError::InvalidExpression("expected an expression".into())),
         }
     }
 }

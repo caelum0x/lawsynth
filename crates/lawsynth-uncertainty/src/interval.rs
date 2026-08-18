@@ -29,8 +29,5 @@ pub fn confidence_interval(
         return Err(UncertaintyError::InsufficientResamples);
     }
     let tail = (1.0 - config.confidence) / 2.0;
-    Ok((
-        percentile(&result.estimates, tail)?,
-        percentile(&result.estimates, 1.0 - tail)?,
-    ))
+    Ok((percentile(&result.estimates, tail)?, percentile(&result.estimates, 1.0 - tail)?))
 }

@@ -41,10 +41,6 @@ pub fn moments(values: &[f64]) -> Result<MomentSummary, StatsError> {
         maximum,
         mean,
         population_variance: squared_deviation / count as f64,
-        sample_variance: if count > 1 {
-            squared_deviation / (count - 1) as f64
-        } else {
-            0.0
-        },
+        sample_variance: if count > 1 { squared_deviation / (count - 1) as f64 } else { 0.0 },
     })
 }

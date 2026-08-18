@@ -33,17 +33,10 @@ impl Samples {
     /// Unbiased sample variance.
     pub fn variance(&self) -> Result<f64, UncertaintyError> {
         if self.len() < 2 {
-            return Err(UncertaintyError::TooFewSamples {
-                minimum: 2,
-                actual: self.len(),
-            });
+            return Err(UncertaintyError::TooFewSamples { minimum: 2, actual: self.len() });
         }
         let mean = self.mean();
-        Ok(self
-            .values
-            .iter()
-            .map(|value| (value - mean).powi(2))
-            .sum::<f64>()
+        Ok(self.values.iter().map(|value| (value - mean).powi(2)).sum::<f64>()
             / (self.len() - 1) as f64)
     }
 

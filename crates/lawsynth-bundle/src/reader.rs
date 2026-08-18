@@ -30,30 +30,24 @@ pub fn read_discrete_world(path: impl AsRef<Path>) -> Result<DiscreteWorld, Bund
 
 fn read_world_bytes(path: impl AsRef<Path>) -> Result<Vec<u8>, BundleError> {
     let entries = read_archive(&fs::read(path)?)?;
-    let manifest_contents = entries
-        .get(MANIFEST_PATH)
-        .ok_or(BundleError::MissingEntry(MANIFEST_PATH))?;
+    let manifest_contents =
+        entries.get(MANIFEST_PATH).ok_or(BundleError::MissingEntry(MANIFEST_PATH))?;
     if manifest_contents.as_slice() != manifest::contents() {
         return Err(BundleError::InvalidArchive("unsupported manifest"));
     }
     verify_checksums(&entries)?;
-    Ok(entries
-        .get(WORLD_PATH)
-        .ok_or(BundleError::MissingEntry(WORLD_PATH))?
-        .clone())
+    Ok(entries.get(WORLD_PATH).ok_or(BundleError::MissingEntry(WORLD_PATH))?.clone())
 }
 
 fn verify_checksums(entries: &BTreeMap<String, Vec<u8>>) -> Result<(), BundleError> {
-    let checksum_file = entries
-        .get(CHECKSUM_PATH)
-        .ok_or(BundleError::MissingEntry(CHECKSUM_PATH))?;
+    let checksum_file =
+        entries.get(CHECKSUM_PATH).ok_or(BundleError::MissingEntry(CHECKSUM_PATH))?;
     let checksum_file = std::str::from_utf8(checksum_file)
         .map_err(|_| BundleError::InvalidArchive("checksum file is not UTF-8"))?;
     let mut expected = BTreeMap::new();
     for line in checksum_file.lines() {
-        let (hash, path) = line
-            .split_once("  ")
-            .ok_or(BundleError::InvalidArchive("invalid checksum line"))?;
+        let (hash, path) =
+            line.split_once("  ").ok_or(BundleError::InvalidArchive("invalid checksum line"))?;
         if hash.len() != 64 || path.is_empty() {
             return Err(BundleError::InvalidArchive("invalid checksum line"));
         }
@@ -73,9 +67,7 @@ fn verify_checksums(entries: &BTreeMap<String, Vec<u8>>) -> Result<(), BundleErr
         }
     }
     if !expected.is_empty() {
-        return Err(BundleError::InvalidArchive(
-            "checksum references a missing entry",
-        ));
+        return Err(BundleError::InvalidArchive("checksum references a missing entry"));
     }
     Ok(())
 }
@@ -85,8 +77,7 @@ pub(crate) fn decode_world(bytes: &[u8]) -> Result<World, BundleError> {
     World::new(
         variables,
         parameters,
-        laws.into_iter()
-            .map(|(target, expression)| ContinuousLaw::new(target, expression)),
+        laws.into_iter().map(|(target, expression)| ContinuousLaw::new(target, expression)),
     )
     .map_err(Into::into)
 }
@@ -96,8 +87,7 @@ pub(crate) fn decode_discrete_world(bytes: &[u8]) -> Result<DiscreteWorld, Bundl
     DiscreteWorld::new(
         variables,
         parameters,
-        laws.into_iter()
-            .map(|(target, expression)| DiscreteLaw::new(target, expression)),
+        laws.into_iter().map(|(target, expression)| DiscreteLaw::new(target, expression)),
     )
     .map_err(Into::into)
 }
@@ -176,9 +166,7 @@ fn take_expr(cursor: &mut Cursor<'_>, depth: u8) -> Result<Expr, BundleError> {
             if value.is_finite() {
                 Ok(Expr::constant(value))
             } else {
-                Err(BundleError::InvalidWorld(
-                    "expression constants must be finite",
-                ))
+                Err(BundleError::InvalidWorld("expression constants must be finite"))
             }
         }
         1 => Ok(Expr::symbol(take_identifier(cursor)?)),
@@ -202,11 +190,7 @@ fn take_expr(cursor: &mut Cursor<'_>, depth: u8) -> Result<Expr, BundleError> {
                 4 => BinaryOperator::Power,
                 _ => return Err(BundleError::InvalidWorld("unknown binary operator")),
             };
-            Ok(Expr::binary(
-                operator,
-                take_expr(cursor, depth + 1)?,
-                take_expr(cursor, depth + 1)?,
-            ))
+            Ok(Expr::binary(operator, take_expr(cursor, depth + 1)?, take_expr(cursor, depth + 1)?))
         }
         _ => Err(BundleError::InvalidWorld("unknown expression tag")),
     }
@@ -226,9 +210,7 @@ fn take_optional_string(cursor: &mut Cursor<'_>) -> Result<Option<String>, Bundl
 }
 
 fn take_string(cursor: &mut Cursor<'_>) -> Result<String, BundleError> {
-    let length = usize::from(u16::from_le_bytes(
-        cursor.take_exact(2)?.try_into().unwrap(),
-    ));
+    let length = usize::from(u16::from_le_bytes(cursor.take_exact(2)?.try_into().unwrap()));
     let bytes = cursor.take_exact(length)?;
     String::from_utf8(bytes.to_vec()).map_err(|_| BundleError::InvalidWorld("string is not UTF-8"))
 }

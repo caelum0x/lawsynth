@@ -4,16 +4,8 @@ use std::{hint::black_box, time::Instant};
 
 fn main() {
     let schedule = RegimeSchedule::new(vec![
-        RegimeInterval {
-            regime: Identifier::new("warm").unwrap(),
-            start: 0.0,
-            end: 10.0,
-        },
-        RegimeInterval {
-            regime: Identifier::new("cold").unwrap(),
-            start: 10.0,
-            end: 20.0,
-        },
+        RegimeInterval { regime: Identifier::new("warm").unwrap(), start: 0.0, end: 10.0 },
+        RegimeInterval { regime: Identifier::new("cold").unwrap(), start: 10.0, end: 20.0 },
     ])
     .unwrap();
     let started = Instant::now();

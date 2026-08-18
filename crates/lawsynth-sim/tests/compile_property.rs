@@ -19,15 +19,11 @@ fn compiled_plans_preserve_world_law_order_and_targets() {
     )
     .unwrap();
     assert_eq!(
-        CompiledContinuousWorld::compile(&continuous)
-            .law_targets()
-            .collect::<Vec<_>>(),
+        CompiledContinuousWorld::compile(&continuous).law_targets().collect::<Vec<_>>(),
         vec![&x]
     );
     assert_eq!(
-        CompiledDiscreteWorld::compile(&discrete)
-            .law_targets()
-            .collect::<Vec<_>>(),
+        CompiledDiscreteWorld::compile(&discrete).law_targets().collect::<Vec<_>>(),
         vec![&x]
     );
 }

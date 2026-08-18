@@ -23,10 +23,9 @@ impl fmt::Display for RegimeError {
             Self::DimensionMismatch { expected, actual } => {
                 write!(f, "dimension mismatch: expected {expected}, got {actual}")
             }
-            Self::InvalidProbability => write!(
-                f,
-                "probabilities must be finite, non-negative, and normalized"
-            ),
+            Self::InvalidProbability => {
+                write!(f, "probabilities must be finite, non-negative, and normalized")
+            }
             Self::ImpossibleObservation { index } => {
                 write!(f, "no state can emit observation at index {index}")
             }

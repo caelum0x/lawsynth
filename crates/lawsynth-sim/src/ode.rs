@@ -61,14 +61,7 @@ pub fn simulate(
         .parameters()
         .iter()
         .map(|(id, parameter)| {
-            (
-                id.clone(),
-                request
-                    .parameter_overrides
-                    .get(id)
-                    .copied()
-                    .unwrap_or(parameter.value),
-            )
+            (id.clone(), request.parameter_overrides.get(id).copied().unwrap_or(parameter.value))
         })
         .collect();
     let compiled = CompiledContinuousWorld::compile(world);
@@ -163,20 +156,14 @@ fn derivatives(
     } else {
         request.input_values_before(time)
     };
-    evaluate_continuous(
-        compiled,
-        &SimulationContext::new(state.clone(), parameters, inputs),
-    )
+    evaluate_continuous(compiled, &SimulationContext::new(state.clone(), parameters, inputs))
 }
 
 fn ensure_finite(name: &Identifier, value: f64) -> Result<(), SimulationError> {
     if value.is_finite() {
         Ok(())
     } else {
-        Err(SimulationError::NonFiniteInput {
-            name: name.clone(),
-            value,
-        })
+        Err(SimulationError::NonFiniteInput { name: name.clone(), value })
     }
 }
 
@@ -239,12 +226,8 @@ mod tests {
         let request = SimulationRequest::default()
             .with_initial(id("x"), 1.0)
             .with_parameter_override(id("rate"), 2.0);
-        let trajectory = simulate(
-            &world,
-            SimulationConfig::new(0.0, 1.0, 0.01).unwrap(),
-            &request,
-        )
-        .unwrap();
+        let trajectory =
+            simulate(&world, SimulationConfig::new(0.0, 1.0, 0.01).unwrap(), &request).unwrap();
         assert!((trajectory.values[&id("x")].last().unwrap() - 2.0_f64.exp()).abs() < 2e-7);
     }
 
@@ -262,12 +245,8 @@ mod tests {
         let request = SimulationRequest::default()
             .with_initial(id("x"), 0.0)
             .with_scheduled_parameter(0.5, id("rate"), 3.0);
-        let trajectory = simulate(
-            &world,
-            SimulationConfig::new(0.0, 1.0, 1.0).unwrap(),
-            &request,
-        )
-        .unwrap();
+        let trajectory =
+            simulate(&world, SimulationConfig::new(0.0, 1.0, 1.0).unwrap(), &request).unwrap();
         assert_eq!(trajectory.time, vec![0.0, 0.5, 1.0]);
         assert!((trajectory.values[&id("x")][2] - 2.0).abs() < 1e-12);
     }
@@ -282,17 +261,9 @@ mod tests {
         .unwrap();
         let request = SimulationRequest::default()
             .with_initial(id("x"), 0.0)
-            .with_intervention(lawsynth_world::Intervention::parameter(
-                0.5,
-                id("rate"),
-                3.0,
-            ));
-        let trajectory = simulate(
-            &world,
-            SimulationConfig::new(0.0, 1.0, 1.0).unwrap(),
-            &request,
-        )
-        .unwrap();
+            .with_intervention(lawsynth_world::Intervention::parameter(0.5, id("rate"), 3.0));
+        let trajectory =
+            simulate(&world, SimulationConfig::new(0.0, 1.0, 1.0).unwrap(), &request).unwrap();
         assert!((trajectory.values[&id("x")][2] - 2.0).abs() < 1e-12);
     }
 }

@@ -14,10 +14,6 @@ impl Default for DynamicsConfig {
 
 impl DynamicsConfig {
     pub fn validate(self) -> Result<(), DynamicsError> {
-        if self.minimum_samples < 2 {
-            Err(DynamicsError::InvalidConfig)
-        } else {
-            Ok(())
-        }
+        if self.minimum_samples < 2 { Err(DynamicsError::InvalidConfig) } else { Ok(()) }
     }
 }

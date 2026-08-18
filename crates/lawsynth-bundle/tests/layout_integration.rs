@@ -22,17 +22,12 @@ fn temporary_path(name: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
         "lawsynth-layout-{name}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     ))
 }
 
 fn u16_at(bytes: &[u8], offset: usize) -> usize {
-    usize::from(u16::from_le_bytes(
-        bytes[offset..offset + 2].try_into().unwrap(),
-    ))
+    usize::from(u16::from_le_bytes(bytes[offset..offset + 2].try_into().unwrap()))
 }
 
 fn u32_at(bytes: &[u8], offset: usize) -> usize {
@@ -67,14 +62,7 @@ fn writer_emits_a_deterministic_stored_zip_with_the_canonical_bundle_layout() {
         entries.push(std::str::from_utf8(&bytes[name_start..name_end]).unwrap());
         central = name_end + extra_len + comment_len;
     }
-    assert_eq!(
-        entries,
-        [
-            "manifest.json",
-            "provenance/checksums.sha256",
-            "world/world.bin"
-        ]
-    );
+    assert_eq!(entries, ["manifest.json", "provenance/checksums.sha256", "world/world.bin"]);
     assert_eq!(read_world(&first).unwrap(), expected);
     fs::remove_file(first).unwrap();
     fs::remove_file(second).unwrap();

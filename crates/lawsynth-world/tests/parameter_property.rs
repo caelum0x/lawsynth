@@ -20,10 +20,7 @@ fn parameter_validation_is_finite_and_can_explicitly_defer_symbol_validation() {
         [Variable::new(x.clone(), VariableRole::State)],
         [],
         [ContinuousLaw::new(x, Expr::symbol(rate))],
-        WorldConfig {
-            validate_expression_symbols: false,
-            validate_units: false,
-        },
+        WorldConfig { validate_expression_symbols: false, validate_units: false },
     );
     assert!(deferred.is_ok());
 }

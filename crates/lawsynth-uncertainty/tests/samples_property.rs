@@ -10,14 +10,8 @@ fn validated_samples_compute_unbiased_moments() {
 
 #[test]
 fn samples_reject_empty_nonfinite_and_singleton_variance() {
-    assert_eq!(
-        Samples::new(vec![]).unwrap_err(),
-        UncertaintyError::EmptyInput
-    );
-    assert_eq!(
-        Samples::new(vec![f64::NAN]).unwrap_err(),
-        UncertaintyError::NonFiniteValue
-    );
+    assert_eq!(Samples::new(vec![]).unwrap_err(), UncertaintyError::EmptyInput);
+    assert_eq!(Samples::new(vec![f64::NAN]).unwrap_err(), UncertaintyError::NonFiniteValue);
     assert!(matches!(
         Samples::new(vec![1.0]).unwrap().variance(),
         Err(UncertaintyError::TooFewSamples { .. })

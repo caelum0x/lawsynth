@@ -12,16 +12,8 @@ pub struct Bundle {
 impl Bundle {
     pub fn new(world: World, events: Vec<Event>) -> Result<Self, WasmError> {
         for event in &events {
-            if events
-                .iter()
-                .filter(|other| other.name == event.name)
-                .count()
-                != 1
-            {
-                return Err(WasmError::InvalidBundle(format!(
-                    "duplicate event {}",
-                    event.name
-                )));
+            if events.iter().filter(|other| other.name == event.name).count() != 1 {
+                return Err(WasmError::InvalidBundle(format!("duplicate event {}", event.name)));
             }
         }
         Ok(Self { world, events })
@@ -54,9 +46,7 @@ impl Bundle {
             return Err(WasmError::InvalidBundle("invalid bundle magic".into()));
         }
         if reader.byte()? != VERSION {
-            return Err(WasmError::InvalidBundle(
-                "unsupported bundle version".into(),
-            ));
+            return Err(WasmError::InvalidBundle("unsupported bundle version".into()));
         }
         let variables_len = reader.u32()? as usize;
         if variables_len == 0 || variables_len > 100_000 {
@@ -84,11 +74,7 @@ impl Bundle {
                 2 => EventDirection::Falling,
                 _ => return Err(WasmError::InvalidBundle("invalid event direction".into())),
             };
-            events.push(Event::new(
-                name,
-                Expression::parse(&reader.string()?)?,
-                direction,
-            )?);
+            events.push(Event::new(name, Expression::parse(&reader.string()?)?, direction)?);
         }
         if reader.at != bytes.len() {
             return Err(WasmError::InvalidBundle("trailing bundle data".into()));

@@ -25,19 +25,11 @@ pub struct Intervention {
 
 impl Intervention {
     pub fn parameter(time: f64, id: Identifier, value: f64) -> Self {
-        Self {
-            time,
-            target: InterventionTarget::Parameter(id),
-            value,
-        }
+        Self { time, target: InterventionTarget::Parameter(id), value }
     }
 
     pub fn input(time: f64, id: Identifier, value: f64) -> Self {
-        Self {
-            time,
-            target: InterventionTarget::Input(id),
-            value,
-        }
+        Self { time, target: InterventionTarget::Input(id), value }
     }
 }
 

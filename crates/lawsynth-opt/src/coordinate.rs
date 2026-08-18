@@ -37,10 +37,7 @@ where
     {
         return Err(OptimizationError::InvalidConfig);
     }
-    let mut parameters = initial
-        .iter()
-        .map(|value| bounds.clamp(*value))
-        .collect::<Vec<_>>();
+    let mut parameters = initial.iter().map(|value| bounds.clamp(*value)).collect::<Vec<_>>();
     let mut best = checked_objective(&objective, &parameters)?;
     let mut step = config.initial_step;
     for iteration in 0..config.max_iterations {
@@ -49,22 +46,10 @@ where
             let original = parameters[coordinate];
             let negative = bounds.clamp(original - step);
             let positive = bounds.clamp(original + step);
-            let negative_score = score_proposal(
-                &objective,
-                &mut parameters,
-                coordinate,
-                original,
-                negative,
-                best,
-            )?;
-            let positive_score = score_proposal(
-                &objective,
-                &mut parameters,
-                coordinate,
-                original,
-                positive,
-                best,
-            )?;
+            let negative_score =
+                score_proposal(&objective, &mut parameters, coordinate, original, negative, best)?;
+            let positive_score =
+                score_proposal(&objective, &mut parameters, coordinate, original, positive, best)?;
             if negative_score <= positive_score && negative_score < best {
                 parameters[coordinate] = negative;
                 best = negative_score;
@@ -120,11 +105,7 @@ where
     F: Fn(&[f64]) -> f64,
 {
     let value = objective(parameters);
-    if value.is_finite() {
-        Ok(value)
-    } else {
-        Err(OptimizationError::NonFiniteObjective)
-    }
+    if value.is_finite() { Ok(value) } else { Err(OptimizationError::NonFiniteObjective) }
 }
 
 #[cfg(test)]
@@ -136,11 +117,7 @@ mod tests {
         let result = coordinate_minimize(
             &[0.0, 0.0],
             ParameterBounds::new(-10.0, 10.0).unwrap(),
-            CoordinateConfig {
-                initial_step: 2.0,
-                minimum_step: 1e-6,
-                max_iterations: 200,
-            },
+            CoordinateConfig { initial_step: 2.0, minimum_step: 1e-6, max_iterations: 200 },
             |parameters| (parameters[0] - 1.5).powi(2) + (parameters[1] + 2.25).powi(2),
         )
         .unwrap();

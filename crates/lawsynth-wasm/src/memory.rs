@@ -8,20 +8,14 @@ pub struct MemoryBudget {
 impl MemoryBudget {
     pub fn new(limit: usize) -> Result<Self, WasmError> {
         if limit == 0 {
-            return Err(WasmError::MemoryLimit {
-                requested: 1,
-                available: 0,
-            });
+            return Err(WasmError::MemoryLimit { requested: 1, available: 0 });
         }
         Ok(Self { limit, used: 0 })
     }
     pub fn reserve(&mut self, bytes: usize) -> Result<(), WasmError> {
         let available = self.limit.saturating_sub(self.used);
         if bytes > available {
-            return Err(WasmError::MemoryLimit {
-                requested: bytes,
-                available,
-            });
+            return Err(WasmError::MemoryLimit { requested: bytes, available });
         }
         self.used += bytes;
         Ok(())

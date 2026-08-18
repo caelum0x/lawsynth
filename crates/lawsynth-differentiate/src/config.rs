@@ -7,8 +7,6 @@ pub struct DerivativeConfig {
 
 impl Default for DerivativeConfig {
     fn default() -> Self {
-        Self {
-            method: DerivativeMethod::FiniteDifference,
-        }
+        Self { method: DerivativeMethod::FiniteDifference }
     }
 }

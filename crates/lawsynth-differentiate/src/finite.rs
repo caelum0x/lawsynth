@@ -64,11 +64,8 @@ pub fn differentiate_dataset_with_config(
             })
         })
         .collect::<Result<Vec<_>, DifferentiationError>>()?;
-    Dataset::new(
-        TimeAxis::new(time.to_vec()).expect("source time axis is valid"),
-        columns,
-    )
-    .map_err(|_| DifferentiationError::LengthMismatch)
+    Dataset::new(TimeAxis::new(time.to_vec()).expect("source time axis is valid"), columns)
+        .map_err(|_| DifferentiationError::LengthMismatch)
 }
 
 #[cfg(test)]

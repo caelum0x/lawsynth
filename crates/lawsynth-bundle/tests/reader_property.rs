@@ -13,10 +13,7 @@ fn world() -> World {
     World::new(
         [Variable::new(id("x"), VariableRole::State)],
         [],
-        [ContinuousLaw::new(
-            id("x"),
-            Expr::difference(Expr::constant(2.0), Expr::symbol(id("x"))),
-        )],
+        [ContinuousLaw::new(id("x"), Expr::difference(Expr::constant(2.0), Expr::symbol(id("x"))))],
     )
     .unwrap()
 }
@@ -25,17 +22,12 @@ fn temporary_path(name: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
         "lawsynth-reader-{name}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     ))
 }
 
 fn u16_at(bytes: &[u8], offset: usize) -> usize {
-    usize::from(u16::from_le_bytes(
-        bytes[offset..offset + 2].try_into().unwrap(),
-    ))
+    usize::from(u16::from_le_bytes(bytes[offset..offset + 2].try_into().unwrap()))
 }
 
 fn u32_at(bytes: &[u8], offset: usize) -> usize {

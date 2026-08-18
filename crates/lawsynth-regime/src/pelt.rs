@@ -60,12 +60,7 @@ pub fn pelt(data: &[f64], config: SegmentationConfig) -> Result<Segmentation> {
         .into_iter()
         .map(|(a, b)| {
             let m = segment_moments(data, a, b)?;
-            Ok(Segment {
-                start: a,
-                end: b,
-                mean: m.mean,
-                sum_squared_error: m.sum_squared_error,
-            })
+            Ok(Segment { start: a, end: b, mean: m.mean, sum_squared_error: m.sum_squared_error })
         })
         .collect::<Result<Vec<_>>>()?;
     Segmentation::new(segments, best[n], n)

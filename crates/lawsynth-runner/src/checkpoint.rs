@@ -19,23 +19,14 @@ impl Checkpoint {
             return Err(RunnerError::CheckpointRejected("payload must not be empty"));
         }
         if payload.len() > maximum_payload_bytes {
-            return Err(RunnerError::CheckpointRejected(
-                "payload exceeds configured size limit",
-            ));
+            return Err(RunnerError::CheckpointRejected("payload exceeds configured size limit"));
         }
         let checksum = checksum(&payload);
-        Ok(Self {
-            sequence,
-            created_at_ms,
-            payload,
-            checksum,
-        })
+        Ok(Self { sequence, created_at_ms, payload, checksum })
     }
     pub fn verify(&self) -> Result<(), RunnerError> {
         if checksum(&self.payload) != self.checksum {
-            return Err(RunnerError::CheckpointRejected(
-                "checksum does not match payload",
-            ));
+            return Err(RunnerError::CheckpointRejected("checksum does not match payload"));
         }
         Ok(())
     }

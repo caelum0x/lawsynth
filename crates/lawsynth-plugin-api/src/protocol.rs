@@ -37,11 +37,7 @@ pub struct Frame {
 }
 impl Frame {
     pub fn new(kind: FrameKind, request_id: u64, payload: Vec<u8>) -> Result<Self, PluginError> {
-        let frame = Self {
-            kind,
-            request_id,
-            payload,
-        };
+        let frame = Self { kind, request_id, payload };
         frame.validate()?;
         Ok(frame)
     }
@@ -76,14 +72,10 @@ impl Frame {
         }
         let version = u16::from_be_bytes(bytes[4..6].try_into().expect("fixed slice"));
         if version != PROTOCOL_VERSION {
-            return Err(PluginError::Protocol(format!(
-                "unsupported protocol version {version}"
-            )));
+            return Err(PluginError::Protocol(format!("unsupported protocol version {version}")));
         }
         if bytes[7] != 0 {
-            return Err(PluginError::Protocol(
-                "reserved frame byte must be zero".into(),
-            ));
+            return Err(PluginError::Protocol("reserved frame byte must be zero".into()));
         }
         let kind = FrameKind::try_from(bytes[6])?;
         let request_id = u64::from_be_bytes(bytes[8..16].try_into().expect("fixed slice"));

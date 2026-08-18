@@ -15,13 +15,9 @@ impl fmt::Display for RunnerError {
         match self {
             Self::InvalidConfig(reason) => write!(formatter, "invalid runner config: {reason}"),
             Self::InvalidEnvelope(reason) => write!(formatter, "invalid work envelope: {reason}"),
-            Self::CapacityExceeded {
-                requested,
-                available,
-            } => write!(
-                formatter,
-                "requested {requested} units; only {available} available"
-            ),
+            Self::CapacityExceeded { requested, available } => {
+                write!(formatter, "requested {requested} units; only {available} available")
+            }
             Self::Cancelled { reason } => write!(formatter, "work cancelled: {reason}"),
             Self::CheckpointRejected(reason) => write!(formatter, "checkpoint rejected: {reason}"),
             Self::ProcessFailed(reason) => write!(formatter, "process failed: {reason}"),

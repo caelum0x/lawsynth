@@ -35,11 +35,7 @@ pub fn tvreg_smoothed_series(
     for _ in 0..iterations {
         let previous_auxiliary = auxiliary.clone();
         let mut right_hand_side = values.to_vec();
-        let adjusted = auxiliary
-            .iter()
-            .zip(&dual)
-            .map(|(z, u)| z - u)
-            .collect::<Vec<_>>();
+        let adjusted = auxiliary.iter().zip(&dual).map(|(z, u)| z - u).collect::<Vec<_>>();
         right_hand_side[0] -= RHO * adjusted[0];
         for index in 1..count - 1 {
             right_hand_side[index] += RHO * (adjusted[index - 1] - adjusted[index]);
@@ -94,13 +90,7 @@ fn solve_identity_plus_difference_laplacian(
 ) -> Result<Vec<f64>, DifferentiationError> {
     let count = right_hand_side.len();
     let mut diagonal = (0..count)
-        .map(|index| {
-            if index == 0 || index + 1 == count {
-                1.0 + rho
-            } else {
-                1.0 + 2.0 * rho
-            }
-        })
+        .map(|index| if index == 0 || index + 1 == count { 1.0 + rho } else { 1.0 + 2.0 * rho })
         .collect::<Vec<_>>();
     let mut right = right_hand_side.to_vec();
     for index in 1..count {
@@ -108,10 +98,7 @@ fn solve_identity_plus_difference_laplacian(
         diagonal[index] += rho * factor;
         right[index] -= factor * right[index - 1];
     }
-    if diagonal
-        .iter()
-        .any(|value| !value.is_finite() || value.abs() <= f64::EPSILON)
-    {
+    if diagonal.iter().any(|value| !value.is_finite() || value.abs() <= f64::EPSILON) {
         return Err(DifferentiationError::SingularFit);
     }
     let mut solution = vec![0.0; count];

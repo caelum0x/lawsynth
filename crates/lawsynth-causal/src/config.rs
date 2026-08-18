@@ -9,11 +9,7 @@ pub struct CausalConfig {
 
 impl Default for CausalConfig {
     fn default() -> Self {
-        Self {
-            max_lag: 1,
-            min_samples: 12,
-            singular_tolerance: 1e-12,
-        }
+        Self { max_lag: 1, min_samples: 12, singular_tolerance: 1e-12 }
     }
 }
 

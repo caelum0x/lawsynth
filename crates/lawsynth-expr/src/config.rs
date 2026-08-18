@@ -8,9 +8,7 @@ pub struct ExpressionConfig {
 
 impl Default for ExpressionConfig {
     fn default() -> Self {
-        Self {
-            maximum_nodes: 1_024,
-        }
+        Self { maximum_nodes: 1_024 }
     }
 }
 

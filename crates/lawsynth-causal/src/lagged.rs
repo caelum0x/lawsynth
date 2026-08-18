@@ -10,10 +10,7 @@ pub fn lagged_observations(series: &[f64], lag: usize) -> Result<Vec<LaggedObser
         return Err(CausalError::InvalidParameter("lag"));
     }
     if series.len() <= lag {
-        return Err(CausalError::InsufficientSamples {
-            required: lag + 1,
-            actual: series.len(),
-        });
+        return Err(CausalError::InsufficientSamples { required: lag + 1, actual: series.len() });
     }
     if series.iter().any(|v| !v.is_finite()) {
         return Err(CausalError::InvalidParameter("series"));

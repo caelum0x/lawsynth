@@ -32,9 +32,7 @@ impl ResourceLimits {
             ));
         }
         if self.max_memory_bytes > 8 * 1024 * 1024 * 1024 {
-            return Err(PluginError::InvalidLimits(
-                "memory limit exceeds host maximum".into(),
-            ));
+            return Err(PluginError::InvalidLimits("memory limit exceeds host maximum".into()));
         }
         if self.max_output_bytes > self.max_memory_bytes {
             return Err(PluginError::InvalidLimits(

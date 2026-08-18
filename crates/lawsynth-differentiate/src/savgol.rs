@@ -42,9 +42,7 @@ fn solve_3x3(
     for pivot in 0..3 {
         let best = (pivot..3)
             .max_by(|left, right| {
-                matrix[*left][pivot]
-                    .abs()
-                    .total_cmp(&matrix[*right][pivot].abs())
+                matrix[*left][pivot].abs().total_cmp(&matrix[*right][pivot].abs())
             })
             .expect("three by three system has a pivot");
         if matrix[best][pivot].abs() < 1e-14 {
@@ -82,10 +80,7 @@ mod tests {
         let values = time.iter().map(|value| value * value).collect::<Vec<_>>();
         let derivative = savgol_series(&time, &values, 5).unwrap();
         assert!(
-            derivative
-                .iter()
-                .zip(time)
-                .all(|(actual, time)| (actual - 2.0 * time).abs() < 1e-10)
+            derivative.iter().zip(time).all(|(actual, time)| (actual - 2.0 * time).abs() < 1e-10)
         );
     }
 }

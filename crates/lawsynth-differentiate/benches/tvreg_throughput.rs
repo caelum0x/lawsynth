@@ -9,8 +9,5 @@ fn main() {
     for _ in 0..100 {
         len += black_box(tvreg_series(&time, &values, 0.05, 40).unwrap()).len();
     }
-    println!(
-        "regularized {len} derivative samples in {:?}",
-        started.elapsed()
-    );
+    println!("regularized {len} derivative samples in {:?}", started.elapsed());
 }

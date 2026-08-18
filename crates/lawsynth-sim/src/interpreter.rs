@@ -30,10 +30,7 @@ fn evaluate_plan(
         .map(|(id, expression)| {
             let value = evaluate(expression, &environment)?;
             if !value.is_finite() {
-                return Err(SimulationError::NonFiniteInput {
-                    name: id.clone(),
-                    value,
-                });
+                return Err(SimulationError::NonFiniteInput { name: id.clone(), value });
             }
             Ok((id.clone(), value))
         })

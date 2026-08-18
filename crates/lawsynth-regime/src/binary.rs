@@ -18,12 +18,8 @@ pub fn best_binary_split(data: &[f64], min_segment_len: usize) -> Result<Option<
     for index in min_segment_len..=data.len() - min_segment_len {
         let left = segment_cost(data, 0, index)?;
         let right = segment_cost(data, index, data.len())?;
-        let candidate = BinarySplit {
-            index,
-            gain: full - left - right,
-            left_cost: left,
-            right_cost: right,
-        };
+        let candidate =
+            BinarySplit { index, gain: full - left - right, left_cost: left, right_cost: right };
         if best.is_none_or(|b| candidate.gain > b.gain) {
             best = Some(candidate);
         }

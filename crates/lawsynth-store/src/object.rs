@@ -12,9 +12,7 @@ impl ObjectKey {
             || key.ends_with('/')
             || key.contains('\\')
             || key.contains('\0')
-            || key
-                .split('/')
-                .any(|s| s.is_empty() || s == "." || s == "..")
+            || key.split('/').any(|s| s.is_empty() || s == "." || s == "..")
         {
             return Err(StoreError::InvalidKey(key));
         }

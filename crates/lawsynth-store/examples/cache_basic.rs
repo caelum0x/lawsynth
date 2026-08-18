@@ -5,9 +5,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let object = store.put(key.clone(), b"validated bundle bytes".to_vec())?;
     let mut cache = ObjectCache::new(1024);
     cache.insert(key.clone(), object);
-    println!(
-        "{} bytes cached",
-        cache.get(&key).expect("inserted object").len()
-    );
+    println!("{} bytes cached", cache.get(&key).expect("inserted object").len());
     Ok(())
 }

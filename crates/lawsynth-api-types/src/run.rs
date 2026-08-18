@@ -31,10 +31,7 @@ impl RunStatus {
         matches!(
             (self, next),
             (Self::Queued, Self::Running | Self::Cancelled)
-                | (
-                    Self::Running,
-                    Self::Succeeded | Self::Failed | Self::Cancelled
-                )
+                | (Self::Running, Self::Succeeded | Self::Failed | Self::Cancelled)
         )
     }
 }
@@ -69,12 +66,6 @@ impl RunSummary {
                 reason: "cannot precede creation",
             });
         }
-        Ok(Self {
-            id,
-            project_id,
-            status,
-            created_at_ms,
-            finished_at_ms,
-        })
+        Ok(Self { id, project_id, status, created_at_ms, finished_at_ms })
     }
 }

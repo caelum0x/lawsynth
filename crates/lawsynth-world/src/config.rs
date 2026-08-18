@@ -9,9 +9,6 @@ pub struct WorldConfig {
 
 impl Default for WorldConfig {
     fn default() -> Self {
-        Self {
-            validate_expression_symbols: true,
-            validate_units: true,
-        }
+        Self { validate_expression_symbols: true, validate_units: true }
     }
 }

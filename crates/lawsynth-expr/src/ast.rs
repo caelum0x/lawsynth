@@ -25,15 +25,8 @@ pub enum BinaryOperator {
 pub enum Expr {
     Constant(f64),
     Symbol(Identifier),
-    Unary {
-        operator: UnaryOperator,
-        operand: Box<Expr>,
-    },
-    Binary {
-        operator: BinaryOperator,
-        left: Box<Expr>,
-        right: Box<Expr>,
-    },
+    Unary { operator: UnaryOperator, operand: Box<Expr> },
+    Binary { operator: BinaryOperator, left: Box<Expr>, right: Box<Expr> },
 }
 
 impl Expr {
@@ -46,18 +39,11 @@ impl Expr {
     }
 
     pub fn unary(operator: UnaryOperator, operand: Expr) -> Self {
-        Self::Unary {
-            operator,
-            operand: Box::new(operand),
-        }
+        Self::Unary { operator, operand: Box::new(operand) }
     }
 
     pub fn binary(operator: BinaryOperator, left: Expr, right: Expr) -> Self {
-        Self::Binary {
-            operator,
-            left: Box::new(left),
-            right: Box::new(right),
-        }
+        Self::Binary { operator, left: Box::new(left), right: Box::new(right) }
     }
 
     pub fn sum(left: Expr, right: Expr) -> Self {
@@ -104,11 +90,7 @@ impl Expr {
                     ),
                 ),
             },
-            Self::Binary {
-                operator,
-                left,
-                right,
-            } => match operator {
+            Self::Binary { operator, left, right } => match operator {
                 BinaryOperator::Add => Self::sum(left.derivative(symbol), right.derivative(symbol)),
                 BinaryOperator::Subtract => {
                     Self::difference(left.derivative(symbol), right.derivative(symbol))
@@ -151,10 +133,7 @@ impl Expr {
                     (UnaryOperator::Negate, Self::Constant(value)) => Self::constant(-value),
                     (
                         UnaryOperator::Negate,
-                        Self::Unary {
-                            operator: UnaryOperator::Negate,
-                            operand,
-                        },
+                        Self::Unary { operator: UnaryOperator::Negate, operand },
                     ) => (**operand).clone(),
                     (UnaryOperator::Exp, Self::Constant(value)) if value.exp().is_finite() => {
                         Self::constant(value.exp())
@@ -167,11 +146,7 @@ impl Expr {
                     _ => Self::unary(*operator, operand),
                 }
             }
-            Self::Binary {
-                operator,
-                left,
-                right,
-            } => {
+            Self::Binary { operator, left, right } => {
                 let left = left.simplify();
                 let right = right.simplify();
                 if let (Self::Constant(left_value), Self::Constant(right_value)) = (&left, &right) {
@@ -220,11 +195,7 @@ impl Expr {
             Self::Unary { operator, operand } => {
                 format!("unary:{operator:?}({})", operand.to_canonical_string())
             }
-            Self::Binary {
-                operator,
-                left,
-                right,
-            } => format!(
+            Self::Binary { operator, left, right } => format!(
                 "binary:{operator:?}({},{})",
                 left.to_canonical_string(),
                 right.to_canonical_string()

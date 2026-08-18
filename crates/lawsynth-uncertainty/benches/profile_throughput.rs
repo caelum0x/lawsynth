@@ -6,10 +6,7 @@ fn main() {
     let points: Vec<ProfilePoint> = (-100..=100)
         .map(|i| {
             let x = i as f64 / 20.0;
-            ProfilePoint {
-                parameter: x,
-                objective: (x - 1.25).powi(2) * 2.0 + 7.0,
-            }
+            ProfilePoint { parameter: x, objective: (x - 1.25).powi(2) * 2.0 + 7.0 }
         })
         .collect();
     let started = Instant::now();

@@ -271,7 +271,9 @@ fn backtest_section(body: &mut String, section: Option<&BacktestSection>) {
         );
         return;
     };
-    body.push_str("  <section>\n    <h2>Out-of-sample skill &mdash; rolling-origin backtest</h2>\n");
+    body.push_str(
+        "  <section>\n    <h2>Out-of-sample skill &mdash; rolling-origin backtest</h2>\n",
+    );
     let _ = writeln!(
         body,
         "    <p class=\"muted\">Walk-forward evaluation from {} origin(s), horizon {} step(s). Mean R&sup2; {}; error grows {}&times; from the first lead to the last. <b>{}</b></p>",
@@ -287,11 +289,7 @@ fn backtest_section(body: &mut String, section: Option<&BacktestSection>) {
 
 fn ensemble_section(body: &mut String, section: Option<&EnsembleSection>) {
     let Some(section) = section else {
-        not_measured(
-            body,
-            "Ensemble term stability",
-            "no ensemble was run",
-        );
+        not_measured(body, "Ensemble term stability", "no ensemble was run");
         return;
     };
     body.push_str("  <section>\n    <h2>Ensemble term stability</h2>\n");
@@ -344,7 +342,9 @@ fn lineage_section(body: &mut String, lineage: &[(String, String)]) {
         return;
     }
     body.push_str("  <section>\n    <h2>Lineage</h2>\n");
-    body.push_str("    <table>\n      <thead><tr><th>Link</th><th>Digest</th></tr></thead>\n      <tbody>\n");
+    body.push_str(
+        "    <table>\n      <thead><tr><th>Link</th><th>Digest</th></tr></thead>\n      <tbody>\n",
+    );
     for (key, value) in lineage {
         let _ = writeln!(
             body,
@@ -435,7 +435,9 @@ mod tests {
                     },
                 ],
             }),
-            limitations: vec!["Extrapolation beyond the observed window is not validated.".to_owned()],
+            limitations: vec![
+                "Extrapolation beyond the observed window is not validated.".to_owned(),
+            ],
             lineage: vec![("world".to_owned(), "abcd1234".to_owned())],
         }
     }
@@ -469,10 +471,7 @@ mod tests {
 
     #[test]
     fn absent_sections_are_marked_not_measured_never_fabricated() {
-        let card = ModelCard {
-            title: "sparse".to_owned(),
-            ..ModelCard::default()
-        };
+        let card = ModelCard { title: "sparse".to_owned(), ..ModelCard::default() };
         let html = render_model_card(&decay_world(), &card, &ReportOptions::default()).unwrap();
         // Every out-of-sample section is still present, explicitly marked absent.
         assert!(html.contains("Not measured"));
@@ -486,11 +485,7 @@ mod tests {
     fn unmeasured_fit_fields_render_as_absent_dashes() {
         let card = ModelCard {
             title: "partial".to_owned(),
-            fit: Some(vec![FitRow {
-                state: "x".to_owned(),
-                r_squared: Some(0.9),
-                rmse: None,
-            }]),
+            fit: Some(vec![FitRow { state: "x".to_owned(), r_squared: Some(0.9), rmse: None }]),
             ..ModelCard::default()
         };
         let html = render_model_card(&decay_world(), &card, &ReportOptions::default()).unwrap();

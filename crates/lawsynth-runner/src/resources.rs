@@ -13,15 +13,9 @@ impl ResourceRequest {
             return Err(RunnerError::InvalidEnvelope("cpu_millis must be positive"));
         }
         if memory_bytes == 0 {
-            return Err(RunnerError::InvalidEnvelope(
-                "memory_bytes must be positive",
-            ));
+            return Err(RunnerError::InvalidEnvelope("memory_bytes must be positive"));
         }
-        Ok(Self {
-            cpu_millis,
-            memory_bytes,
-            disk_bytes,
-        })
+        Ok(Self { cpu_millis, memory_bytes, disk_bytes })
     }
 
     pub const fn fits_within(self, capacity: Self) -> bool {

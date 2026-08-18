@@ -25,10 +25,7 @@ where
         let result = coordinate_minimize(initial, bounds, config, |continuous| {
             objective(&mode, continuous)
         })?;
-        if best
-            .as_ref()
-            .is_none_or(|best| result.objective < best.objective)
-        {
+        if best.as_ref().is_none_or(|best| result.objective < best.objective) {
             best = Some(MixedResult {
                 discrete: mode,
                 continuous: result.parameters,

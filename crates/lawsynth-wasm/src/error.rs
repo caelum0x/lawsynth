@@ -18,10 +18,9 @@ impl fmt::Display for WasmError {
             Self::InvalidBundle(s) => write!(f, "invalid bundle: {s}"),
             Self::InvalidTrajectory(s) => write!(f, "invalid trajectory: {s}"),
             Self::Simulation(s) => write!(f, "simulation error: {s}"),
-            Self::MemoryLimit {
-                requested,
-                available,
-            } => write!(f, "requested {requested} bytes but only {available} remain"),
+            Self::MemoryLimit { requested, available } => {
+                write!(f, "requested {requested} bytes but only {available} remain")
+            }
             Self::Unsupported(s) => write!(f, "unsupported WASM surface: {s}"),
         }
     }

@@ -32,34 +32,19 @@ impl Segmentation {
                 || !s.mean.is_finite()
                 || s.sum_squared_error < 0.0
             {
-                return Err(RegimeError::InvalidSegment {
-                    start: s.start,
-                    end: s.end,
-                });
+                return Err(RegimeError::InvalidSegment { start: s.start, end: s.end });
             }
             expected = s.end;
         }
         if expected != observations {
-            return Err(RegimeError::InvalidSegment {
-                start: expected,
-                end: observations,
-            });
+            return Err(RegimeError::InvalidSegment { start: expected, end: observations });
         }
-        Ok(Self {
-            segments,
-            objective,
-        })
+        Ok(Self { segments, objective })
     }
     pub fn change_points(&self) -> Vec<usize> {
-        self.segments
-            .iter()
-            .take(self.segments.len().saturating_sub(1))
-            .map(|s| s.end)
-            .collect()
+        self.segments.iter().take(self.segments.len().saturating_sub(1)).map(|s| s.end).collect()
     }
     pub fn label_at(&self, index: usize) -> Option<usize> {
-        self.segments
-            .iter()
-            .position(|s| s.start <= index && index < s.end)
+        self.segments.iter().position(|s| s.start <= index && index < s.end)
     }
 }

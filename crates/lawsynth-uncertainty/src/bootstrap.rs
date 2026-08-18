@@ -40,10 +40,7 @@ where
         }
         estimates.push(estimate);
     }
-    Ok(BootstrapResult {
-        estimates,
-        observed,
-    })
+    Ok(BootstrapResult { estimates, observed })
 }
 
 pub(crate) fn next_u64(state: &mut u64) -> u64 {

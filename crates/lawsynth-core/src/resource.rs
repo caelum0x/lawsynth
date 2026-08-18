@@ -23,22 +23,16 @@ impl Default for ResourceLimits {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ResourceLimitError {
     InvalidLimit,
-    Exceeded {
-        resource: &'static str,
-        actual: usize,
-        limit: usize,
-    },
+    Exceeded { resource: &'static str, actual: usize, limit: usize },
 }
 
 impl fmt::Display for ResourceLimitError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidLimit => write!(formatter, "resource limits must be nonzero"),
-            Self::Exceeded {
-                resource,
-                actual,
-                limit,
-            } => write!(formatter, "{resource} limit exceeded: {actual} > {limit}"),
+            Self::Exceeded { resource, actual, limit } => {
+                write!(formatter, "{resource} limit exceeded: {actual} > {limit}")
+            }
         }
     }
 }
@@ -83,12 +77,10 @@ impl ResourceLimits {
         actual: usize,
         limit: usize,
     ) -> Result<(), ResourceLimitError> {
-        (actual <= limit)
-            .then_some(())
-            .ok_or(ResourceLimitError::Exceeded {
-                resource,
-                actual,
-                limit,
-            })
+        (actual <= limit).then_some(()).ok_or(ResourceLimitError::Exceeded {
+            resource,
+            actual,
+            limit,
+        })
     }
 }

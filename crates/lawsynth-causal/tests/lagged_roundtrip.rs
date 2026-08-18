@@ -8,16 +8,9 @@ fn lagged_histories_preserve_recency_and_granger_detects_predictive_input() {
     }
     let rows = lagged_observations(&y, 2).unwrap();
     assert_eq!(rows[0].history, vec![y[1], y[0]]);
-    let r = granger_test(
-        &x,
-        &y,
-        CausalConfig {
-            max_lag: 1,
-            min_samples: 20,
-            ..Default::default()
-        },
-    )
-    .unwrap();
+    let r =
+        granger_test(&x, &y, CausalConfig { max_lag: 1, min_samples: 20, ..Default::default() })
+            .unwrap();
     assert!(r.unrestricted_sse < r.restricted_sse);
     assert!(r.f_statistic > 1.0);
 }

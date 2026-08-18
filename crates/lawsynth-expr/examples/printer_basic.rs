@@ -7,9 +7,5 @@ fn main() {
         (Identifier::new("x").unwrap(), 3.0),
         (Identifier::new("y").unwrap(), std::f64::consts::FRAC_PI_2),
     ]);
-    println!(
-        "{} = {}",
-        print(&expression),
-        evaluate(&expression, &values).unwrap()
-    );
+    println!("{} = {}", print(&expression), evaluate(&expression, &values).unwrap());
 }

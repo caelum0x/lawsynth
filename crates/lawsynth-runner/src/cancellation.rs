@@ -23,8 +23,7 @@ impl CancellationToken {
         self.0.lock().expect("cancellation mutex poisoned").clone()
     }
     pub fn check(&self) -> Result<(), RunnerError> {
-        self.reason()
-            .map_or(Ok(()), |reason| Err(RunnerError::Cancelled { reason }))
+        self.reason().map_or(Ok(()), |reason| Err(RunnerError::Cancelled { reason }))
     }
     pub fn is_cancelled(&self) -> bool {
         self.reason().is_some()

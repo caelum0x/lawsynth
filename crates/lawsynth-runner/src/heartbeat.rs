@@ -8,10 +8,7 @@ pub struct Heartbeat {
 
 impl Heartbeat {
     pub fn now() -> Self {
-        Self {
-            last_seen: Instant::now(),
-            sequence: 0,
-        }
+        Self { last_seen: Instant::now(), sequence: 0 }
     }
     pub fn beat(&mut self) -> u64 {
         self.sequence += 1;

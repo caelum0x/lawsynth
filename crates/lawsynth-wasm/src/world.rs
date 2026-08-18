@@ -32,15 +32,9 @@ impl World {
             }
         }
         if initial_state.iter().any(|value| !value.is_finite()) {
-            return Err(WasmError::InvalidWorld(
-                "initial state must be finite".into(),
-            ));
+            return Err(WasmError::InvalidWorld("initial state must be finite".into()));
         }
-        Ok(Self {
-            variables,
-            initial_state,
-            derivatives,
-        })
+        Ok(Self { variables, initial_state, derivatives })
     }
     pub fn state_map(&self, time: f64, state: &[f64]) -> Result<BTreeMap<String, f64>, WasmError> {
         if state.len() != self.variables.len()
@@ -58,10 +52,7 @@ impl World {
     }
     pub fn derivative_at(&self, time: f64, state: &[f64]) -> Result<Vec<f64>, WasmError> {
         let values = self.state_map(time, state)?;
-        self.derivatives
-            .iter()
-            .map(|expression| expression.evaluate(&values))
-            .collect()
+        self.derivatives.iter().map(|expression| expression.evaluate(&values)).collect()
     }
 }
 fn valid_name(name: &str) -> bool {

@@ -11,25 +11,16 @@ pub struct S3Config {
 impl S3Config {
     pub fn validate(&self) -> Result<(), StoreError> {
         if !(self.endpoint.starts_with("https://") || self.endpoint.starts_with("http://")) {
-            return Err(StoreError::Unsupported(
-                "S3 endpoint must be an HTTP(S) URL".into(),
-            ));
+            return Err(StoreError::Unsupported("S3 endpoint must be an HTTP(S) URL".into()));
         }
         if self.bucket.is_empty() || self.bucket.contains('/') || self.region.is_empty() {
-            return Err(StoreError::Unsupported(
-                "S3 bucket and region must be nonempty".into(),
-            ));
+            return Err(StoreError::Unsupported("S3 bucket and region must be nonempty".into()));
         }
         Ok(())
     }
     pub fn object_url(&self, key: &ObjectKey) -> Result<String, StoreError> {
         self.validate()?;
-        Ok(format!(
-            "{}/{}/{}",
-            self.endpoint.trim_end_matches('/'),
-            self.bucket,
-            key.as_str()
-        ))
+        Ok(format!("{}/{}/{}", self.endpoint.trim_end_matches('/'), self.bucket, key.as_str()))
     }
 }
 #[derive(Clone, Debug)]

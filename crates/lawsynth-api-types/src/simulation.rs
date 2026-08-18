@@ -22,10 +22,7 @@ impl TimeRange {
             });
         }
         if step <= 0.0 {
-            return Err(ApiValidationError::Invalid {
-                field: "step",
-                reason: "must be positive",
-            });
+            return Err(ApiValidationError::Invalid { field: "step", reason: "must be positive" });
         }
         let samples = ((end - start) / step).ceil();
         if samples > 10_000_000.0 {
@@ -57,14 +54,9 @@ impl SimulationRequest {
         output_variables: Vec<String>,
     ) -> Result<Self, ApiValidationError> {
         if output_variables.is_empty() {
-            return Err(ApiValidationError::Empty {
-                field: "output_variables",
-            });
+            return Err(ApiValidationError::Empty { field: "output_variables" });
         }
-        if output_variables
-            .iter()
-            .any(|name| name.is_empty() || name.len() > 128)
-        {
+        if output_variables.iter().any(|name| name.is_empty() || name.len() > 128) {
             return Err(ApiValidationError::Invalid {
                 field: "output_variables",
                 reason: "each name must be 1..=128 bytes",
@@ -78,11 +70,6 @@ impl SimulationRequest {
                 });
             }
         }
-        Ok(Self {
-            world,
-            time,
-            seed,
-            output_variables,
-        })
+        Ok(Self { world, time, seed, output_variables })
     }
 }

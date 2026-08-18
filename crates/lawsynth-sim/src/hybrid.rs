@@ -10,9 +10,7 @@ pub fn split_at_events(
     if !start.is_finite()
         || !end.is_finite()
         || end <= start
-        || events
-            .iter()
-            .any(|time| !time.is_finite() || *time < start || *time > end)
+        || events.iter().any(|time| !time.is_finite() || *time < start || *time > end)
     {
         return Err(SimulationError::InvalidTimeGrid);
     }
@@ -32,9 +30,6 @@ mod tests {
     use super::*;
     #[test]
     fn event_boundaries_create_no_zero_length_segments() {
-        assert_eq!(
-            split_at_events(0.0, 2.0, &[1.0, 1.0]).unwrap(),
-            vec![(0.0, 1.0), (1.0, 2.0)]
-        );
+        assert_eq!(split_at_events(0.0, 2.0, &[1.0, 1.0]).unwrap(), vec![(0.0, 1.0), (1.0, 2.0)]);
     }
 }

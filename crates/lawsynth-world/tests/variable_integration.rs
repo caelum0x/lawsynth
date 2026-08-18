@@ -18,15 +18,6 @@ fn world_exposes_variables_and_law_dependencies_in_stable_identifier_order() {
         )],
     )
     .unwrap();
-    assert_eq!(
-        world.state_ids().cloned().collect::<Vec<_>>(),
-        vec![x.clone()]
-    );
-    assert_eq!(
-        world.dependency_graph()[&x]
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>(),
-        vec![control, x]
-    );
+    assert_eq!(world.state_ids().cloned().collect::<Vec<_>>(), vec![x.clone()]);
+    assert_eq!(world.dependency_graph()[&x].iter().cloned().collect::<Vec<_>>(), vec![control, x]);
 }

@@ -92,9 +92,7 @@ impl PyWorld {
         let parameters = parameters
             .into_iter()
             .map(|(name, value)| {
-                Identifier::new(name)
-                    .map(|id| Parameter::new(id, value))
-                    .map_err(value_error)
+                Identifier::new(name).map(|id| Parameter::new(id, value)).map_err(value_error)
             })
             .collect::<PyResult<Vec<_>>>()?;
         let laws = equations
@@ -106,9 +104,7 @@ impl PyWorld {
                 ))
             })
             .collect::<PyResult<Vec<_>>>()?;
-        Ok(Self {
-            world: World::new(variables, parameters, laws).map_err(value_error)?,
-        })
+        Ok(Self { world: World::new(variables, parameters, laws).map_err(value_error)? })
     }
 
     #[pyo3(signature = (initial, start=0.0, end=1.0, step=0.01, parameters=None, inputs=None))]
@@ -162,9 +158,7 @@ impl PyWorld {
 
     #[staticmethod]
     fn load(path: String) -> PyResult<Self> {
-        Ok(Self {
-            world: read_world(path).map_err(value_error)?,
-        })
+        Ok(Self { world: read_world(path).map_err(value_error)? })
     }
 }
 
@@ -263,9 +257,7 @@ fn discover_world(
     let columns = columns
         .into_iter()
         .map(|(name, values)| {
-            Identifier::new(name)
-                .map(|id| NumericColumn::new(id, values))
-                .map_err(value_error)
+            Identifier::new(name).map(|id| NumericColumn::new(id, values)).map_err(value_error)
         })
         .collect::<PyResult<Vec<_>>>()?;
     let dataset =
@@ -283,34 +275,27 @@ fn discover_world(
     config.smoothing_radius = smoothing_radius;
     config.derivative.method = match derivative_method {
         "finite" => DerivativeMethod::FiniteDifference,
-        "savgol" => DerivativeMethod::SavitzkyGolay {
-            window: savgol_window,
-        },
+        "savgol" => DerivativeMethod::SavitzkyGolay { window: savgol_window },
         "spline" => DerivativeMethod::NaturalCubicSpline,
         "spectral" => DerivativeMethod::Spectral,
-        "tvreg" => DerivativeMethod::TotalVariation {
-            lambda: tvreg_lambda,
-            iterations: tvreg_iterations,
-        },
+        "tvreg" => {
+            DerivativeMethod::TotalVariation { lambda: tvreg_lambda, iterations: tvreg_iterations }
+        }
         _ => {
             return Err(value_error(
                 "derivative_method must be 'finite', 'savgol', 'spline', 'spectral', or 'tvreg'",
             ));
         }
     };
-    config.symbolic = symbolic_depth.map(|max_depth| lawsynth_symbolic::SymbolicConfig {
-        max_depth,
-        ..Default::default()
-    });
+    config.symbolic = symbolic_depth
+        .map(|max_depth| lawsynth_symbolic::SymbolicConfig { max_depth, ..Default::default() });
     let result = discover(&dataset, &config).map_err(value_error)?;
     let candidate = result
         .candidates
         .into_iter()
         .next()
         .ok_or_else(|| value_error("discovery produced no candidates"))?;
-    Ok(PyWorld {
-        world: candidate.world,
-    })
+    Ok(PyWorld { world: candidate.world })
 }
 
 #[pymodule]

@@ -26,10 +26,7 @@ impl fmt::Display for WorldError {
                 write!(formatter, "parameter '{id}' is declared more than once")
             }
             Self::ParameterConflictsWithVariable(id) => {
-                write!(
-                    formatter,
-                    "parameter '{id}' conflicts with a variable identifier"
-                )
+                write!(formatter, "parameter '{id}' conflicts with a variable identifier")
             }
             Self::NonFiniteParameter(id) => {
                 write!(formatter, "parameter '{id}' must have a finite value")
@@ -42,10 +39,7 @@ impl fmt::Display for WorldError {
                 write!(formatter, "law target '{id}' is not a state variable")
             }
             Self::UnknownSymbol(id) => {
-                write!(
-                    formatter,
-                    "law expression references undeclared symbol '{id}'"
-                )
+                write!(formatter, "law expression references undeclared symbol '{id}'")
             }
             Self::UnitMismatch(id) => {
                 write!(

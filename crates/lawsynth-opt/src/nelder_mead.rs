@@ -9,11 +9,7 @@ pub struct NelderMeadConfig {
 }
 impl Default for NelderMeadConfig {
     fn default() -> Self {
-        Self {
-            initial_step: 1.0,
-            tolerance: 1e-8,
-            max_iterations: 1_000,
-        }
+        Self { initial_step: 1.0, tolerance: 1e-8, max_iterations: 1_000 }
     }
 }
 
@@ -41,27 +37,18 @@ where
     }
     let dimension = initial.len();
     let mut simplex = Vec::with_capacity(dimension + 1);
-    simplex.push(
-        initial
-            .iter()
-            .map(|value| bounds.clamp(*value))
-            .collect::<Vec<_>>(),
-    );
+    simplex.push(initial.iter().map(|value| bounds.clamp(*value)).collect::<Vec<_>>());
     for coordinate in 0..dimension {
         let mut point = simplex[0].clone();
         point[coordinate] = bounds.clamp(point[coordinate] + config.initial_step);
         simplex.push(point);
     }
-    let mut scores = simplex
-        .iter()
-        .map(|point| score(&objective, point))
-        .collect::<Result<Vec<_>, _>>()?;
+    let mut scores =
+        simplex.iter().map(|point| score(&objective, point)).collect::<Result<Vec<_>, _>>()?;
     for _ in 0..config.max_iterations {
         let mut order = (0..simplex.len()).collect::<Vec<_>>();
         order.sort_by(|left, right| {
-            scores[*left]
-                .total_cmp(&scores[*right])
-                .then_with(|| left.cmp(right))
+            scores[*left].total_cmp(&scores[*right]).then_with(|| left.cmp(right))
         });
         simplex = order.iter().map(|index| simplex[*index].clone()).collect();
         scores = order.iter().map(|index| scores[*index]).collect();
@@ -70,10 +57,7 @@ where
         }
         let centroid = (0..dimension)
             .map(|coordinate| {
-                simplex[..dimension]
-                    .iter()
-                    .map(|point| point[coordinate])
-                    .sum::<f64>()
+                simplex[..dimension].iter().map(|point| point[coordinate]).sum::<f64>()
                     / dimension as f64
             })
             .collect::<Vec<_>>();
@@ -129,10 +113,7 @@ where
     F: Fn(&[f64]) -> f64,
 {
     let value = objective(point);
-    value
-        .is_finite()
-        .then_some(value)
-        .ok_or(OptimizationError::NonFiniteObjective)
+    value.is_finite().then_some(value).ok_or(OptimizationError::NonFiniteObjective)
 }
 
 #[cfg(test)]

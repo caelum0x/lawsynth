@@ -9,11 +9,7 @@ pub struct LbfgsConfig {
 }
 impl Default for LbfgsConfig {
     fn default() -> Self {
-        Self {
-            memory: 8,
-            tolerance: 1e-8,
-            max_iterations: 500,
-        }
+        Self { memory: 8, tolerance: 1e-8, max_iterations: 500 }
     }
 }
 
@@ -38,10 +34,7 @@ where
     {
         return Err(OptimizationError::InvalidConfig);
     }
-    let mut point = initial
-        .iter()
-        .map(|value| bounds.clamp(*value))
-        .collect::<Vec<_>>();
+    let mut point = initial.iter().map(|value| bounds.clamp(*value)).collect::<Vec<_>>();
     let (mut value, mut gradient) = checked(&function, &point)?;
     let mut history: Vec<(Vec<f64>, Vec<f64>, f64)> = Vec::new();
     for _ in 0..config.max_iterations {
@@ -66,11 +59,7 @@ where
             }
             step *= 0.5;
         };
-        let s = next
-            .iter()
-            .zip(&point)
-            .map(|(next, prior)| next - prior)
-            .collect::<Vec<_>>();
+        let s = next.iter().zip(&point).map(|(next, prior)| next - prior).collect::<Vec<_>>();
         let y = next_gradient
             .iter()
             .zip(&gradient)
@@ -130,10 +119,7 @@ fn direction(gradient: &[f64], history: &[(Vec<f64>, Vec<f64>, f64)]) -> Vec<f64
     q.into_iter().map(|value| -value).collect()
 }
 fn dot(left: &[f64], right: &[f64]) -> f64 {
-    left.iter()
-        .zip(right)
-        .map(|(left, right)| left * right)
-        .sum()
+    left.iter().zip(right).map(|(left, right)| left * right).sum()
 }
 fn norm(values: &[f64]) -> f64 {
     dot(values, values).sqrt()

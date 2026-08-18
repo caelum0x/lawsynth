@@ -8,10 +8,6 @@ pub struct CoordinateConfig {
 
 impl Default for CoordinateConfig {
     fn default() -> Self {
-        Self {
-            initial_step: 1.0,
-            minimum_step: 1e-8,
-            max_iterations: 1_000,
-        }
+        Self { initial_step: 1.0, minimum_step: 1e-8, max_iterations: 1_000 }
     }
 }

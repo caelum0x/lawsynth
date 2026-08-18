@@ -11,11 +11,7 @@ impl ResourceLimiter {
     pub fn new(capacity: ResourceRequest) -> Self {
         Self {
             capacity,
-            reserved: ResourceRequest {
-                cpu_millis: 0,
-                memory_bytes: 0,
-                disk_bytes: 0,
-            },
+            reserved: ResourceRequest { cpu_millis: 0, memory_bytes: 0, disk_bytes: 0 },
         }
     }
     pub const fn capacity(&self) -> ResourceRequest {
@@ -25,9 +21,7 @@ impl ResourceLimiter {
         self.reserved
     }
     pub fn available(&self) -> ResourceRequest {
-        self.capacity
-            .checked_sub(self.reserved)
-            .expect("reservation cannot exceed capacity")
+        self.capacity.checked_sub(self.reserved).expect("reservation cannot exceed capacity")
     }
     pub fn reserve(&mut self, request: ResourceRequest) -> Result<(), RunnerError> {
         if !request.fits_within(self.available()) {
@@ -46,9 +40,7 @@ impl ResourceLimiter {
         self.reserved = self
             .reserved
             .checked_sub(request)
-            .ok_or(RunnerError::InvalidEnvelope(
-                "released resources were not reserved",
-            ))?;
+            .ok_or(RunnerError::InvalidEnvelope("released resources were not reserved"))?;
         Ok(())
     }
 }

@@ -14,9 +14,7 @@ pub fn segment_moments(data: &[f64], start: usize, end: usize) -> Result<Segment
     let values = &data[start..end];
     for (offset, &v) in values.iter().enumerate() {
         if !v.is_finite() {
-            return Err(RegimeError::NonFiniteObservation {
-                index: start + offset,
-            });
+            return Err(RegimeError::NonFiniteObservation { index: start + offset });
         }
     }
     let count = values.len();
@@ -24,13 +22,7 @@ pub fn segment_moments(data: &[f64], start: usize, end: usize) -> Result<Segment
     let sum_squares: f64 = values.iter().map(|v| v * v).sum();
     let mean = sum / count as f64;
     let sse = (sum_squares - sum * sum / count as f64).max(0.0);
-    Ok(SegmentMoments {
-        count,
-        sum,
-        sum_squares,
-        mean,
-        sum_squared_error: sse,
-    })
+    Ok(SegmentMoments { count, sum, sum_squares, mean, sum_squared_error: sse })
 }
 pub fn segment_cost(data: &[f64], start: usize, end: usize) -> Result<f64> {
     Ok(segment_moments(data, start, end)?.sum_squared_error)

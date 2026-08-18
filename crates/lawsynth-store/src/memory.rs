@@ -10,16 +10,10 @@ pub struct MemoryStore {
 impl MemoryStore {
     pub fn new(config: StoreConfig) -> Result<Self, StoreError> {
         config.validate()?;
-        Ok(Self {
-            config,
-            objects: Arc::new(RwLock::new(BTreeMap::new())),
-        })
+        Ok(Self { config, objects: Arc::new(RwLock::new(BTreeMap::new())) })
     }
     pub fn object_count(&self) -> usize {
-        self.objects
-            .read()
-            .expect("memory-store lock poisoned")
-            .len()
+        self.objects.read().expect("memory-store lock poisoned").len()
     }
 }
 impl Default for MemoryStore {
@@ -36,10 +30,7 @@ impl ObjectStore for MemoryStore {
             });
         }
         let object = Object::new(bytes);
-        self.objects
-            .write()
-            .expect("memory-store lock poisoned")
-            .insert(key, object.clone());
+        self.objects.write().expect("memory-store lock poisoned").insert(key, object.clone());
         Ok(object)
     }
     fn get(&self, key: &ObjectKey) -> Result<Object, StoreError> {
@@ -51,12 +42,7 @@ impl ObjectStore for MemoryStore {
             .ok_or_else(|| StoreError::NotFound(key.to_string()))
     }
     fn delete(&self, key: &ObjectKey) -> Result<bool, StoreError> {
-        Ok(self
-            .objects
-            .write()
-            .expect("memory-store lock poisoned")
-            .remove(key)
-            .is_some())
+        Ok(self.objects.write().expect("memory-store lock poisoned").remove(key).is_some())
     }
     fn list(&self, prefix: Option<&str>) -> Result<Vec<ObjectKey>, StoreError> {
         Ok(self

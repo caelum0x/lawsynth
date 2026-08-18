@@ -6,9 +6,5 @@ fn frame_roundtrip_is_lossless_and_state_machine_rejects_invalid_transition() {
         let frame = Frame::new(FrameKind::Request, 7, vec![42; size]).unwrap();
         assert_eq!(Frame::decode(&frame.encode().unwrap()).unwrap(), frame);
     }
-    assert!(
-        PluginState::Discovered
-            .transition(LifecycleEvent::Ready)
-            .is_err()
-    );
+    assert!(PluginState::Discovered.transition(LifecycleEvent::Ready).is_err());
 }

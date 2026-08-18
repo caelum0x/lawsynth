@@ -38,11 +38,7 @@ impl DatasetColumn {
     ) -> Result<Self, ApiValidationError> {
         let name = name.into();
         validate_identifier("column.name", &name, 128)?;
-        Ok(Self {
-            name,
-            column_type,
-            nullable,
-        })
+        Ok(Self { name, column_type, nullable })
     }
 }
 
@@ -67,10 +63,7 @@ impl DatasetDescriptor {
             return Err(ApiValidationError::Empty { field: "columns" });
         }
         for (index, column) in columns.iter().enumerate() {
-            if columns[..index]
-                .iter()
-                .any(|prior| prior.name == column.name)
-            {
+            if columns[..index].iter().any(|prior| prior.name == column.name) {
                 return Err(ApiValidationError::Invalid {
                     field: "columns",
                     reason: "names must be unique",

@@ -28,10 +28,9 @@ impl fmt::Display for DynamicsError {
             Self::StateInputOverlap(variable) => {
                 write!(formatter, "'{variable}' cannot be both state and input")
             }
-            Self::InvalidLag => write!(
-                formatter,
-                "delay lag must leave at least one aligned sample"
-            ),
+            Self::InvalidLag => {
+                write!(formatter, "delay lag must leave at least one aligned sample")
+            }
             Self::InvalidConfig => write!(formatter, "dynamics configuration is invalid"),
             Self::NonFiniteValue => write!(formatter, "dynamics values must be finite"),
         }

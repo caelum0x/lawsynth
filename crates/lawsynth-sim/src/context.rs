@@ -17,11 +17,7 @@ impl SimulationContext {
         parameters: BTreeMap<Identifier, f64>,
         inputs: BTreeMap<Identifier, f64>,
     ) -> Self {
-        Self {
-            state,
-            parameters,
-            inputs,
-        }
+        Self { state, parameters, inputs }
     }
 
     /// Builds the canonical expression environment, with later namespaces only

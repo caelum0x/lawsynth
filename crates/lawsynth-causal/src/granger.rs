@@ -10,10 +10,7 @@ pub struct GrangerResult {
 pub fn granger_test(cause: &[f64], effect: &[f64], config: CausalConfig) -> Result<GrangerResult> {
     let config = config.validate()?;
     if cause.len() != effect.len() {
-        return Err(CausalError::LengthMismatch {
-            expected: effect.len(),
-            actual: cause.len(),
-        });
+        return Err(CausalError::LengthMismatch { expected: effect.len(), actual: cause.len() });
     }
     if cause.len() < config.min_samples {
         return Err(CausalError::InsufficientSamples {

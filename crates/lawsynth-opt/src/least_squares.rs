@@ -16,11 +16,7 @@ pub fn fit_affine(predictions: &[f64], targets: &[f64]) -> Result<AffineFit, Opt
     if predictions.len() != targets.len() {
         return Err(OptimizationError::LengthMismatch);
     }
-    if predictions
-        .iter()
-        .chain(targets)
-        .any(|value| !value.is_finite())
-    {
+    if predictions.iter().chain(targets).any(|value| !value.is_finite()) {
         return Err(OptimizationError::NonFiniteInput);
     }
     let count = predictions.len() as f64;
@@ -50,11 +46,7 @@ pub fn fit_affine(predictions: &[f64], targets: &[f64]) -> Result<AffineFit, Opt
         })
         .sum::<f64>()
         / count;
-    Ok(AffineFit {
-        scale,
-        offset,
-        mean_squared_error,
-    })
+    Ok(AffineFit { scale, offset, mean_squared_error })
 }
 
 #[cfg(test)]

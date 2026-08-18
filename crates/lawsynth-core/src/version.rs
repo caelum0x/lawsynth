@@ -13,11 +13,7 @@ pub const CURRENT_ENGINE_VERSION: EngineVersion = EngineVersion::new(0, 1, 0);
 
 impl EngineVersion {
     pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
-        Self {
-            major,
-            minor,
-            patch,
-        }
+        Self { major, minor, patch }
     }
 
     /// Returns whether artifacts share a compatible major-version contract.
@@ -37,10 +33,7 @@ pub struct VersionParseError;
 
 impl fmt::Display for VersionParseError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "version must use MAJOR.MINOR.PATCH decimal notation"
-        )
+        write!(formatter, "version must use MAJOR.MINOR.PATCH decimal notation")
     }
 }
 

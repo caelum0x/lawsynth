@@ -15,11 +15,7 @@ impl LocalStore {
         let root = root.into();
         fs::create_dir_all(&root)?;
         let root = fs::canonicalize(root)?;
-        Ok(Self {
-            root: Arc::new(root),
-            config,
-            lock: Arc::new(RwLock::new(())),
-        })
+        Ok(Self { root: Arc::new(root), config, lock: Arc::new(RwLock::new(())) })
     }
     pub fn root(&self) -> &Path {
         self.root.as_path()
@@ -38,9 +34,7 @@ impl LocalStore {
                     .strip_prefix(self.root.as_path())
                     .map_err(|_| StoreError::InvalidKey(path.display().to_string()))?;
                 keys.push(ObjectKey::new(
-                    relative
-                        .to_string_lossy()
-                        .replace(std::path::MAIN_SEPARATOR, "/"),
+                    relative.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"),
                 )?);
             }
         }

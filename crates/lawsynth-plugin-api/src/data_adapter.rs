@@ -125,11 +125,7 @@ impl DataBatch {
 
     /// Conservative in-memory estimate used before accepting untrusted data.
     pub fn estimated_bytes(&self) -> usize {
-        let validity_bytes = if self.is_nullable() {
-            self.len().div_ceil(8)
-        } else {
-            0
-        };
+        let validity_bytes = if self.is_nullable() { self.len().div_ceil(8) } else { 0 };
         validity_bytes.saturating_add(match self {
             Self::Float64(values) => values.len().saturating_mul(size_of::<f64>()),
             Self::Int64(values) => values.len().saturating_mul(size_of::<i64>()),
@@ -139,11 +135,9 @@ impl DataBatch {
             Self::NullableFloat64(values) => values.len().saturating_mul(size_of::<f64>()),
             Self::NullableInt64(values) => values.len().saturating_mul(size_of::<i64>()),
             Self::NullableBoolean(values) => values.len().div_ceil(8),
-            Self::NullableUtf8(values) => values
-                .iter()
-                .filter_map(Option::as_ref)
-                .map(String::len)
-                .sum(),
+            Self::NullableUtf8(values) => {
+                values.iter().filter_map(Option::as_ref).map(String::len).sum()
+            }
             Self::NullableBinary(values) => {
                 values.iter().filter_map(Option::as_ref).map(Vec::len).sum()
             }
@@ -239,14 +233,10 @@ pub fn validate_row_group(
 
 fn validate_column_name(name: &str) -> Result<(), PluginError> {
     if name.is_empty() || name.len() > 255 {
-        return Err(PluginError::InvalidData(
-            "column names must contain 1..=255 bytes".into(),
-        ));
+        return Err(PluginError::InvalidData("column names must contain 1..=255 bytes".into()));
     }
     if name.contains('\0') || name.chars().any(char::is_control) {
-        return Err(PluginError::InvalidData(format!(
-            "invalid column name {name:?}"
-        )));
+        return Err(PluginError::InvalidData(format!("invalid column name {name:?}")));
     }
     Ok(())
 }

@@ -13,10 +13,7 @@ pub fn collect_unreferenced<S: ObjectStore>(
     dry_run: bool,
 ) -> Result<GcReport, StoreError> {
     let keys = store.list(prefix)?;
-    let mut report = GcReport {
-        examined: keys.len(),
-        deleted: Vec::new(),
-    };
+    let mut report = GcReport { examined: keys.len(), deleted: Vec::new() };
     for key in keys {
         if !retained.contains(&key) {
             if !dry_run {

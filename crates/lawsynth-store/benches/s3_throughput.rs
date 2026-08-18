@@ -8,12 +8,7 @@ fn main() {
     for index in 0..10_000 {
         let payload = vec![index as u8; 256];
         bytes += payload.len();
-        store
-            .put(
-                ObjectKey::new(format!("throughput/{index}")).unwrap(),
-                payload,
-            )
-            .unwrap();
+        store.put(ObjectKey::new(format!("throughput/{index}")).unwrap(), payload).unwrap();
     }
     black_box(store.object_count());
     println!(

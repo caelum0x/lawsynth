@@ -20,11 +20,7 @@ pub struct Variable {
 
 impl Variable {
     pub fn new(id: Identifier, role: VariableRole) -> Self {
-        Self {
-            id,
-            role,
-            unit: None,
-        }
+        Self { id, role, unit: None }
     }
 
     pub fn with_unit(mut self, unit: Unit) -> Self {

@@ -17,9 +17,5 @@ pub fn validate_time_order(times: &[f64]) -> Result<TimeOrder> {
     if !times[0].is_finite() {
         return Err(CausalError::NonMonotonicTime { index: 0 });
     }
-    Ok(TimeOrder {
-        start: times[0],
-        end: times[times.len() - 1],
-        observations: times.len(),
-    })
+    Ok(TimeOrder { start: times[0], end: times[times.len() - 1], observations: times.len() })
 }

@@ -9,10 +9,7 @@ fn identifiers_remain_orderable_and_preserve_portable_text() {
     ];
     identifiers.sort();
     assert_eq!(
-        identifiers
-            .iter()
-            .map(Identifier::as_str)
-            .collect::<Vec<_>>(),
+        identifiers.iter().map(Identifier::as_str).collect::<Vec<_>>(),
         ["acceleration_1", "position", "velocity"]
     );
 }

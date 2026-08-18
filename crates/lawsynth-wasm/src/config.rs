@@ -6,11 +6,7 @@ pub struct WasmConfig {
 }
 impl Default for WasmConfig {
     fn default() -> Self {
-        Self {
-            max_memory_bytes: 64 * 1024 * 1024,
-            max_steps: 1_000_000,
-            absolute_tolerance: 1e-12,
-        }
+        Self { max_memory_bytes: 64 * 1024 * 1024, max_steps: 1_000_000, absolute_tolerance: 1e-12 }
     }
 }
 impl WasmConfig {

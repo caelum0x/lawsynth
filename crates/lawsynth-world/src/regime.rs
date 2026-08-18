@@ -19,10 +19,9 @@ pub enum RegimeError {
 impl fmt::Display for RegimeError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidInterval => write!(
-                formatter,
-                "regime interval bounds must be finite and increasing"
-            ),
+            Self::InvalidInterval => {
+                write!(formatter, "regime interval bounds must be finite and increasing")
+            }
             Self::OverlappingIntervals => write!(formatter, "regime intervals must not overlap"),
         }
     }
@@ -46,9 +45,7 @@ impl RegimeSchedule {
             return Err(RegimeError::InvalidInterval);
         }
         intervals.sort_by(|left, right| {
-            left.start
-                .total_cmp(&right.start)
-                .then_with(|| left.end.total_cmp(&right.end))
+            left.start.total_cmp(&right.start).then_with(|| left.end.total_cmp(&right.end))
         });
         if intervals.windows(2).any(|pair| pair[0].end > pair[1].start) {
             return Err(RegimeError::OverlappingIntervals);
@@ -63,9 +60,7 @@ impl RegimeSchedule {
     pub fn active_at(&self, time: f64) -> Option<&RegimeInterval> {
         time.is_finite()
             .then(|| {
-                self.intervals
-                    .iter()
-                    .find(|interval| interval.start <= time && time < interval.end)
+                self.intervals.iter().find(|interval| interval.start <= time && time < interval.end)
             })
             .flatten()
     }
@@ -81,16 +76,8 @@ mod tests {
     fn regime_timeline_sorts_and_selects_half_open_intervals() {
         let id = |value| Identifier::new(value).unwrap();
         let schedule = RegimeSchedule::new(vec![
-            RegimeInterval {
-                regime: id("late"),
-                start: 2.0,
-                end: 3.0,
-            },
-            RegimeInterval {
-                regime: id("early"),
-                start: 0.0,
-                end: 2.0,
-            },
+            RegimeInterval { regime: id("late"), start: 2.0, end: 3.0 },
+            RegimeInterval { regime: id("early"), start: 0.0, end: 2.0 },
         ])
         .unwrap();
         assert_eq!(schedule.active_at(1.0).unwrap().regime, id("early"));

@@ -4,25 +4,11 @@ use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ApiValidationError {
-    Empty {
-        field: &'static str,
-    },
-    TooLong {
-        field: &'static str,
-        maximum: usize,
-    },
-    Invalid {
-        field: &'static str,
-        reason: &'static str,
-    },
-    OutOfRange {
-        field: &'static str,
-        minimum: u64,
-        maximum: u64,
-    },
-    Inconsistent {
-        reason: &'static str,
-    },
+    Empty { field: &'static str },
+    TooLong { field: &'static str, maximum: usize },
+    Invalid { field: &'static str, reason: &'static str },
+    OutOfRange { field: &'static str, minimum: u64, maximum: u64 },
+    Inconsistent { reason: &'static str },
 }
 
 impl fmt::Display for ApiValidationError {
@@ -33,11 +19,7 @@ impl fmt::Display for ApiValidationError {
                 write!(formatter, "{field} exceeds {maximum} bytes")
             }
             Self::Invalid { field, reason } => write!(formatter, "invalid {field}: {reason}"),
-            Self::OutOfRange {
-                field,
-                minimum,
-                maximum,
-            } => {
+            Self::OutOfRange { field, minimum, maximum } => {
                 write!(formatter, "{field} must be in {minimum}..={maximum}")
             }
             Self::Inconsistent { reason } => write!(formatter, "inconsistent API value: {reason}"),

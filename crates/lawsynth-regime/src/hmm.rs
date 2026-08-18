@@ -25,10 +25,7 @@ impl DiscreteHmm {
         }
         for row in &self.transition {
             if row.len() != states {
-                return Err(RegimeError::DimensionMismatch {
-                    expected: states,
-                    actual: row.len(),
-                });
+                return Err(RegimeError::DimensionMismatch { expected: states, actual: row.len() });
             }
             validate_distribution(row)?;
         }

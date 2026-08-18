@@ -21,20 +21,13 @@ pub fn evaluate(expression: &Expr, environment: &Environment) -> Result<f64, Eva
                 UnaryOperator::Exp => value.exp(),
                 UnaryOperator::Log if value > 0.0 => value.ln(),
                 UnaryOperator::Log => {
-                    return Err(EvaluationError::DomainError {
-                        operation: "log",
-                        input: value,
-                    });
+                    return Err(EvaluationError::DomainError { operation: "log", input: value });
                 }
                 UnaryOperator::Sin => value.sin(),
                 UnaryOperator::Cos => value.cos(),
             }
         }
-        Expr::Binary {
-            operator,
-            left,
-            right,
-        } => {
+        Expr::Binary { operator, left, right } => {
             let left = evaluate(left, environment)?;
             let right = evaluate(right, environment)?;
             match operator {
@@ -49,11 +42,7 @@ pub fn evaluate(expression: &Expr, environment: &Environment) -> Result<f64, Eva
             }
         }
     };
-    if value.is_finite() {
-        Ok(value)
-    } else {
-        Err(EvaluationError::NonFiniteResult)
-    }
+    if value.is_finite() { Ok(value) } else { Err(EvaluationError::NonFiniteResult) }
 }
 
 #[cfg(test)]
@@ -68,11 +57,7 @@ mod tests {
     #[test]
     fn evaluates_a_composed_expression() {
         let expression = Expr::sum(
-            Expr::binary(
-                BinaryOperator::Multiply,
-                Expr::constant(2.0),
-                Expr::symbol(id("x")),
-            ),
+            Expr::binary(BinaryOperator::Multiply, Expr::constant(2.0), Expr::symbol(id("x"))),
             Expr::unary(UnaryOperator::Negate, Expr::symbol(id("y"))),
         );
         let environment = Environment::from([(id("x"), 3.0), (id("y"), 1.5)]);

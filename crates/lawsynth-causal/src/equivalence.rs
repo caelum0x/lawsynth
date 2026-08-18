@@ -29,8 +29,5 @@ pub fn equivalence_class(graph: &CausalGraph) -> MarkovEquivalence {
             }
         }
     }
-    MarkovEquivalence {
-        skeleton,
-        colliders,
-    }
+    MarkovEquivalence { skeleton, colliders }
 }

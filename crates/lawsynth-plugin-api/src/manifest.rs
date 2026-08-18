@@ -26,9 +26,7 @@ impl FromStr for PluginKind {
             "wasi" => Ok(Self::Wasi),
             "process" => Ok(Self::Process),
             "trusted-native" => Ok(Self::TrustedNative),
-            v => Err(PluginError::InvalidManifest(format!(
-                "unknown plugin kind {v:?}"
-            ))),
+            v => Err(PluginError::InvalidManifest(format!("unknown plugin kind {v:?}"))),
         }
     }
 }
@@ -48,17 +46,13 @@ impl PluginManifest {
     pub fn validate(&self) -> Result<(), PluginError> {
         valid_id(&self.id)?;
         if !valid_version(&self.version) {
-            return Err(PluginError::InvalidManifest(
-                "version must be major.minor.patch".into(),
-            ));
+            return Err(PluginError::InvalidManifest("version must be major.minor.patch".into()));
         }
         if self.entrypoint.is_empty()
             || self.entrypoint.contains('\0')
             || self.entrypoint.contains("..")
         {
-            return Err(PluginError::InvalidManifest(
-                "entrypoint is empty or unsafe".into(),
-            ));
+            return Err(PluginError::InvalidManifest("entrypoint is empty or unsafe".into()));
         }
         if self.kind == PluginKind::TrustedNative
             && !self.capabilities.contains(Capability::ExecuteProcess)
@@ -132,9 +126,7 @@ impl PluginManifest {
 fn unquote(value: &str) -> Result<&str, PluginError> {
     if value.starts_with('"') || value.ends_with('"') {
         if value.len() < 2 || !value.starts_with('"') || !value.ends_with('"') {
-            return Err(PluginError::InvalidManifest(
-                "unterminated quoted value".into(),
-            ));
+            return Err(PluginError::InvalidManifest("unterminated quoted value".into()));
         }
         Ok(&value[1..value.len() - 1])
     } else {
@@ -148,15 +140,11 @@ fn parse_num<T: FromStr>(value: &str, key: &str) -> Result<T, PluginError> {
 }
 fn valid_id(id: &str) -> Result<(), PluginError> {
     if id.is_empty() || id.len() > 96 {
-        return Err(PluginError::InvalidManifest(
-            "id must contain 1..=96 characters".into(),
-        ));
+        return Err(PluginError::InvalidManifest("id must contain 1..=96 characters".into()));
     }
     if id.starts_with('-')
         || id.ends_with('-')
-        || !id
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        || !id.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
     {
         return Err(PluginError::InvalidManifest(
             "id must use lowercase ASCII letters, digits, and internal hyphens".into(),

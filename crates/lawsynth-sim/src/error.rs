@@ -27,14 +27,12 @@ impl fmt::Display for SimulationError {
             Self::MissingInitialState(id) => {
                 write!(formatter, "missing initial value for state '{id}'")
             }
-            Self::UnknownInitialState(id) => write!(
-                formatter,
-                "initial value supplied for non-state variable '{id}'"
-            ),
-            Self::UnknownParameterOverride(id) => write!(
-                formatter,
-                "parameter override supplied for unknown parameter '{id}'"
-            ),
+            Self::UnknownInitialState(id) => {
+                write!(formatter, "initial value supplied for non-state variable '{id}'")
+            }
+            Self::UnknownParameterOverride(id) => {
+                write!(formatter, "parameter override supplied for unknown parameter '{id}'")
+            }
             Self::UnknownInput(id) => {
                 write!(formatter, "input supplied for unknown variable '{id}'")
             }
@@ -42,10 +40,7 @@ impl fmt::Display for SimulationError {
                 write!(formatter, "input '{id}' conflicts with a simulated state")
             }
             Self::InvalidInterventionTime { name, time } => {
-                write!(
-                    formatter,
-                    "intervention for '{name}' has invalid time {time}"
-                )
+                write!(formatter, "intervention for '{name}' has invalid time {time}")
             }
             Self::NonFiniteInput { name, value } => {
                 write!(formatter, "input '{name}' must be finite, got {value}")

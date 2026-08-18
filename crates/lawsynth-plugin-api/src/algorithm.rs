@@ -29,21 +29,16 @@ impl AlgorithmRequest {
             ));
         }
 
-        let target = self
-            .schema
-            .columns
-            .iter()
-            .find(|column| column.name == self.target)
-            .ok_or_else(|| {
-                PluginError::InvalidData(format!(
-                    "algorithm target {:?} is absent from schema",
-                    self.target
-                ))
-            })?;
-        if !matches!(
-            target.scalar_type,
-            crate::ScalarType::Float64 | crate::ScalarType::Int64
-        ) {
+        let target =
+            self.schema.columns.iter().find(|column| column.name == self.target).ok_or_else(
+                || {
+                    PluginError::InvalidData(format!(
+                        "algorithm target {:?} is absent from schema",
+                        self.target
+                    ))
+                },
+            )?;
+        if !matches!(target.scalar_type, crate::ScalarType::Float64 | crate::ScalarType::Int64) {
             return Err(PluginError::Unsupported(format!(
                 "algorithm target {:?} has non-numeric type {}",
                 self.target,
@@ -58,10 +53,7 @@ impl AlgorithmRequest {
     }
 
     pub fn estimated_bytes(&self) -> usize {
-        self.columns
-            .iter()
-            .map(DataBatch::estimated_bytes)
-            .fold(0usize, usize::saturating_add)
+        self.columns.iter().map(DataBatch::estimated_bytes).fold(0usize, usize::saturating_add)
     }
 }
 
@@ -85,9 +77,7 @@ impl AlgorithmResponse {
             )));
         }
         if !self.score.is_finite() {
-            return Err(PluginError::InvalidData(
-                "algorithm score must be finite".into(),
-            ));
+            return Err(PluginError::InvalidData("algorithm score must be finite".into()));
         }
         if self.diagnostics.len() > MAX_DIAGNOSTICS {
             return Err(PluginError::ResourceLimit(format!(

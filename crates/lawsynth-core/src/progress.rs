@@ -32,10 +32,9 @@ pub enum ProgressError {
 impl fmt::Display for ProgressError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidFraction => write!(
-                formatter,
-                "progress fraction must be finite and between zero and one"
-            ),
+            Self::InvalidFraction => {
+                write!(formatter, "progress fraction must be finite and between zero and one")
+            }
             Self::NonMonotonic => write!(formatter, "progress cannot decrease within a stage"),
         }
     }
@@ -61,11 +60,7 @@ impl ProgressTracker {
         if !fraction.is_finite() || !(0.0..=1.0).contains(&fraction) {
             return Err(ProgressError::InvalidFraction);
         }
-        if self
-            .completed
-            .get(&stage)
-            .is_some_and(|previous| fraction < *previous)
-        {
+        if self.completed.get(&stage).is_some_and(|previous| fraction < *previous) {
             return Err(ProgressError::NonMonotonic);
         }
         self.completed.insert(stage, fraction);

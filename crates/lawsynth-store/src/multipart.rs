@@ -11,22 +11,13 @@ pub struct MultipartUpload {
 impl MultipartUpload {
     pub fn new(key: ObjectKey, max_part_bytes: usize) -> Result<Self, StoreError> {
         if max_part_bytes == 0 {
-            return Err(StoreError::InvalidPart(
-                "max_part_bytes must be positive".into(),
-            ));
+            return Err(StoreError::InvalidPart("max_part_bytes must be positive".into()));
         }
-        Ok(Self {
-            key,
-            max_part_bytes,
-            parts: BTreeMap::new(),
-            closed: false,
-        })
+        Ok(Self { key, max_part_bytes, parts: BTreeMap::new(), closed: false })
     }
     pub fn add_part(&mut self, number: u32, bytes: Vec<u8>) -> Result<(), StoreError> {
         if self.closed {
-            return Err(StoreError::InvalidPart(
-                "upload is already finalized".into(),
-            ));
+            return Err(StoreError::InvalidPart("upload is already finalized".into()));
         }
         if number == 0 || bytes.len() > self.max_part_bytes {
             return Err(StoreError::InvalidPart(
@@ -40,9 +31,7 @@ impl MultipartUpload {
     }
     pub fn complete<S: ObjectStore>(&mut self, store: &S) -> Result<Object, StoreError> {
         if self.closed || self.parts.is_empty() {
-            return Err(StoreError::InvalidPart(
-                "upload has no completable parts".into(),
-            ));
+            return Err(StoreError::InvalidPart("upload has no completable parts".into()));
         }
         let mut expected = 1_u32;
         let mut all = Vec::new();

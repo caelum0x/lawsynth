@@ -19,20 +19,10 @@ pub fn discrete_transitions(
         return Err(DynamicsError::TooFewSamples);
     }
     let current = (0..dataset.time().len() - 1)
-        .map(|row| {
-            state
-                .iter()
-                .map(|id| dataset.columns()[id].values[row])
-                .collect()
-        })
+        .map(|row| state.iter().map(|id| dataset.columns()[id].values[row]).collect())
         .collect();
     let next = (1..dataset.time().len())
-        .map(|row| {
-            state
-                .iter()
-                .map(|id| dataset.columns()[id].values[row])
-                .collect()
-        })
+        .map(|row| state.iter().map(|id| dataset.columns()[id].values[row]).collect())
         .collect();
     Ok(DiscreteTransitions {
         times: dataset.time().values()[..dataset.time().len() - 1].to_vec(),
@@ -58,9 +48,6 @@ mod tests {
             [x],
         )
         .unwrap();
-        assert_eq!(
-            discrete_transitions(&problem).unwrap().next,
-            vec![vec![3.0], vec![9.0]]
-        );
+        assert_eq!(discrete_transitions(&problem).unwrap().next, vec![vec![3.0], vec![9.0]]);
     }
 }

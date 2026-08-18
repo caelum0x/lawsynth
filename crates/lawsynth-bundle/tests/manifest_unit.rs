@@ -22,17 +22,12 @@ fn temporary_path(name: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
         "lawsynth-bundle-{name}-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
     ))
 }
 
 fn read_u16(bytes: &[u8], offset: usize) -> usize {
-    usize::from(u16::from_le_bytes(
-        bytes[offset..offset + 2].try_into().unwrap(),
-    ))
+    usize::from(u16::from_le_bytes(bytes[offset..offset + 2].try_into().unwrap()))
 }
 
 fn read_u32(bytes: &[u8], offset: usize) -> usize {
@@ -44,11 +39,8 @@ fn crc32(bytes: &[u8]) -> u32 {
     for byte in bytes {
         checksum ^= u32::from(*byte);
         for _ in 0..8 {
-            checksum = if checksum & 1 == 1 {
-                (checksum >> 1) ^ 0xedb8_8320
-            } else {
-                checksum >> 1
-            };
+            checksum =
+                if checksum & 1 == 1 { (checksum >> 1) ^ 0xedb8_8320 } else { checksum >> 1 };
         }
     }
     !checksum
@@ -98,9 +90,6 @@ fn written_bundle_contains_the_versioned_manifest_and_rejects_a_different_manife
     let unsupported = b"{\n  \"format\": \"lawsynth-world\",\n  \"format_version\": \"0.1.1\",\n  \"world_encoding\": \"lawsynth-world-binary-v1\"\n}\n";
     replace_stored_entry(&mut archive, "manifest.json", unsupported);
     fs::write(&path, archive).unwrap();
-    assert!(matches!(
-        read_world(&path),
-        Err(BundleError::InvalidArchive("unsupported manifest"))
-    ));
+    assert!(matches!(read_world(&path), Err(BundleError::InvalidArchive("unsupported manifest"))));
     fs::remove_file(path).unwrap();
 }

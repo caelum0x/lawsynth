@@ -19,19 +19,14 @@ pub struct ProcessRecord {
 
 impl ProcessRecord {
     pub fn new(work_id: impl Into<String>) -> Self {
-        Self {
-            work_id: work_id.into(),
-            checkpoints: Vec::new(),
-        }
+        Self { work_id: work_id.into(), checkpoints: Vec::new() }
     }
     pub fn record_checkpoint(&mut self, checkpoint: Checkpoint) -> Result<(), RunnerError> {
         checkpoint.verify()?;
         if let Some(previous) = self.checkpoints.last()
             && checkpoint.sequence <= previous.sequence
         {
-            return Err(RunnerError::CheckpointRejected(
-                "sequence must increase strictly",
-            ));
+            return Err(RunnerError::CheckpointRejected("sequence must increase strictly"));
         }
         self.checkpoints.push(checkpoint);
         Ok(())

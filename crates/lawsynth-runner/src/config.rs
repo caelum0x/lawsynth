@@ -18,31 +18,18 @@ impl RunnerConfig {
         maximum_attempts: u32,
     ) -> Result<Self, RunnerError> {
         if heartbeat_interval.is_zero() {
-            return Err(RunnerError::InvalidConfig(
-                "heartbeat_interval must be positive",
-            ));
+            return Err(RunnerError::InvalidConfig("heartbeat_interval must be positive"));
         }
         if stale_after <= heartbeat_interval {
-            return Err(RunnerError::InvalidConfig(
-                "stale_after must exceed heartbeat_interval",
-            ));
+            return Err(RunnerError::InvalidConfig("stale_after must exceed heartbeat_interval"));
         }
         if maximum_checkpoint_bytes == 0 {
-            return Err(RunnerError::InvalidConfig(
-                "maximum_checkpoint_bytes must be positive",
-            ));
+            return Err(RunnerError::InvalidConfig("maximum_checkpoint_bytes must be positive"));
         }
         if maximum_attempts == 0 {
-            return Err(RunnerError::InvalidConfig(
-                "maximum_attempts must be positive",
-            ));
+            return Err(RunnerError::InvalidConfig("maximum_attempts must be positive"));
         }
-        Ok(Self {
-            heartbeat_interval,
-            stale_after,
-            maximum_checkpoint_bytes,
-            maximum_attempts,
-        })
+        Ok(Self { heartbeat_interval, stale_after, maximum_checkpoint_bytes, maximum_attempts })
     }
 }
 

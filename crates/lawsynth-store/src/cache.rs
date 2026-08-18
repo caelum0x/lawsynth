@@ -15,12 +15,7 @@ pub struct ObjectCache {
 }
 impl ObjectCache {
     pub fn new(capacity_bytes: usize) -> Self {
-        Self {
-            capacity_bytes,
-            used_bytes: 0,
-            sequence: 0,
-            entries: BTreeMap::new(),
-        }
+        Self { capacity_bytes, used_bytes: 0, sequence: 0, entries: BTreeMap::new() }
     }
     pub fn get(&mut self, key: &ObjectKey) -> Option<Object> {
         self.sequence = self.sequence.wrapping_add(1);
@@ -36,13 +31,8 @@ impl ObjectCache {
             self.recount();
             return;
         }
-        if let Some(previous) = self.entries.insert(
-            key,
-            Entry {
-                object,
-                last_used: self.sequence,
-            },
-        ) {
+        if let Some(previous) = self.entries.insert(key, Entry { object, last_used: self.sequence })
+        {
             self.used_bytes -= previous.object.len();
         }
         self.recount();

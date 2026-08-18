@@ -54,19 +54,13 @@ mod tests {
 
     #[test]
     fn accepts_portable_identifiers() {
-        assert_eq!(
-            Identifier::new("supply-demand_2").unwrap().as_str(),
-            "supply-demand_2"
-        );
+        assert_eq!(Identifier::new("supply-demand_2").unwrap().as_str(), "supply-demand_2");
     }
 
     #[test]
     fn rejects_ambiguous_identifiers() {
         assert!(matches!(Identifier::new(""), Err(IdentifierError::Empty)));
-        assert!(matches!(
-            Identifier::new("2fast"),
-            Err(IdentifierError::StartsWithDigit)
-        ));
+        assert!(matches!(Identifier::new("2fast"), Err(IdentifierError::StartsWithDigit)));
         assert!(matches!(
             Identifier::new("not valid"),
             Err(IdentifierError::InvalidCharacter { .. })

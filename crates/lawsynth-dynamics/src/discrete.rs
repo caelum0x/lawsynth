@@ -51,9 +51,6 @@ mod tests {
             [NumericColumn::new(x.clone(), vec![1.0, 2.0])],
         )
         .unwrap();
-        assert_eq!(
-            DiscreteProblem::new(dataset, [x.clone()]).unwrap().state(),
-            &[x]
-        );
+        assert_eq!(DiscreteProblem::new(dataset, [x.clone()]).unwrap().state(), &[x]);
     }
 }

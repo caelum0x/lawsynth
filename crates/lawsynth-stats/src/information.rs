@@ -50,10 +50,9 @@ pub fn histogram_mutual_information(
 }
 
 fn range(values: &[f64]) -> (f64, f64) {
-    values.iter().copied().fold(
-        (f64::INFINITY, f64::NEG_INFINITY),
-        |(minimum, maximum), value| (minimum.min(value), maximum.max(value)),
-    )
+    values.iter().copied().fold((f64::INFINITY, f64::NEG_INFINITY), |(minimum, maximum), value| {
+        (minimum.min(value), maximum.max(value))
+    })
 }
 
 fn bin(value: f64, minimum: f64, maximum: f64, bins: usize) -> usize {

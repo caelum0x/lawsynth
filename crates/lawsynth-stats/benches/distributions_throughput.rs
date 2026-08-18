@@ -8,8 +8,5 @@ fn main() {
         let x = i as f64 / 100_000.0 - 5.0;
         sum += black_box(normal_pdf(x, 0.0, 1.0).unwrap() + normal_cdf(x, 0.0, 1.0).unwrap());
     }
-    println!(
-        "evaluated normal primitives ({sum:.3}) in {:?}",
-        started.elapsed()
-    );
+    println!("evaluated normal primitives ({sum:.3}) in {:?}", started.elapsed());
 }

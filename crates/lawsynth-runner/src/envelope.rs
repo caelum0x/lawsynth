@@ -25,9 +25,7 @@ impl WorkEnvelope {
         let kind = kind.into();
         if id.is_empty()
             || id.len() > 128
-            || !id
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+            || !id.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
         {
             return Err(RunnerError::InvalidEnvelope(
                 "id must be URL-safe and no longer than 128 bytes",
@@ -35,9 +33,7 @@ impl WorkEnvelope {
         }
         if kind.is_empty()
             || kind.len() > 128
-            || !kind
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+            || !kind.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
         {
             return Err(RunnerError::InvalidEnvelope(
                 "kind must be URL-safe and no longer than 128 bytes",
@@ -47,22 +43,12 @@ impl WorkEnvelope {
             return Err(RunnerError::InvalidEnvelope("attempt must start at one"));
         }
         if deadline_at_ms <= submitted_at_ms {
-            return Err(RunnerError::InvalidEnvelope(
-                "deadline must follow submission",
-            ));
+            return Err(RunnerError::InvalidEnvelope("deadline must follow submission"));
         }
         if input.len() > 64 << 20 {
             return Err(RunnerError::InvalidEnvelope("input exceeds 64 MiB"));
         }
-        Ok(Self {
-            id,
-            kind,
-            attempt,
-            submitted_at_ms,
-            deadline_at_ms,
-            resources,
-            input,
-        })
+        Ok(Self { id, kind, attempt, submitted_at_ms, deadline_at_ms, resources, input })
     }
     pub fn is_expired(&self, now_ms: u64) -> bool {
         now_ms >= self.deadline_at_ms

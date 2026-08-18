@@ -5,9 +5,7 @@ pub struct SimulationLimits {
 }
 impl Default for SimulationLimits {
     fn default() -> Self {
-        Self {
-            maximum_steps: 1_000_000,
-        }
+        Self { maximum_steps: 1_000_000 }
     }
 }
 impl SimulationLimits {

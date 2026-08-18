@@ -8,11 +8,7 @@ fn resource_reservations_cannot_overcommit_or_underflow() {
     limiter.reserve(request).unwrap();
     assert_eq!(limiter.available().memory_bytes, 2048);
     assert!(limiter.reserve(request).is_ok());
-    assert!(
-        limiter
-            .reserve(ResourceRequest::new(1, 1, 1).unwrap())
-            .is_err()
-    );
+    assert!(limiter.reserve(ResourceRequest::new(1, 1, 1).unwrap()).is_err());
     limiter.release(request).unwrap();
     limiter.release(request).unwrap();
     assert!(limiter.release(request).is_err());

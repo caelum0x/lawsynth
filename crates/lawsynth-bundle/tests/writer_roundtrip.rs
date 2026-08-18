@@ -3,7 +3,7 @@ use std::fs;
 use lawsynth_bundle::{read_discrete_world, read_world, write_discrete_world, write_world};
 use lawsynth_core::Identifier;
 use lawsynth_expr::Expr;
-use lawsynth_sim::{simulate, SimulationConfig, SimulationRequest};
+use lawsynth_sim::{SimulationConfig, SimulationRequest, simulate};
 use lawsynth_units::Unit;
 use lawsynth_world::{
     ContinuousLaw, DiscreteLaw, DiscreteWorld, Parameter, Variable, VariableRole, World,
@@ -52,10 +52,7 @@ fn discrete_bundle_round_trips_byte_stably() {
     let world = DiscreteWorld::new(
         [Variable::new(id("x"), VariableRole::State)],
         [],
-        [DiscreteLaw::new(
-            id("x"),
-            Expr::sum(Expr::symbol(id("x")), Expr::constant(1.0)),
-        )],
+        [DiscreteLaw::new(id("x"), Expr::sum(Expr::symbol(id("x")), Expr::constant(1.0)))],
     )
     .unwrap();
     let directory = std::env::temp_dir().join(format!("lawsynth-discrete-{}", std::process::id()));
@@ -79,22 +76,10 @@ fn five_reference_worlds_match_after_bundle_round_trip() {
     let worlds = vec![
         ("constant", Expr::constant(1.0)),
         ("growth", Expr::symbol(id("x"))),
-        (
-            "decay",
-            Expr::unary(lawsynth_expr::UnaryOperator::Negate, Expr::symbol(id("x"))),
-        ),
-        (
-            "quadratic",
-            Expr::product(Expr::symbol(id("x")), Expr::symbol(id("x"))),
-        ),
-        (
-            "trigonometric",
-            Expr::unary(lawsynth_expr::UnaryOperator::Sin, Expr::symbol(id("x"))),
-        ),
-        (
-            "controlled",
-            Expr::sum(Expr::symbol(id("x")), Expr::symbol(id("u"))),
-        ),
+        ("decay", Expr::unary(lawsynth_expr::UnaryOperator::Negate, Expr::symbol(id("x")))),
+        ("quadratic", Expr::product(Expr::symbol(id("x")), Expr::symbol(id("x")))),
+        ("trigonometric", Expr::unary(lawsynth_expr::UnaryOperator::Sin, Expr::symbol(id("x")))),
+        ("controlled", Expr::sum(Expr::symbol(id("x")), Expr::symbol(id("u")))),
     ];
     let directory =
         std::env::temp_dir().join(format!("lawsynth-conformance-{}", std::process::id()));
@@ -106,27 +91,17 @@ fn five_reference_worlds_match_after_bundle_round_trip() {
         }
         let world = World::new(variables, [], [ContinuousLaw::new(id("x"), expression)]).unwrap();
         let request = if name == "controlled" {
-            SimulationRequest::default()
-                .with_initial(id("x"), 0.5)
-                .with_input(id("u"), 0.25)
+            SimulationRequest::default().with_initial(id("x"), 0.5).with_input(id("u"), 0.25)
         } else {
             SimulationRequest::default().with_initial(id("x"), 0.5)
         };
-        let direct = simulate(
-            &world,
-            SimulationConfig::new(0.0, 0.1, 0.01).unwrap(),
-            &request,
-        )
-        .unwrap();
+        let direct =
+            simulate(&world, SimulationConfig::new(0.0, 0.1, 0.01).unwrap(), &request).unwrap();
         let path = directory.join(format!("{name}.lsworld"));
         write_world(&path, &world).unwrap();
         let loaded = read_world(&path).unwrap();
-        let round_tripped = simulate(
-            &loaded,
-            SimulationConfig::new(0.0, 0.1, 0.01).unwrap(),
-            &request,
-        )
-        .unwrap();
+        let round_tripped =
+            simulate(&loaded, SimulationConfig::new(0.0, 0.1, 0.01).unwrap(), &request).unwrap();
         assert_eq!(direct, round_tripped, "{name}");
     }
 }

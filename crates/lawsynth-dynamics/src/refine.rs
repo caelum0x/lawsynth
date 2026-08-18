@@ -30,9 +30,6 @@ mod tests {
     #[test]
     fn differentiates_linear_data_on_an_irregular_axis() {
         let time = TimeAxis::new(vec![0.0, 0.5, 2.0]).unwrap();
-        assert_eq!(
-            central_derivative(&time, &[1.0, 2.0, 5.0]).unwrap(),
-            vec![2.0; 3]
-        );
+        assert_eq!(central_derivative(&time, &[1.0, 2.0, 5.0]).unwrap(), vec![2.0; 3]);
     }
 }

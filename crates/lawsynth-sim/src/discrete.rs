@@ -60,14 +60,7 @@ pub fn simulate_discrete(
         .parameters()
         .iter()
         .map(|(id, parameter)| {
-            (
-                id.clone(),
-                request
-                    .parameter_overrides
-                    .get(id)
-                    .copied()
-                    .unwrap_or(parameter.value),
-            )
+            (id.clone(), request.parameter_overrides.get(id).copied().unwrap_or(parameter.value))
         })
         .collect::<BTreeMap<_, _>>();
     let compiled = CompiledDiscreteWorld::compile(world);
@@ -91,10 +84,7 @@ fn ensure_finite(name: &Identifier, value: f64) -> Result<(), SimulationError> {
     if value.is_finite() {
         Ok(())
     } else {
-        Err(SimulationError::NonFiniteInput {
-            name: name.clone(),
-            value,
-        })
+        Err(SimulationError::NonFiniteInput { name: name.clone(), value })
     }
 }
 
@@ -121,10 +111,7 @@ mod tests {
         let world = DiscreteWorld::new(
             [Variable::new(id("x"), VariableRole::State)],
             [],
-            [DiscreteLaw::new(
-                id("x"),
-                Expr::sum(Expr::symbol(id("x")), Expr::constant(1.0)),
-            )],
+            [DiscreteLaw::new(id("x"), Expr::sum(Expr::symbol(id("x")), Expr::constant(1.0)))],
         )
         .unwrap();
         let trajectory = simulate_discrete(
@@ -151,12 +138,9 @@ mod tests {
         let request = SimulationRequest::default()
             .with_initial(id("x"), 0.0)
             .with_scheduled_parameter(1.0, id("increment"), 2.0);
-        let trajectory = simulate_discrete(
-            &world,
-            DiscreteSimulationConfig::new(0.0, 3).unwrap(),
-            &request,
-        )
-        .unwrap();
+        let trajectory =
+            simulate_discrete(&world, DiscreteSimulationConfig::new(0.0, 3).unwrap(), &request)
+                .unwrap();
         assert_eq!(trajectory.values[&id("x")], vec![0.0, 1.0, 3.0, 5.0]);
     }
 }
