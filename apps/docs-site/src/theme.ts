@@ -14,4 +14,7 @@ export const DOCS_STYLES = `:root{
 .docs-shell{display:grid;grid-template-columns:260px minmax(0,1fr);gap:32px;max-width:1280px;margin:auto;padding:24px}
 main{max-width:76ch}h1,h2,h3{font-family:Georgia,serif;line-height:1.15}code,pre{font-family:ui-monospace,SFMono-Regular,monospace}
 pre{overflow:auto;padding:16px;background:var(--doc-surface);border:1px solid var(--doc-line)}a{color:var(--doc-accent);text-underline-offset:3px}
-:focus-visible{outline:3px solid var(--doc-accent);outline-offset:3px}@media(max-width:760px){.docs-shell{display:block}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}`;
+:focus-visible{outline:3px solid var(--doc-accent);outline-offset:3px}@media(max-width:760px){.docs-shell{display:block}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+header{display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid var(--doc-line)}.docs-repo{margin-left:auto;font-weight:600}
+.docs-footer{max-width:1280px;margin:auto;padding:24px;border-top:1px solid var(--doc-line);color:var(--doc-ink);opacity:.85}
+.docs-footer nav{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:8px;font-weight:600}.docs-footer p{margin:0;font-size:14px}`;

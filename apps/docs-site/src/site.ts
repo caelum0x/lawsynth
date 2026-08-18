@@ -186,7 +186,9 @@ function renderPage(
     "</head>",
     "<body>",
     '<a href="#content" class="skip-link">Skip to content</a>',
-    `<header><strong>${escapeHtml(productName)}</strong>${version}</header>`,
+    `<header><strong>${escapeHtml(productName)}</strong>${version}` +
+      '<a class="docs-repo" href="https://github.com/caelum0x/lawsynth" rel="noopener noreferrer">GitHub</a>' +
+      "</header>",
     '<div class="docs-shell">',
     `<aside><nav aria-label="Documentation">${renderNavigation(navigation, source.path)}</nav></aside>`,
     '<main id="content">',
@@ -194,6 +196,16 @@ function renderPage(
     renderPagination(adjacent),
     "</main>",
     "</div>",
+    '<footer class="docs-footer">' +
+      '<nav aria-label="Site links">' +
+      '<a href="/getting-started">Docs</a>' +
+      '<a href="/reference/cli">CLI reference</a>' +
+      '<a href="https://github.com/caelum0x/lawsynth" rel="noopener noreferrer">GitHub</a>' +
+      '<a href="mailto:caelum0x42@gmail.com">Contact</a>' +
+      "</nav>" +
+      `<p>${escapeHtml(productName)} — deterministic discovery of executable mathematical worlds. ` +
+      'Questions or collaboration: <a href="mailto:caelum0x42@gmail.com">caelum0x42@gmail.com</a>.</p>' +
+      "</footer>",
     "</body>",
     "</html>",
   ].join("");
