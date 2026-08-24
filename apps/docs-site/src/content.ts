@@ -8,8 +8,8 @@ const INTRODUCTION: DocumentationPageSource = {
   path: "/",
   section: "getting-started",
   source: markdownDocument(
-    frontMatter({ title: "What is LawSynth?", description: "LawSynth discovers interpretable, executable law systems from time-series data — deterministic and offline. Read, simulate, analyze, control, and share them.", order: 1, tags: ["overview", "introduction"] }),
-    "# What is LawSynth?",
+    frontMatter({ title: "LawSynth — discover governing equations from time-series data", description: "LawSynth is an open-source, deterministic tool that discovers interpretable governing equations from time-series data (a CSV) — a local-first alternative to symbolic regression and SINDy. Recover, explain, forecast, control, and share differential-equation models.", order: 1, tags: ["symbolic regression", "governing equations", "SINDy", "equation discovery", "system identification"] }),
+    "# LawSynth: discover governing equations from time-series data",
     "LawSynth discovers **interpretable, executable law systems** from time-series data. Point it at a CSV and it recovers the governing equations behind the numbers — a world you can read, simulate, analyze, control, and share. If you can't read and reason about the result, it isn't a LawSynth result.",
     "![A damped phase-portrait spiral collapses to the discovered law dx/dt = y, dy/dt = −x − 0.3·y](/hero.svg)",
     "## What you get",

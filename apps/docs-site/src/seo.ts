@@ -32,6 +32,51 @@ export function renderSeo(metadata: SeoMetadata, siteName = "LawSynth"): string 
   if (metadata.modifiedAt) tags.push(`<meta property="article:modified_time" content="${escapeHtml(metadata.modifiedAt)}">`);
   return tags.join("\n");
 }
+const SOFTWARE_DESCRIPTION =
+  "LawSynth is a deterministic, local-first tool that discovers interpretable governing equations (law systems) from time-series data — an open-source alternative to symbolic-regression and SINDy workflows. Recover, explain, forecast, control, and share differential-equation models from a CSV.";
+
+const SOFTWARE_KEYWORDS = [
+  "symbolic regression",
+  "governing equations from data",
+  "sparse identification of nonlinear dynamics",
+  "SINDy",
+  "system identification",
+  "equation discovery",
+  "data-driven dynamical systems",
+  "interpretable machine learning",
+];
+
 export function softwareStructuredData(name: string, version: string, url: string): string {
-  return JSON.stringify({ "@context": "https://schema.org", "@type": "SoftwareApplication", name, softwareVersion: version, url, applicationCategory: "DeveloperApplication", operatingSystem: "Linux, macOS, Windows" }).replaceAll("<", "\\u003c");
+  const origin = url.replace(/\/$/, "");
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        name,
+        description: SOFTWARE_DESCRIPTION,
+        softwareVersion: version,
+        url: origin,
+        applicationCategory: "DeveloperApplication",
+        applicationSubCategory: "Scientific / Symbolic Regression",
+        operatingSystem: "Linux, macOS, Windows",
+        keywords: SOFTWARE_KEYWORDS.join(", "),
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        isAccessibleForFree: true,
+      },
+      {
+        "@type": "WebSite",
+        name,
+        url: origin,
+        description: SOFTWARE_DESCRIPTION,
+        inLanguage: "en",
+      },
+      {
+        "@type": "Organization",
+        name,
+        url: origin,
+        sameAs: ["https://github.com/caelum0x/lawsynth"],
+      },
+    ],
+  }).replaceAll("<", "\\u003c");
 }
