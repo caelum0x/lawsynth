@@ -4,11 +4,15 @@
 
 # LawSynth
 
-**Turn time-series observations into executable mathematical worlds — interpretable law systems you can read, simulate, stress-test, and share.**
+**Discover interpretable governing equations from time-series data.** Point LawSynth at a CSV and it recovers the law system behind the numbers — a world you can read, simulate, stress-test, and share.
 
-Local-first · deterministic · offline. Same inputs → same world, every time.
+**Read the equations, not a black box.** Every result is explicit differential equations, not opaque weights — computed **deterministically and offline**, so the same inputs reproduce the same world, every time. A local-first, open-source alternative to black-box ML and to symbolic-regression / SINDy pipelines.
 
-**[lawsynth.dev](https://lawsynth.dev)** · [Documentation](https://lawsynth.dev/docs) · [Getting started](https://lawsynth.dev/getting-started) · [Capabilities](https://lawsynth.dev/capabilities) · [Why determinism](https://lawsynth.dev/determinism)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/core-Rust-000000?logo=rust&logoColor=white)](Cargo.toml)
+[![Python · TypeScript SDKs](https://img.shields.io/badge/SDKs-Python%20%C2%B7%20TypeScript-3776AB)](https://lawsynth.dev/getting-started)
+
+**[lawsynth.dev](https://lawsynth.dev)** · [Documentation](https://lawsynth.dev/docs) · [Getting started](https://lawsynth.dev/getting-started) · [GitHub](https://github.com/caelum0x/lawsynth) · [Contributing](CONTRIBUTING.md) · Apache-2.0
 
 </div>
 
@@ -173,6 +177,7 @@ Every capability below is shipped and works against the same validated World IR 
 | **Python SDK** | notebooks, pipelines | `import lawsynth` → `Study` (`python/lawsynth`) |
 | **Studio** | interactive exploration | 9 screens (`apps/studio`) |
 | **Services** | teams, self-hosting | `/v1` HTTP API (`services/api`) |
+| **Applied labs** | measured grid and cascade workflows | GridSynth (`apps/gridsynth`), information diffusion (`apps/information-diffusion`) |
 
 All four operate on the **same validated World IR and `.lsworld` bundles**. A
 discovery made in the CLI opens in the SDK, renders in Studio, and serves from the API.
