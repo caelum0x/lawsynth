@@ -11,7 +11,7 @@ import {
   type NavigationSection,
 } from "./navigation.js";
 import { SearchIndex } from "./search.js";
-import { renderSeo } from "./seo.js";
+import { renderSeo, softwareStructuredData } from "./seo.js";
 import { DOCS_STYLES, docsThemeScript } from "./theme.js";
 
 export interface DocumentationPageSource {
@@ -174,6 +174,13 @@ function renderPage(
     },
     productName,
   );
+  // SoftwareApplication JSON-LD (escaped by softwareStructuredData, so it is
+  // safe to inline inside a <script> element).
+  const structuredData = `<script type="application/ld+json">${softwareStructuredData(
+    productName,
+    configuration.version ?? "0.1.0",
+    configuration.origin,
+  )}</script>`;
 
   return [
     "<!doctype html>",
@@ -185,6 +192,7 @@ function renderPage(
     '<link rel="apple-touch-icon" href="/favicon.svg">',
     '<meta name="theme-color" content="#18201d">',
     seo,
+    structuredData,
     `<style>${DOCS_STYLES}</style>`,
     `<script>${docsThemeScript()}</script>`,
     "</head>",

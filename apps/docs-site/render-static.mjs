@@ -45,6 +45,19 @@ function robotsTxt(origin) {
   return `User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`;
 }
 
+// RFC 9116 security.txt served at /.well-known/security.txt. `Canonical` is
+// derived from the deploy origin so it always matches the live URL.
+function securityTxt(origin) {
+  const base = origin.replace(/\/$/, "");
+  return [
+    "Contact: mailto:subasiarhan3@gmail.com",
+    "Expires: 2027-08-24T00:00:00Z",
+    "Preferred-Languages: en, tr",
+    `Canonical: ${base}/.well-known/security.txt`,
+    "",
+  ].join("\n");
+}
+
 function pageFile(outputDir, path) {
   const clean = path.replace(/^\/+|\/+$/g, "");
   return clean === "" ? join(outputDir, "index.html") : join(outputDir, clean, "index.html");
@@ -71,6 +84,7 @@ export function emitStaticSite(site, outputDir, configuration = SITE_CONFIGURATI
     [join(outputDir, "robots.txt"), robotsTxt(configuration.origin)],
     [join(outputDir, "_headers"), HEADERS],
     [join(outputDir, "_redirects"), REDIRECTS],
+    [join(outputDir, ".well-known", "security.txt"), securityTxt(configuration.origin)],
   ];
   for (const [file, contents] of files) {
     write(file, contents);
