@@ -4,6 +4,9 @@
 
 - Extend the exact money contract with overflow-checked negation, absolute
   value, and integer scaling, plus a zero check; no rounding or FX is introduced.
+- Add a single-position contract (direction, market value, notional, cash flow,
+  netting, reverse) that reuses the exact money integer algebra and its own
+  deterministic versioned byte encoding; no FX or multi-position aggregation.
 
 ## 0.1.0
 

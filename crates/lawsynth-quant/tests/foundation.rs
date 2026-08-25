@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
-use lawsynth_quant::{Currency, Money, ObservationKey, QuantError, UtcTimestamp};
+use lawsynth_quant::{
+    Currency, Direction, Money, ObservationKey, Position, QuantError, UtcTimestamp,
+};
 
 #[test]
 fn currency_registry_is_closed_and_declares_minor_units() {
@@ -64,6 +66,83 @@ fn money_encoding_round_trips_and_rejects_drift() {
         Err(QuantError::InvalidEncoding(_))
     ));
     assert!(Money::from_canonical_bytes(&encoded[..23]).is_err());
+}
+
+#[test]
+fn position_values_holdings_through_exact_money_algebra() {
+    let price = Money::from_minor_units(Currency::Usd, 15_000);
+    let long = Position::new("AAPL-XNAS", 3).unwrap();
+    assert_eq!(long.direction(), Direction::Long);
+    assert!(!long.is_flat());
+    // market_value = price * quantity (checked_mul).
+    assert_eq!(long.market_value(price).unwrap().minor_units(), 45_000);
+    // notional = |market_value| (checked_abs).
+    assert_eq!(long.notional(price).unwrap().minor_units(), 45_000);
+    // establishing a long is a cash outflow: -(price * quantity) (checked_neg).
+    let outflow = long.establish_cash_flow(price).unwrap();
+    assert_eq!(outflow.minor_units(), -45_000);
+    assert_eq!(outflow.currency(), Currency::Usd);
+
+    let short = Position::new("AAPL-XNAS", -2).unwrap();
+    assert_eq!(short.direction(), Direction::Short);
+    assert_eq!(short.market_value(price).unwrap().minor_units(), -30_000);
+    // notional ignores sign; shorting raises cash.
+    assert_eq!(short.notional(price).unwrap().minor_units(), 30_000);
+    assert_eq!(short.establish_cash_flow(price).unwrap().minor_units(), 30_000);
+
+    let flat = Position::new("AAPL-XNAS", 0).unwrap();
+    assert_eq!(flat.direction(), Direction::Flat);
+    assert!(flat.is_flat());
+    assert!(flat.market_value(price).unwrap().is_zero());
+}
+
+#[test]
+fn position_netting_reverse_and_overflow_are_checked() {
+    let long = Position::new("USDTRY", 5).unwrap();
+    let short = Position::new("USDTRY", -8).unwrap();
+    assert_eq!(long.combine(&short).unwrap().quantity(), -3);
+    assert_eq!(long.reverse().unwrap().quantity(), -5);
+    assert_eq!(long.combine(&long.reverse().unwrap()).unwrap().direction(), Direction::Flat);
+
+    let other = Position::new("AAPL-XNAS", 1).unwrap();
+    assert!(matches!(long.combine(&other), Err(QuantError::InstrumentMismatch { .. })));
+    assert!(matches!(Position::new("US DTRY", 1), Err(QuantError::InvalidInstrument(_))));
+
+    let max = Position::new("USDTRY", i64::MAX).unwrap();
+    let one = Position::new("USDTRY", 1).unwrap();
+    assert_eq!(max.combine(&one), Err(QuantError::ArithmeticOverflow));
+    let min = Position::new("USDTRY", i64::MIN).unwrap();
+    assert_eq!(min.reverse(), Err(QuantError::ArithmeticOverflow));
+
+    // Money-scale overflow surfaces through valuation, not wrapping.
+    let huge = Money::from_minor_units(Currency::Usd, i128::MAX);
+    assert_eq!(
+        Position::new("USDTRY", 2).unwrap().market_value(huge),
+        Err(QuantError::ArithmeticOverflow)
+    );
+}
+
+#[test]
+fn position_encoding_round_trips_and_rejects_drift() {
+    let position = Position::new("USDTRY", -12_345).unwrap();
+    let encoded = position.canonical_bytes();
+    assert_eq!(&encoded[..5], b"LSQP1");
+    assert_eq!(Position::from_canonical_bytes(&encoded).unwrap(), position);
+    assert_eq!(position.stable_fingerprint(), position.stable_fingerprint());
+
+    let mut unknown_version = encoded.clone();
+    unknown_version[4] = b'2';
+    assert!(matches!(
+        Position::from_canonical_bytes(&unknown_version),
+        Err(QuantError::InvalidEncoding(_))
+    ));
+    let mut wrong_length = encoded.clone();
+    wrong_length[6] = wrong_length[6].saturating_add(1);
+    assert!(matches!(
+        Position::from_canonical_bytes(&wrong_length),
+        Err(QuantError::InvalidEncoding(_))
+    ));
+    assert!(Position::from_canonical_bytes(&encoded[..encoded.len() - 1]).is_err());
 }
 
 #[test]

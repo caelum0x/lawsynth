@@ -1,10 +1,11 @@
 # Quant foundation boundary
 
-Status: QR0 implementation slice 1. This specification covers the exact money
-and observation-identity primitives compiled in `lawsynth-quant`. Trading
-calendars, corporate actions, market-data tables, portfolios, leakage checks,
-fixture licensing, and complete experiment manifests remain unimplemented and
-MUST NOT be claimed from this initial slice.
+Status: QR0 implementation slice 1. This specification covers the exact money,
+observation-identity, and single-position valuation primitives compiled in
+`lawsynth-quant`. Trading calendars, corporate actions, market-data tables,
+multi-position portfolio accounting, leakage checks, fixture licensing, and
+complete experiment manifests remain unimplemented and MUST NOT be claimed from
+this initial slice.
 
 ## Money
 
@@ -52,6 +53,36 @@ Canonical observation bytes are:
 Instrument identifiers use the existing `lawsynth-core::Identifier` grammar and
 are limited to 65,535 bytes by this encoding. Decoders reject malformed UTF-8,
 invalid identifiers, length mismatches, unknown versions, and trailing bytes.
+
+## Position
+
+`Direction` is the net sign of a holding: long, short, or flat. `Position`
+combines a validated portable instrument identifier with a signed `i64` unit
+count. It never uses binary floating point.
+
+Valuation reuses the exact `Money` integer algebra rather than defining a second
+one. At a per-unit `Money` price:
+
+- `market_value` is exactly `price * quantity` (overflow-checked scaling).
+- `notional` is its absolute magnitude, ignoring sign.
+- `establish_cash_flow` is its negation: going long is a cash outflow, going
+  short is an inflow.
+
+`combine` nets two holdings of the same instrument by adding signed quantities;
+it rejects a differing instrument and rejects quantity overflow. `reverse`
+returns the offsetting position that flattens this one, rejecting the single
+`i64::MIN` boundary rather than wrapping. No FX conversion, price sourcing, or
+rounding is introduced; multi-instrument portfolio aggregation is out of scope.
+
+Canonical position bytes are:
+
+```text
+"LSQP1" | u16 instrument-byte length (big endian) | instrument UTF-8
+         | signed i64 quantity (big endian)
+```
+
+Decoders reject malformed UTF-8, invalid identifiers, length mismatches, unknown
+versions, and trailing bytes.
 
 ## Determinism and non-goals
 

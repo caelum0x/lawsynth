@@ -8,6 +8,7 @@ use crate::Currency;
 pub enum QuantError {
     ArithmeticOverflow,
     CurrencyMismatch { left: Currency, right: Currency },
+    InstrumentMismatch { left: String, right: String },
     InstrumentTooLong { bytes: usize },
     InvalidEncoding(&'static str),
     InvalidInstrument(IdentifierError),
@@ -20,6 +21,9 @@ impl fmt::Display for QuantError {
             Self::ArithmeticOverflow => formatter.write_str("money arithmetic overflow"),
             Self::CurrencyMismatch { left, right } => {
                 write!(formatter, "currency mismatch: {left} and {right}")
+            }
+            Self::InstrumentMismatch { left, right } => {
+                write!(formatter, "instrument mismatch: {left} and {right}")
             }
             Self::InstrumentTooLong { bytes } => {
                 write!(formatter, "instrument identifier is {bytes} bytes; maximum is 65535")
