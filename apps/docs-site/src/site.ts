@@ -62,6 +62,27 @@ function validateOrigin(value: string): URL {
   return origin;
 }
 
+/**
+ * Build the canonical, *served* URL for a site path.
+ *
+ * Cloudflare Pages serves every page from its `…/index.html` file at the
+ * trailing-slash URL and 307-redirects the slash-less form to it (verified live:
+ * `GET /getting-started` → 307 → `/getting-started/` → 200). The
+ * `<link rel="canonical">`, `og:url`, and every sitemap `<loc>` must therefore
+ * name that trailing-slash form — the actually-served (200) URL — not the
+ * redirecting one. Emitting the slash-less form made Google report the sitemap
+ * and canonical targets as "Page with redirect" and the real pages as "Alternate
+ * page with proper canonical", leaving the whole corpus unindexed. The site root
+ * ("/") already ends in a slash and is returned unchanged.
+ */
+function canonicalUrl(target: string, origin: string | URL): string {
+  const url = new URL(target, origin);
+  if (!url.pathname.endsWith("/")) {
+    url.pathname = `${url.pathname}/`;
+  }
+  return url.toString();
+}
+
 function resolvePageTitle(
   source: DocumentationPageSource,
   document: MarkdownDocument,
@@ -153,10 +174,10 @@ function renderPage(
   const { document, source, title } = page;
   const description =
     document.metadata.description ?? document.plainText.slice(0, 180);
-  const canonical = new URL(
+  const canonical = canonicalUrl(
     document.metadata.canonical ?? source.path,
     configuration.origin,
-  ).toString();
+  );
   const adjacent = adjacentPages(navigation, source.path);
   const productName = configuration.name ?? "LawSynth";
   const version = configuration.version
@@ -229,7 +250,7 @@ function createSitemap(
 ): string {
   const urls = pages
     .map((page) => {
-      const location = escapeHtml(new URL(page.path, origin).toString());
+      const location = escapeHtml(canonicalUrl(page.path, origin));
       return `  <url><loc>${location}</loc></url>`;
     })
     .join("\n");
