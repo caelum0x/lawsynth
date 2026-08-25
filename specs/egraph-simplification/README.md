@@ -67,7 +67,8 @@ change of value where the original was already defined.
 | Sine parity | `sin(-x) -> -sin(x)` | sine is odd |
 | Cosine parity | `cos(-x) -> cos(x)` | cosine is even |
 | Pythagorean | `sin(u)^2 + cos(u)^2 -> 1` | exact for all reals |
-| Distributive factoring | `a*b + a*c -> a*(b+c)` | cost-reducing direction of distributivity |
+| Distributive factoring (sum) | `a*b + a*c -> a*(b+c)` | cost-reducing direction of distributivity |
+| Distributive factoring (difference) | `a*b - a*c -> a*(b-c)` | cost-reducing direction of distributivity; exact for all reals |
 | Constant folding | `2*3 -> 6`, `1+1 -> 2`, … | folds only to finite results |
 | Canonical order | `y+x -> x+y`, `y*x -> x*y` | total, deterministic operand order |
 

@@ -10,7 +10,7 @@ use lawsynth_expr::{BinaryOperator, Expr, UnaryOperator, is_commutative};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RewriteRule {
     /// Local algebraic reduction and constant folding (`x+0`, `x*1`, `x^0`,
-    /// `log(exp(x))`, `sin(-x)`, distributive factoring, …).
+    /// `log(exp(x))`, `sin(-x)`, distributive factoring over `+` and `-`, …).
     Simplify,
     /// Deterministic canonical ordering of commutative operands.
     CanonicalCommutativeOrder,
@@ -172,6 +172,11 @@ fn reduce_subtract(left: Expr, right: Expr) -> Expr {
     if left == right {
         return Expr::constant(0.0); // x - x -> 0 (value-preserving where x is defined)
     }
+    // a*b - a*c -> a*(b - c): distributive factoring over subtraction, the
+    // cost-reducing direction of distributivity. Value-preserving for all reals.
+    if let Some(factored) = factor_difference(&left, &right) {
+        return factored;
+    }
     Expr::difference(left, right)
 }
 
@@ -303,6 +308,32 @@ fn factor_sum(left: &Expr, right: &Expr) -> Option<Expr> {
         return None;
     };
     Some(Expr::product(common.clone(), Expr::sum(rest_left.clone(), rest_right.clone())))
+}
+
+/// `a*b - a*c -> a*(b - c)`, factoring out a common multiplicand shared by the
+/// two products in any position. Strictly reduces node count (7 -> 5).
+///
+/// Multiplication is commutative, so the shared factor may sit on either side of
+/// either product; subtraction is *not* commutative, so the remainders keep their
+/// original minuend/subtrahend roles (`rest_left` always comes from the left
+/// product, `rest_right` from the right). The identity `a*(b - c) = a*b - a*c`
+/// holds for all reals, so the rewrite is unconditionally value-preserving with
+/// no domain caveat.
+fn factor_difference(left: &Expr, right: &Expr) -> Option<Expr> {
+    let (la, lb) = as_product(left)?;
+    let (ra, rb) = as_product(right)?;
+    let (common, rest_left, rest_right) = if la == ra {
+        (la, lb, rb)
+    } else if la == rb {
+        (la, lb, ra)
+    } else if lb == ra {
+        (lb, la, rb)
+    } else if lb == rb {
+        (lb, la, ra)
+    } else {
+        return None;
+    };
+    Some(Expr::product(common.clone(), Expr::difference(rest_left.clone(), rest_right.clone())))
 }
 
 fn as_product(expression: &Expr) -> Option<(&Expr, &Expr)> {
@@ -458,6 +489,55 @@ mod tests {
         ));
         // a*b + a*c has 7 nodes; a*(b + c) has 5.
         assert_eq!(crate::expression_cost(&factored), 5);
+    }
+
+    #[test]
+    fn factors_common_multiplicand_over_difference() {
+        let a = symbol("a");
+        let b = symbol("b");
+        let c = symbol("c");
+        let factored = normalize(Expr::difference(
+            Expr::product(a.clone(), b.clone()),
+            Expr::product(a.clone(), c.clone()),
+        ));
+        // a*b - a*c has 7 nodes; a*(b - c) has 5.
+        assert_eq!(crate::expression_cost(&factored), 5);
+        // Compare against the canonical form of the expected product: the outer
+        // multiply is commutative and thus canonically reordered, but the inner
+        // difference `b - c` must keep its minuend/subtrahend order.
+        assert_eq!(
+            factored,
+            normalize(Expr::product(a, Expr::difference(b, c))),
+            "difference factoring must preserve minuend/subtrahend order"
+        );
+    }
+
+    #[test]
+    fn factors_difference_with_shared_factor_in_any_position() {
+        let a = symbol("a");
+        let b = symbol("b");
+        let c = symbol("c");
+        // Shared factor `a` sits on the right of the left product and the left of
+        // the right product; the remainders must still read `b - c`, not `c - b`.
+        let factored = normalize(Expr::difference(
+            Expr::product(b.clone(), a.clone()),
+            Expr::product(a.clone(), c.clone()),
+        ));
+        assert_eq!(factored, normalize(Expr::product(a, Expr::difference(b, c))));
+    }
+
+    #[test]
+    fn does_not_factor_difference_without_common_multiplicand() {
+        let a = symbol("a");
+        let b = symbol("b");
+        let c = symbol("c");
+        let d = symbol("d");
+        // No shared factor: the expression must be left as a plain difference.
+        let result = normalize(Expr::difference(
+            Expr::product(a.clone(), b.clone()),
+            Expr::product(c.clone(), d.clone()),
+        ));
+        assert!(matches!(result, Expr::Binary { operator: BinaryOperator::Subtract, .. }));
     }
 
     #[test]
