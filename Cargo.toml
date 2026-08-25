@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "apps/information-diffusion",
   "crates/lawsynth-core",
   "crates/lawsynth-expr",
   "crates/lawsynth-bundle",
@@ -36,6 +37,7 @@ members = [
   "crates/lawsynth-modelreduce",
   "crates/lawsynth-mpc",
   "crates/lawsynth-propagate",
+  "crates/lawsynth-quant",
   "crates/lawsynth-sde",
   "crates/lawsynth-discrete",
   "crates/lawsynth-pde",

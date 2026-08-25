@@ -1,5 +1,9 @@
 # Hosted platform & scale boundary (P10)
 
+> Archived direction, 23 August 2026: this specification is retained as design
+> history and is not an active managed-service plan. LawSynth is distributed for
+> local and user-operated self-hosting; `lawsynth.dev` is a static website.
+
 This directory specifies a managed, multi-tenant LawSynth and distributed
 discovery for large data. It is a **boundary specification** extending the
 discovery-as-a-service backend (gateway/scheduler/worker/artifact/api), the

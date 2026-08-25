@@ -30,6 +30,7 @@ with the workspace crates (0.1.0). Each directory keeps a `changelog.md`.
 | `uncertainty-contract` | Parameter, structural, and trajectory uncertainty: samples, intervals, propagation, summaries. |
 | `bundle` | The `.lsworld` deterministic ZIP bundle format, layout, checksums, and limits (`lawsynth-bundle`). |
 | `reproducibility` | Seed plans, data/plan hashes, environment and hardware class, citation of run artifacts. |
+| `quant-foundation` | QR0 exact money, UTC observation identity, canonical encoding, and the boundary for later calendars, corporate actions, market data, and experiment manifests (`lawsynth-quant`). |
 | `event-protocol` | Semantics of the local event-shaped values (no network protocol is defined). |
 | `plugin-protocol` | Plugin manifest, capabilities, permissions, lifecycle, and transport contract. |
 | `security-model` | Current controls and the boundaries deployers must supply themselves. |

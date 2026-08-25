@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="GridSynth, elektrik dağıtım zaman serilerini açıklanabilir tahmin ve müdahale senaryolarına çevirir." />
+    <title>GridSynth | Açıklanabilir şebeke karar odası</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700&amp;family=Fraunces:opsz,wght@9..144,500;9..144,650&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="masthead">
+      <a class="brand" href="#top" aria-label="GridSynth ana sayfa">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>GridSynth</span>
+      </a>
+      <nav aria-label="Ana bölümler">
+        <a href="#model">Model</a>
+        <a href="#scenario">Senaryo</a>
+        <a href="#findings">Bulgular</a>
+      </nav>
+      <button class="quiet-button" id="exportButton" type="button" disabled>Raporu indir</button>
+    </header>
+
+    <main id="top">
+      <section class="intro" aria-labelledby="pageTitle">
+        <div>
+          <p class="eyebrow">Dağıtım planlama çalışma alanı</p>
+          <h1 id="pageTitle">Ölçümü modele,<br />modeli karara çevir.</h1>
+        </div>
+        <div class="intro-copy" id="data-source">
+          <p>GridSynth yük, gerilim ve sıcaklık verisinden okunabilir bir tahmin modeli çıkarır. Operatör müdahaleyi değiştirir; tahmin, risk ve gerekçe aynı anda yenilenir.</p>
+          <div class="source-actions">
+            <label class="file-button" for="csvInput">CSV seç</label>
+            <span class="source-badge" id="sourceBadge">CSV GEREKLİ</span>
+          </div>
+          <input id="csvInput" type="file" accept=".csv,text/csv" />
+          <p class="source-note" id="sourceNote" aria-live="polite">Analiz için bir CSV dosyası seç.</p>
+          <p class="local-note">Tarayıcı dosyayı bu sekmede işler. GridSynth dış servise veri göndermez; tarayıcı dosyayı okuyamazsa analiz başlamaz.</p>
+        </div>
+      </section>
+
+      <section class="runbook" id="operatorRoute" aria-labelledby="runbookTitle">
+        <div class="runbook-heading">
+          <div>
+            <p class="eyebrow">Operatör rotası</p>
+            <h2 id="runbookTitle">CSV'den rapora beş durak.</h2>
+          </div>
+          <div class="analysis-status" id="analysisStatus" role="status" aria-live="polite" data-state="awaiting-file">
+            <span id="statusLabel">CSV bekleniyor</span>
+            <p id="statusMessage">GridSynth örnek veri yüklemez. Analizi başlatmak için CSV seç.</p>
+          </div>
+        </div>
+        <ol class="route-strip" aria-label="GridSynth ana çalışma yolu">
+          <li class="route-step" data-route-step="source" data-state="current" aria-current="step">
+            <span class="route-number" aria-hidden="true">01</span>
+            <div>
+              <h3>Kaynağı seç</h3>
+              <p>Kendi ölçüm CSV dosyanı seç. GridSynth örnek veri yüklemez.</p>
+              <a href="#data-source">Kaynağa git</a>
+            </div>
+          </li>
+          <li class="route-step" data-route-step="mapping" data-state="pending">
+            <span class="route-number" aria-hidden="true">02</span>
+            <div>
+              <h3>Sütunları bağla</h3>
+              <p>Zaman, yük, gerilim, sıcaklık ve kaynak birimlerini doğrula.</p>
+              <a href="#mappingPanel" data-mapping-link aria-disabled="true" tabindex="-1">CSV okununca açılır</a>
+            </div>
+          </li>
+          <li class="route-step" data-route-step="contract" data-state="pending">
+            <span class="route-number" aria-hidden="true">03</span>
+            <div>
+              <h3>Analizi incele</h3>
+              <p>Veri aralığını, modeli, atlanan satırları ve bulguları kontrol et.</p>
+              <a href="#dataContract">Analiz kaydına git</a>
+            </div>
+          </li>
+          <li class="route-step" data-route-step="scenario" data-state="pending">
+            <span class="route-number" aria-hidden="true">04</span>
+            <div>
+              <h3>Senaryoyu değiştir</h3>
+              <p>Talep, sıcaklık veya dağıtık üretim varsayımını ayarla.</p>
+              <a href="#scenario">Kontrollere git</a>
+            </div>
+          </li>
+          <li class="route-step" data-route-step="export" data-state="pending">
+            <span class="route-number" aria-hidden="true">05</span>
+            <div>
+              <h3>Raporu indir</h3>
+              <p>Kaynak, eşleme, birimler, model ve bulguları JSON'a yaz.</p>
+              <button class="route-action" id="routeExportButton" type="button" disabled>Raporu indir</button>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="mapping-panel" id="mappingPanel" aria-labelledby="mappingTitle" hidden>
+        <div class="mapping-heading">
+          <div>
+            <p class="eyebrow">Veri sözleşmesi</p>
+            <h2 id="mappingTitle">Sütunları bağla.</h2>
+          </div>
+          <p id="mappingSummary">Dosya başlıkları okunuyor.</p>
+        </div>
+        <form id="mappingForm" class="mapping-form">
+          <label>
+            <span>Zaman</span>
+            <select id="timestampColumn" required></select>
+          </label>
+          <label>
+            <span>Yük</span>
+            <select id="loadColumn" required></select>
+          </label>
+          <label>
+            <span>Gerilim</span>
+            <select id="voltageColumn" required></select>
+          </label>
+          <label>
+            <span>Hava / sıcaklık</span>
+            <select id="temperatureColumn" required></select>
+          </label>
+          <label>
+            <span>Kesinti süresi <small>isteğe bağlı</small></span>
+            <select id="outageColumn"></select>
+          </label>
+          <label>
+            <span>Yük birimi</span>
+            <select id="loadUnit">
+              <option value="mw">MW</option>
+              <option value="kw">kW</option>
+              <option value="w">W</option>
+            </select>
+          </label>
+          <label>
+            <span>Gerilim birimi</span>
+            <select id="voltageUnit">
+              <option value="kv">kV</option>
+              <option value="v">V</option>
+            </select>
+          </label>
+          <label>
+            <span>Sıcaklık birimi</span>
+            <select id="temperatureUnit">
+              <option value="c">°C</option>
+              <option value="f">°F</option>
+            </select>
+          </label>
+          <div class="mapping-action">
+            <button type="submit">Bu eşlemeyle analiz et</button>
+            <p id="mappingError" role="alert"></p>
+          </div>
+        </form>
+      </section>
+
+      <section class="metrics" aria-label="Veri özeti">
+        <article>
+          <span>Son yük</span>
+          <strong id="currentLoad">—</strong>
+          <small>MW</small>
+        </article>
+        <article>
+          <span>Gözlenen tepe</span>
+          <strong id="peakLoad">—</strong>
+          <small>MW</small>
+        </article>
+        <article>
+          <span>Ortalama gerilim</span>
+          <strong id="averageVoltage">—</strong>
+          <small>kV</small>
+        </article>
+        <article>
+          <span>İncelenecek saat</span>
+          <strong id="anomalyCount">—</strong>
+          <small>model artığı</small>
+        </article>
+      </section>
+
+      <section class="data-contract" id="dataContract" aria-labelledby="contractTitle">
+        <div class="contract-heading">
+          <div>
+            <p class="eyebrow">Analiz kaydı</p>
+            <h2 id="contractTitle">Veri sözleşmesi</h2>
+          </div>
+          <span id="modelVersion">gridsynth-linear-temperature-v1</span>
+        </div>
+        <div class="contract-grid">
+          <article>
+            <span>Veri aralığı</span>
+            <strong id="dataRange">Veri bekleniyor</strong>
+          </article>
+          <article>
+            <span>Kullanılan sütunlar</span>
+            <strong id="usedColumns">Veri bekleniyor</strong>
+          </article>
+          <article>
+            <span>Satır kalitesi</span>
+            <strong id="rowQuality">Veri bekleniyor</strong>
+          </article>
+          <article>
+            <span>Zaman aralığı</span>
+            <strong id="intervalQuality">Veri bekleniyor</strong>
+          </article>
+          <article>
+            <span>Birim dönüşümü</span>
+            <strong id="unitConversions">Veri bekleniyor</strong>
+          </article>
+        </div>
+        <details id="skippedRowsDetails" hidden>
+          <summary id="skippedRowsSummary">Atlanan satırlar</summary>
+          <ol id="skippedRowsList"></ol>
+        </details>
+      </section>
+
+      <section class="workspace" id="model" aria-labelledby="modelTitle">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Gözlem ve tahmin</p>
+            <h2 id="modelTitle">Yük eğrisi</h2>
+          </div>
+          <div class="legend" aria-label="Grafik açıklaması">
+            <span><i class="observed"></i>Gözlenen</span>
+            <span><i class="baseline"></i>Temel tahmin</span>
+            <span><i class="forecast"></i>Senaryo tahmini</span>
+            <span><i class="flagged"></i>İncelenecek</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg id="loadChart" role="img" aria-labelledby="chartTitle chartDescription" viewBox="0 0 1000 420" preserveAspectRatio="none">
+            <title id="chartTitle">Saatlik yük ve senaryo tahmini</title>
+            <desc id="chartDescription">Yüklenen veriden hesaplanan gözlem çizgisi, gelecek tahmini ve model artığı yüksek noktalar.</desc>
+          </svg>
+          <div class="chart-empty" id="chartEmpty">Analiz için CSV seç.</div>
+        </div>
+        <div class="equation-card">
+          <span>Çıkarılan yük modeli</span>
+          <code id="equation">Veri bekleniyor</code>
+          <p id="modelQuality">Model kalitesi veri yüklendiğinde hesaplanır.</p>
+        </div>
+      </section>
+
+      <section class="scenario-grid" id="scenario" aria-labelledby="scenarioTitle">
+        <div class="scenario-copy">
+          <p class="eyebrow">Müdahale alanı</p>
+          <h2 id="scenarioTitle">Bir koşulu değiştir.<br />Sonucu gör.</h2>
+          <p>Kontroller gözlenen satırları değiştirmez. Sonraki altı saat için hesaplanan senaryoyu ve risk notunu günceller.</p>
+          <p class="scenario-gate" id="scenarioGate">Kontroller geçerli bir CSV analizi tamamlanınca açılır.</p>
+        </div>
+
+        <form class="controls" id="scenarioForm" aria-describedby="scenarioGate">
+          <label>
+            <span>Talep değişimi <output id="demandOutput" for="demandShift">+0%</output></span>
+            <input id="demandShift" type="range" min="-20" max="30" value="0" step="1" disabled />
+          </label>
+          <label>
+            <span>Sıcaklık farkı <output id="temperatureOutput" for="temperatureShift">+0°C</output></span>
+            <input id="temperatureShift" type="range" min="-8" max="8" value="0" step="1" disabled />
+          </label>
+          <label>
+            <span>Dağıtık üretim katkısı <output id="generationOutput" for="generationShare">0%</output></span>
+            <input id="generationShare" type="range" min="0" max="25" value="0" step="1" disabled />
+          </label>
+          <button type="reset" disabled>Senaryoyu sıfırla</button>
+        </form>
+
+        <article class="scenario-result" aria-live="polite">
+          <span>Altı saatlik tepe tahmini</span>
+          <strong><b id="scenarioPeak">—</b> MW</strong>
+          <div class="risk-line">
+            <span id="riskLabel">Veri bekleniyor</span>
+            <div class="risk-track" aria-hidden="true"><i id="riskFill"></i></div>
+          </div>
+          <p id="scenarioReason">Senaryo sonucu veri yüklendiğinde burada açıklanır.</p>
+        </article>
+      </section>
+
+      <section class="findings" id="findings" aria-labelledby="findingsTitle">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Operatör incelemesi</p>
+            <h2 id="findingsTitle">Bulgular</h2>
+          </div>
+          <p>Liste, model artığı mutlak eşiğin üstünde kalan saatlerden üretilir.</p>
+        </div>
+        <div class="finding-list" id="findingList">
+          <p class="finding-empty">Bulgular için CSV seç.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>GridSynth, LawSynth ürün hattı</span>
+      <span>Grid Up Hackathon 2026</span>
+    </footer>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

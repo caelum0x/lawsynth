@@ -61,20 +61,20 @@ conformance cases + benchmark family + SDK/CLI/Studio/service surfaces:
 | Plugin marketplace content (10 → 40 example plugins) | `plugins/` | 420 |
 | Connector expansion (kafka/iceberg/delta/arrow depth + 10 new sources) | `python/lawsynth-connectors/` | 230 |
 
-### v2-C — Platform, hosting & distributed · ~1,700 files
+### v2-C: Self-hosted collaboration and distributed compute · ~1,300 files
 
 | Workstream | Where | ~files |
 |---|---|---:|
 | **Distributed-but-reproducible sweep** (island model, seeded, shared Pareto) | `crates/lawsynth-sweep` + `services/scheduler` | 90 |
-| Real OIDC/SSO providers behind the P10 seam (Okta/Auth0/Azure AD) | `services/gateway/` | 70 |
-| Multi-tenant quota/metering/billing hooks + usage dashboards | `services/api/`, `apps/console/` (new admin app) | 220 |
-| Hosted self-serve trial (browser Studio + sample datasets + onboarding) | `apps/trial/` (new) | 180 |
-| **Admin console** app (tenants, members, audit, plugins, usage) | `apps/console/` (new) | 260 |
-| Distributed worker fleet ops (autoscale, placement, drain) | `services/scheduler`,`worker`, `deploy/` | 160 |
+| Optional OIDC/SSO adapters for user-operated team deployments | `services/gateway/` | 70 |
+| Self-hosted resource limits and job-usage diagnostics | `services/api/`, `apps/studio/` | 140 |
+| Local onboarding with generated sample datasets | `apps/studio/` | 80 |
+| Self-hosted administration commands for members, audit, and plugins | `crates/lawsynth-cli/`, `services/gateway/` | 140 |
+| User-operated distributed worker coordination (placement, drain, recovery) | `services/scheduler`,`worker`, `deploy/` | 160 |
 | Collaboration depth (P6): real-time presence, comments UI, review UX | `apps/studio/`, `packages/collab/` (new) | 190 |
 | Streaming platform (P7): long-lived stream runs, dashboards | `services/`, `apps/studio/` | 150 |
-| Governance depth (P9): approval workflows UI, audit explorer, compliance exports | `apps/console/`, `services/api/` | 180 |
-| Deployment depth (helm/terraform/k8s for the fleet + observability) | `deploy/` | 200 |
+| Governance depth (P9): approval workflows, audit explorer, compliance exports | `apps/studio/`, `services/api/` | 180 |
+| Self-hosted deployment examples and observability | `deploy/` | 140 |
 
 ### v2-D — Domain packs & verticals · ~1,100 files
 
@@ -86,7 +86,7 @@ Each pack: curated templates + example datasets + recipes + tutorials + a Studio
 |---|---|---:|
 | **Pharma / systems-biology** (PK/PD, enzyme kinetics, gene regulation) | `domains/biology/` | 240 |
 | **Energy / industrial** (power systems, thermal, control loops) | `domains/energy/` | 220 |
-| **Quant finance** (mean-reversion, volatility, regime-switching) | `domains/finance/` | 220 |
+| **Quant finance** (mean-reversion, volatility, regime-switching, classical SDE/jump simulation, optional learned diffusion stress paths, portfolio VaR/ES) | `domains/finance/`, `python/lawsynth-quant/`, Studio risk lab | 420 |
 | **Climate / earth** (compartment models, oscillators) | `domains/climate/` | 200 |
 | **Epidemiology** (SIR/SEIR families, interventions) | `domains/epidemiology/` | 180 |
 
@@ -121,6 +121,12 @@ guides ("coming from PySINDy/PySR/gplearn"), and academic artifacts.
 4. **Distributed-but-reproducible sweep** (v2-C) — scales discovery while keeping
    determinism, our flagship differentiator.
 5. **One vertical pack** (v2-D) — convert the platform into paying value.
+
+The quant-finance candidate follows the product and model-risk boundary in
+[`quant-diffusion-stress-engine.md`](quant-diffusion-stress-engine.md). GPU
+training and bulk Monte Carlo run locally or on user-controlled infrastructure.
+Cloudflare serves the static LawSynth project website and does not run the
+engine.
 
 Each item ships behind a boundary spec with a conformance suite, deterministic
 and offline, on at least the CLI + SDK, with docs + a cookbook recipe — the same

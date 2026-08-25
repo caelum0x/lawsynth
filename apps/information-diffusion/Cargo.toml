@@ -1,0 +1,17 @@
+[package]
+name = "lawsynth-information-diffusion"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Bounded calibration, backtesting, and intervention forecasts for observed information cascades."
+
+[dependencies]
+lawsynth-bundle = { path = "../../crates/lawsynth-bundle" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "lawsynth-information-diffusion"
+path = "src/main.rs"

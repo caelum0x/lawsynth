@@ -31,8 +31,9 @@ bundle; everything downstream operates on that artifact.
 | --- | --- | --- |
 | **CLI** | power users, automation, CI | `lawsynth <command>` |
 | **Python SDK** | notebooks, pipelines | `import lawsynth` |
-| **Studio** | interactive exploration | web app (`apps/studio`) |
+| **Studio** | local interactive exploration | local browser interface (`apps/studio`) |
 | **Services** | teams, self-hosting | API + gateway |
+| **Applied labs** | bounded domain workflows | GridSynth and the native Rust information-diffusion app in this workspace |
 
 ## Feature areas (product depth)
 
@@ -69,6 +70,32 @@ so a workspace of discoveries stays navigable.
 The visual product: a discovery canvas, equation explorer, regime timeline,
 uncertainty lens, and world lab, driven by the shared TypeScript packages.
 
+### Planned product family: Quantitative research
+
+The proposed quant family makes LawSynth a local-first research workbench for
+market-data preparation, stochastic processes, calibration, derivatives pricing,
+portfolio and market risk, generative stress testing, backtesting, market
+microstructure, and independent model validation. Every experiment is bound to
+its data, code, configuration, model, seed, and result hashes.
+
+The family architecture, project boundaries, dependency order, and release gates
+live in
+[`docs/roadmap/quant-research-platform.md`](docs/roadmap/quant-research-platform.md).
+
+#### First vertical: Quant Diffusion Stress Engine
+
+The proposed G-SMSE finance pack combines seeded classical SDE and jump-diffusion
+scenarios, optional conditional deep diffusion generators, portfolio valuation,
+and governed tail-risk reports. Classical baselines remain readable and
+reproducible. A learned generator can contribute scenarios only after held-out
+statistical, privacy, and downstream risk tests pass.
+
+The current product does not ship the full engine. LawSynth has SDE discovery and
+a narrow Euler-Maruyama helper, but lacks correlated Heston paths, jump processes,
+portfolio valuation, learned diffusion training, and the product surfaces needed
+for an end-to-end stress test. The complete boundary and release gate live in
+[`docs/roadmap/quant-diffusion-stress-engine.md`](docs/roadmap/quant-diffusion-stress-engine.md).
+
 ## Principles
 
 - **Interpretable first.** If a user can't read and reason about the result, it
@@ -85,4 +112,8 @@ uncertainty lens, and world lab, driven by the shared TypeScript packages.
   across CLI + SDK; Studio discovery/equation/regime screens.
 - **Next:** scenario boards, model-selection views, notebook-native rich display,
   world templates.
-- **Later:** collaborative workspaces, hosted Studio, plugin marketplace.
+- **Later:** self-hosted collaborative workspaces and an open plugin registry.
+- **Proposed domain releases:** quant foundation and classical pricing/risk
+  precede generative stress testing; each starts only after a design partner,
+  licensed evaluation data, boundary specs, independent references, and
+  model-risk thresholds are approved.

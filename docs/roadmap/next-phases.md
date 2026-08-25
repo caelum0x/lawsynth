@@ -1,4 +1,9 @@
-# LawSynth — Next Phases (P6–P10)
+# LawSynth: Next Phases (P6–P10)
+
+> Direction update, 23 August 2026: LawSynth remains an open-source local and
+> self-hosted project. The P10 managed-platform section is retained as historical
+> boundary research, not an active hosted-service plan. `lawsynth.dev` is a
+> static project website.
 
 The original blueprint (`LawSynth_Production_Architecture.md`, `LawSynth_3161_Repository_Manifest.md`)
 defined P0–P5: the engine, bindings, discovery depth, Studio, services, and

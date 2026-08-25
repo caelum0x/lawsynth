@@ -242,6 +242,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "lawsynth-information-diffusion"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-bundle",
+]
+
+[[package]]
 name = "lawsynth-integration"
 version = "0.1.0"
 dependencies = [
@@ -405,6 +412,13 @@ dependencies = [
  "lawsynth-world",
  "pyo3",
  "pyo3-build-config",
+]
+
+[[package]]
+name = "lawsynth-quant"
+version = "0.1.0"
+dependencies = [
+ "lawsynth-core",
 ]
 
 [[package]]
