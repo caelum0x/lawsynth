@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use lawsynth_quant::{
-    Currency, Direction, Money, ObservationKey, Position, QuantError, UtcTimestamp,
+    Currency, Direction, Lot, Money, ObservationKey, Position, QuantError, UtcTimestamp,
 };
 
 #[test]
@@ -143,6 +143,84 @@ fn position_encoding_round_trips_and_rejects_drift() {
         Err(QuantError::InvalidEncoding(_))
     ));
     assert!(Position::from_canonical_bytes(&encoded[..encoded.len() - 1]).is_err());
+}
+
+#[test]
+fn lot_marks_profit_and_loss_through_exact_money_algebra() {
+    let entry = Money::from_minor_units(Currency::Usd, 15_000);
+    let long = Lot::new(Position::new("AAPL-XNAS", 3).unwrap(), entry);
+    assert_eq!(long.entry_price(), entry);
+    assert_eq!(long.position().direction(), Direction::Long);
+    // cost basis = entry * quantity (checked_mul).
+    assert_eq!(long.entry_value().unwrap().minor_units(), 45_000);
+
+    let mark_up = Money::from_minor_units(Currency::Usd, 16_000);
+    // market_value = mark * quantity; unrealized = quantity * (mark - entry).
+    assert_eq!(long.market_value(mark_up).unwrap().minor_units(), 48_000);
+    assert_eq!(long.unrealized_pnl(mark_up).unwrap().minor_units(), 3_000);
+    // A long loses when the mark falls below entry.
+    let mark_down = Money::from_minor_units(Currency::Usd, 14_500);
+    assert_eq!(long.unrealized_pnl(mark_down).unwrap().minor_units(), -1_500);
+    // At the entry price P&L is exactly zero.
+    assert!(long.unrealized_pnl(entry).unwrap().is_zero());
+
+    // A short profits when the mark falls: -2 * (14_500 - 15_000) = +1_000.
+    let short = Lot::new(Position::new("AAPL-XNAS", -2).unwrap(), entry);
+    assert_eq!(short.unrealized_pnl(mark_down).unwrap().minor_units(), 1_000);
+    assert_eq!(short.unrealized_pnl(mark_up).unwrap().minor_units(), -2_000);
+    assert_eq!(short.entry_value().unwrap().minor_units(), -30_000);
+}
+
+#[test]
+fn lot_pnl_rejects_currency_mismatch_and_overflow() {
+    let entry = Money::from_minor_units(Currency::Usd, 100);
+    let lot = Lot::new(Position::new("AAPL-XNAS", 1).unwrap(), entry);
+    // A differing mark currency is rejected, never silently converted.
+    let eur_mark = Money::from_minor_units(Currency::Eur, 100);
+    assert!(matches!(lot.unrealized_pnl(eur_mark), Err(QuantError::CurrencyMismatch { .. })));
+
+    // Overflow surfaces from the per-unit price move rather than wrapping.
+    let min_entry =
+        Lot::new(Position::new("AAPL-XNAS", 1).unwrap(), Money::from_minor_units(Currency::Usd, 1));
+    let huge_mark = Money::from_minor_units(Currency::Usd, i128::MIN);
+    assert_eq!(min_entry.unrealized_pnl(huge_mark), Err(QuantError::ArithmeticOverflow));
+
+    // Overflow also surfaces from scaling the price move by the quantity.
+    let scaled =
+        Lot::new(Position::new("AAPL-XNAS", 2).unwrap(), Money::from_minor_units(Currency::Usd, 0));
+    let big_mark = Money::from_minor_units(Currency::Usd, i128::MAX);
+    assert_eq!(scaled.unrealized_pnl(big_mark), Err(QuantError::ArithmeticOverflow));
+}
+
+#[test]
+fn lot_encoding_round_trips_and_rejects_drift() {
+    let lot = Lot::new(
+        Position::new("USDTRY", -12_345).unwrap(),
+        Money::from_minor_units(Currency::Try, 6_789),
+    );
+    let encoded = lot.canonical_bytes();
+    assert_eq!(&encoded[..5], b"LSQL1");
+    // Header carries the entry price (money segment) before the position.
+    assert_eq!(&encoded[5..13], b"LSQM1TRY");
+    assert_eq!(Lot::from_canonical_bytes(&encoded).unwrap(), lot);
+    assert_eq!(lot.stable_fingerprint(), lot.stable_fingerprint());
+
+    let mut unknown_version = encoded.clone();
+    unknown_version[4] = b'2';
+    assert!(matches!(
+        Lot::from_canonical_bytes(&unknown_version),
+        Err(QuantError::InvalidEncoding(_))
+    ));
+    // A corrupt embedded position length is rejected, not truncated silently.
+    let mut wrong_length = encoded.clone();
+    let position_len_hi = 5 + 24 + 5;
+    wrong_length[position_len_hi + 1] = wrong_length[position_len_hi + 1].saturating_add(1);
+    assert!(matches!(
+        Lot::from_canonical_bytes(&wrong_length),
+        Err(QuantError::InvalidEncoding(_))
+    ));
+    assert!(Lot::from_canonical_bytes(&encoded[..encoded.len() - 1]).is_err());
+    assert!(Lot::from_canonical_bytes(&encoded[..10]).is_err());
 }
 
 #[test]

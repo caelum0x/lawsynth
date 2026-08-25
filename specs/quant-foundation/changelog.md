@@ -7,6 +7,11 @@
 - Add a single-position contract (direction, market value, notional, cash flow,
   netting, reverse) that reuses the exact money integer algebra and its own
   deterministic versioned byte encoding; no FX or multi-position aggregation.
+- Add a single-lot mark-to-market P&L contract (cost basis, market value, exact
+  `quantity * (mark - entry)` unrealized profit) that reuses the exact money
+  integer algebra and a deterministic versioned byte encoding; currency
+  mismatches and overflow are rejected, and no realized P&L, FX, fees, or
+  multi-lot accumulation is introduced.
 
 ## 0.1.0
 

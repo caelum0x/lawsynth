@@ -1,11 +1,11 @@
 # Quant foundation boundary
 
 Status: QR0 implementation slice 1. This specification covers the exact money,
-observation-identity, and single-position valuation primitives compiled in
-`lawsynth-quant`. Trading calendars, corporate actions, market-data tables,
-multi-position portfolio accounting, leakage checks, fixture licensing, and
-complete experiment manifests remain unimplemented and MUST NOT be claimed from
-this initial slice.
+observation-identity, single-position valuation, and exact mark-to-market
+profit-and-loss primitives compiled in `lawsynth-quant`. Trading calendars,
+corporate actions, market-data tables, multi-position portfolio accounting,
+leakage checks, fixture licensing, and complete experiment manifests remain
+unimplemented and MUST NOT be claimed from this initial slice.
 
 ## Money
 
@@ -83,6 +83,37 @@ Canonical position bytes are:
 
 Decoders reject malformed UTF-8, invalid identifiers, length mismatches, unknown
 versions, and trailing bytes.
+
+## Lot and mark-to-market P&L
+
+A `Lot` is one executed `Position` paired with a per-unit `Money` entry price: the
+smallest unit of profit-and-loss accounting. Both its cost basis and its mark
+profit reuse the exact `Money` integer algebra rather than defining a second one,
+so P&L introduces no rounding, no binary floating point, and no silent wrapping.
+
+At a per-unit `Money` mark price:
+
+- `entry_value` is the signed cost basis, exactly `entry_price * quantity`.
+- `market_value` is the signed current value, exactly `mark * quantity`.
+- `unrealized_pnl` is exactly `quantity * (mark - entry_price)`. The per-unit
+  price move is taken with overflow-checked subtraction, so a currency mismatch
+  between the mark and the entry price is rejected rather than converted. The
+  signed quantity makes the result correct in both directions: a long profits
+  when the mark rises, a short profits when it falls.
+
+Realized P&L, average-cost or lot-matched accumulation across multiple fills, FX
+conversion, financing, fees, and multi-instrument portfolio aggregation are out
+of scope for this slice.
+
+Canonical lot bytes are:
+
+```text
+"LSQL1" | 24-byte entry-price money segment ("LSQM1"...) | position bytes ("LSQP1"...)
+```
+
+The fixed-width entry price precedes the variable-length position so the decoder
+can split the two without a separate length prefix. Decoders reject unknown
+versions, truncated input, and any malformed money or position segment.
 
 ## Determinism and non-goals
 
