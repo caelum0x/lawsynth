@@ -12,6 +12,7 @@ pub enum QuantError {
     InstrumentTooLong { bytes: usize },
     InvalidEncoding(&'static str),
     InvalidInstrument(IdentifierError),
+    MissingMark { instrument: String },
     UnknownCurrency(String),
 }
 
@@ -31,6 +32,9 @@ impl fmt::Display for QuantError {
             Self::InvalidEncoding(reason) => write!(formatter, "invalid quant encoding: {reason}"),
             Self::InvalidInstrument(error) => {
                 write!(formatter, "invalid instrument identifier: {error}")
+            }
+            Self::MissingMark { instrument } => {
+                write!(formatter, "no mark price supplied for instrument {instrument}")
             }
             Self::UnknownCurrency(code) => write!(formatter, "unsupported currency code: {code}"),
         }

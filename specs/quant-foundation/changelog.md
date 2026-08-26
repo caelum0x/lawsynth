@@ -12,6 +12,12 @@
   integer algebra and a deterministic versioned byte encoding; currency
   mismatches and overflow are rejected, and no realized P&L, FX, fees, or
   multi-lot accumulation is introduced.
+- Add a single-currency multi-instrument `Portfolio` that aggregates lots into
+  exact cost basis, mark-to-market value, gross notional, and unrealized P&L via
+  a caller-supplied per-instrument mark resolver, with a deterministic versioned
+  byte encoding and strict decoder. Foreign-currency lots, unpriced instruments,
+  mark currency mismatches, and overflow are rejected; no realized P&L,
+  lot-matched fill accounting, FX, financing, or fees are introduced.
 
 ## 0.1.0
 

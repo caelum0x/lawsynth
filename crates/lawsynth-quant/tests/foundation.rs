@@ -1,8 +1,16 @@
 use std::str::FromStr;
 
 use lawsynth_quant::{
-    Currency, Direction, Lot, Money, ObservationKey, Position, QuantError, UtcTimestamp,
+    Currency, Direction, Lot, Money, ObservationKey, Portfolio, Position, QuantError, UtcTimestamp,
 };
+
+fn usd(minor_units: i128) -> Money {
+    Money::from_minor_units(Currency::Usd, minor_units)
+}
+
+fn lot(instrument: &str, quantity: i64, entry: i128) -> Lot {
+    Lot::new(Position::new(instrument, quantity).unwrap(), usd(entry))
+}
 
 #[test]
 fn currency_registry_is_closed_and_declares_minor_units() {
@@ -239,6 +247,141 @@ fn lot_encoding_round_trips_and_rejects_drift() {
     ));
     assert!(Lot::from_canonical_bytes(&encoded[..encoded.len() - 1]).is_err());
     assert!(Lot::from_canonical_bytes(&encoded[..10]).is_err());
+}
+
+#[test]
+fn portfolio_aggregates_lots_through_exact_money_algebra() {
+    // Two instruments, mixed direction, one reporting currency.
+    let portfolio = Portfolio::from_lots(
+        Currency::Usd,
+        [lot("AAPL-XNAS", 3, 15_000), lot("MSFT-XNAS", -2, 40_000)],
+    )
+    .unwrap();
+    assert_eq!(portfolio.len(), 2);
+    assert!(!portfolio.is_empty());
+    assert_eq!(portfolio.currency(), Currency::Usd);
+
+    // cost_basis = 3*15_000 + (-2)*40_000 = 45_000 - 80_000 = -35_000.
+    assert_eq!(portfolio.cost_basis().unwrap(), usd(-35_000));
+
+    let marks = |instrument: &lawsynth_core::Identifier| match instrument.as_str() {
+        "AAPL-XNAS" => Some(usd(16_000)),
+        "MSFT-XNAS" => Some(usd(39_000)),
+        _ => None,
+    };
+    // market_value = 3*16_000 + (-2)*39_000 = 48_000 - 78_000 = -30_000.
+    assert_eq!(portfolio.market_value(marks).unwrap(), usd(-30_000));
+    // gross_notional sums absolute exposure: |48_000| + |-78_000| = 126_000.
+    assert_eq!(portfolio.gross_notional(marks).unwrap(), usd(126_000));
+    // unrealized = 3*(16_000-15_000) + (-2)*(39_000-40_000) = 3_000 + 2_000 = 5_000.
+    assert_eq!(portfolio.unrealized_pnl(marks).unwrap(), usd(5_000));
+    // market_value - cost_basis agrees with the summed per-lot unrealized P&L.
+    assert_eq!(
+        portfolio.market_value(marks).unwrap().checked_sub(portfolio.cost_basis().unwrap()),
+        Ok(usd(5_000))
+    );
+}
+
+#[test]
+fn empty_portfolio_totals_are_zero_in_its_currency() {
+    let portfolio = Portfolio::new(Currency::Eur);
+    assert!(portfolio.is_empty());
+    assert_eq!(portfolio.len(), 0);
+    let zero = portfolio.cost_basis().unwrap();
+    assert!(zero.is_zero());
+    assert_eq!(zero.currency(), Currency::Eur);
+    // With no lots, no mark is ever resolved, so any resolver yields zero.
+    assert!(portfolio.unrealized_pnl(|_| None).unwrap().is_zero());
+}
+
+#[test]
+fn portfolio_rejects_foreign_currency_and_missing_marks() {
+    let portfolio = Portfolio::new(Currency::Usd);
+    // A lot in another currency is rejected, never silently converted.
+    let eur_lot = Lot::new(
+        Position::new("BMW-XETR", 1).unwrap(),
+        Money::from_minor_units(Currency::Eur, 10_000),
+    );
+    assert!(matches!(portfolio.with_lot(eur_lot), Err(QuantError::CurrencyMismatch { .. })));
+    assert!(matches!(
+        Portfolio::from_lots(
+            Currency::Usd,
+            [lot("AAPL-XNAS", 1, 100), {
+                Lot::new(
+                    Position::new("BMW-XETR", 1).unwrap(),
+                    Money::from_minor_units(Currency::Eur, 1),
+                )
+            }]
+        ),
+        Err(QuantError::CurrencyMismatch { .. })
+    ));
+
+    // An unpriced instrument is an error, never priced at zero.
+    let priced = portfolio.with_lot(lot("AAPL-XNAS", 1, 100)).unwrap();
+    let err = priced.market_value(|_| None).unwrap_err();
+    assert!(matches!(err, QuantError::MissingMark { instrument } if instrument == "AAPL-XNAS"));
+    assert!(matches!(priced.unrealized_pnl(|_| None), Err(QuantError::MissingMark { .. })));
+}
+
+#[test]
+fn portfolio_aggregation_overflow_and_mark_mismatch_surface() {
+    // Summation overflow surfaces from the running total, not wrapping.
+    let near_max =
+        Portfolio::from_lots(Currency::Usd, [lot("AAA", 1, i128::MAX), lot("BBB", 1, 1)]).unwrap();
+    assert_eq!(near_max.cost_basis(), Err(QuantError::ArithmeticOverflow));
+
+    // A mark in a foreign currency is rejected per lot, never converted.
+    let portfolio = Portfolio::from_lots(Currency::Usd, [lot("AAPL-XNAS", 1, 100)]).unwrap();
+    let eur_mark =
+        |_: &lawsynth_core::Identifier| Some(Money::from_minor_units(Currency::Eur, 100));
+    assert!(matches!(portfolio.unrealized_pnl(eur_mark), Err(QuantError::CurrencyMismatch { .. })));
+}
+
+#[test]
+fn portfolio_encoding_round_trips_and_rejects_drift() {
+    let portfolio = Portfolio::from_lots(
+        Currency::Try,
+        [
+            Lot::new(
+                Position::new("USDTRY", 5).unwrap(),
+                Money::from_minor_units(Currency::Try, 6_789),
+            ),
+            Lot::new(
+                Position::new("EURTRY", -3).unwrap(),
+                Money::from_minor_units(Currency::Try, 12_345),
+            ),
+        ],
+    )
+    .unwrap();
+    let encoded = portfolio.canonical_bytes();
+    assert_eq!(&encoded[..8], b"LSQF1TRY");
+    assert_eq!(Portfolio::from_canonical_bytes(&encoded).unwrap(), portfolio);
+    assert_eq!(portfolio.stable_fingerprint(), portfolio.stable_fingerprint());
+
+    // An empty portfolio round-trips too, carrying only its currency.
+    let empty = Portfolio::new(Currency::Usd);
+    assert_eq!(Portfolio::from_canonical_bytes(&empty.canonical_bytes()).unwrap(), empty);
+
+    let mut unknown_version = encoded.clone();
+    unknown_version[4] = b'2';
+    assert!(matches!(
+        Portfolio::from_canonical_bytes(&unknown_version),
+        Err(QuantError::InvalidEncoding(_))
+    ));
+
+    // A lot count larger than the payload is rejected, not read past the end.
+    let mut wrong_count = encoded.clone();
+    wrong_count[11] = wrong_count[11].saturating_add(1);
+    assert!(Portfolio::from_canonical_bytes(&wrong_count).is_err());
+
+    // Trailing bytes past the declared lots are rejected.
+    let mut trailing = encoded.clone();
+    trailing.push(0);
+    assert!(matches!(
+        Portfolio::from_canonical_bytes(&trailing),
+        Err(QuantError::InvalidEncoding(_))
+    ));
+    assert!(Portfolio::from_canonical_bytes(&encoded[..encoded.len() - 1]).is_err());
 }
 
 #[test]
