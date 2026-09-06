@@ -1,11 +1,12 @@
 # Changelog
 
 All notable changes to this project are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project has not
-published a tagged release yet. Changes are recorded only when they correspond to
-implemented, tested behavior.
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres
+to [Semantic Versioning](https://semver.org/). Changes are recorded only when
+they correspond to implemented, tested behavior. Publishing and git tagging are
+owner-gated (see `RELEASE.md`); the 0.1.0 section below is the prepared cut.
 
-## Unreleased
+## 0.1.0 - 2026-09-06
 
 ### Added
 
@@ -60,6 +61,21 @@ implemented, tested behavior.
   stored worlds: `GET /v1/worlds/{id}/explain`, `POST /v1/worlds/{id}/forecast`,
   `GET /v1/worlds/{id}/report`, and `POST /v1/worlds/compare`, backed by the same native
   engine as `POST /v1/worlds/{id}/simulate`.
+
+### Fixed
+
+- **`lawsynth --version` / `-V`** now print `lawsynth 0.1.0` instead of the usage
+  block (and exit 0).
+- **Python install path.** `pyproject.toml` now sets `manifest-path` to the
+  `lawsynth-python` crate, so the documented `maturin develop` actually builds;
+  `scripts/build-native.sh` is documented as the maturin-free / offline fallback.
+
+### Packaging
+
+- All intra-workspace `lawsynth-*` path dependencies now carry `version = "0.1.0"`
+  and every crate inherits `repository` metadata, so each crate is publishable
+  with a single `cargo publish`. Publishing stays owner-gated (`publish = false`);
+  see `RELEASE.md` for the release surface and topological publish order.
 
 ### Notes
 
