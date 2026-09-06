@@ -22,5 +22,5 @@ path = "benches/scale_latency.rs"
 harness = false
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }

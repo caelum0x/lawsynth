@@ -7,10 +7,10 @@ license.workspace = true
 description = "Deterministic stochastic (SDE) law discovery — drift and diffusion from noisy trajectories."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-data = { path = "../lawsynth-data" }
-lawsynth-features = { path = "../lawsynth-features" }
-lawsynth-sparse = { path = "../lawsynth-sparse" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
+lawsynth-features = { path = "../lawsynth-features", version = "0.1.0" }
+lawsynth-sparse = { path = "../lawsynth-sparse", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

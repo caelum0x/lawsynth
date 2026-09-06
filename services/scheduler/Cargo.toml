@@ -7,17 +7,17 @@ license.workspace = true
 description = "Durable local scheduler for typed LawSynth worker jobs."
 
 [dependencies]
-lawsynth-runner = { path = "../../crates/lawsynth-runner" }
-lawsynth-store = { path = "../../crates/lawsynth-store" }
+lawsynth-runner = { path = "../../crates/lawsynth-runner", version = "0.1.0" }
+lawsynth-store = { path = "../../crates/lawsynth-store", version = "0.1.0" }
 lawsynth-worker = { path = "../worker" }
 
 [dev-dependencies]
-lawsynth-core = { path = "../../crates/lawsynth-core" }
-lawsynth-data = { path = "../../crates/lawsynth-data" }
-lawsynth-expr = { path = "../../crates/lawsynth-expr" }
-lawsynth-sim = { path = "../../crates/lawsynth-sim" }
-lawsynth-stability = { path = "../../crates/lawsynth-stability" }
-lawsynth-world = { path = "../../crates/lawsynth-world" }
+lawsynth-core = { path = "../../crates/lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../../crates/lawsynth-data", version = "0.1.0" }
+lawsynth-expr = { path = "../../crates/lawsynth-expr", version = "0.1.0" }
+lawsynth-sim = { path = "../../crates/lawsynth-sim", version = "0.1.0" }
+lawsynth-stability = { path = "../../crates/lawsynth-stability", version = "0.1.0" }
+lawsynth-world = { path = "../../crates/lawsynth-world", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

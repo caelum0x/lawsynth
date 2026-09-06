@@ -7,8 +7,8 @@ license.workspace = true
 description = "Deterministic linear model-order reduction (balanced truncation) for discovered LawSynth models."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-koopman = { path = "../lawsynth-koopman" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-koopman = { path = "../lawsynth-koopman", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

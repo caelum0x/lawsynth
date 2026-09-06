@@ -7,12 +7,12 @@ license.workspace = true
 description = "Deterministic coupling-structure discovery for networked dynamical systems in LawSynth."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-expr = { path = "../lawsynth-expr" }
-lawsynth-data = { path = "../lawsynth-data" }
-lawsynth-features = { path = "../lawsynth-features" }
-lawsynth-sparse = { path = "../lawsynth-sparse" }
-lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
+lawsynth-features = { path = "../lawsynth-features", version = "0.1.0" }
+lawsynth-sparse = { path = "../lawsynth-sparse", version = "0.1.0" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

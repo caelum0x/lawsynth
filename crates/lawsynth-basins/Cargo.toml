@@ -7,10 +7,10 @@ license.workspace = true
 description = "Deterministic basin-of-attraction mapping for discovered LawSynth vector fields."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-expr = { path = "../lawsynth-expr" }
-lawsynth-jacobian = { path = "../lawsynth-jacobian" }
-lawsynth-stability = { path = "../lawsynth-stability" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian", version = "0.1.0" }
+lawsynth-stability = { path = "../lawsynth-stability", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

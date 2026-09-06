@@ -7,9 +7,9 @@ license.workspace = true
 description = "Deterministic symmetry & separability structural reductions for LawSynth discovery."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-data = { path = "../lawsynth-data" }
-lawsynth-differentiate = { path = "../lawsynth-differentiate" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

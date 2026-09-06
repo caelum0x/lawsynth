@@ -7,7 +7,7 @@ license.workspace = true
 description = "Bounded calibration, backtesting, and intervention forecasts for observed information cascades."
 
 [dependencies]
-lawsynth-bundle = { path = "../../crates/lawsynth-bundle" }
+lawsynth-bundle = { path = "../../crates/lawsynth-bundle", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

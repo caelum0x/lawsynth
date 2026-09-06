@@ -7,9 +7,9 @@ license.workspace = true
 description = "Deterministic state estimation (Luenberger observer, Kalman filter) for discovered LawSynth linear models."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-koopman = { path = "../lawsynth-koopman" }
-lawsynth-feedback = { path = "../lawsynth-feedback" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-koopman = { path = "../lawsynth-koopman", version = "0.1.0" }
+lawsynth-feedback = { path = "../lawsynth-feedback", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

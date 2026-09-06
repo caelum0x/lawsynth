@@ -8,14 +8,14 @@ description = "Self-contained HTML report rendering for LawSynth executable worl
 autoexamples = false
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-expr = { path = "../lawsynth-expr" }
-lawsynth-world = { path = "../lawsynth-world" }
-lawsynth-sim = { path = "../lawsynth-sim" }
-lawsynth-jacobian = { path = "../lawsynth-jacobian" }
-lawsynth-stability = { path = "../lawsynth-stability" }
-lawsynth-lyapunov = { path = "../lawsynth-lyapunov" }
-lawsynth-invariants = { path = "../lawsynth-invariants" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
+lawsynth-world = { path = "../lawsynth-world", version = "0.1.0" }
+lawsynth-sim = { path = "../lawsynth-sim", version = "0.1.0" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian", version = "0.1.0" }
+lawsynth-stability = { path = "../lawsynth-stability", version = "0.1.0" }
+lawsynth-lyapunov = { path = "../lawsynth-lyapunov", version = "0.1.0" }
+lawsynth-invariants = { path = "../lawsynth-invariants", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

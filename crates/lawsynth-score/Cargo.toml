@@ -22,7 +22,7 @@ path = "benches/residual_latency.rs"
 harness = false
 
 [dependencies]
-lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
 
 [dev-dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }

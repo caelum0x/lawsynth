@@ -12,10 +12,10 @@ name = "recover_rational"
 path = "examples/recover_rational.rs"
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-data = { path = "../lawsynth-data" }
-lawsynth-differentiate = { path = "../lawsynth-differentiate" }
-lawsynth-sparse = { path = "../lawsynth-sparse" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate", version = "0.1.0" }
+lawsynth-sparse = { path = "../lawsynth-sparse", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

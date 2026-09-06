@@ -14,16 +14,16 @@ path = "src/lib.rs"
 # hosts integration tests that exercise many crates together. Every dependency
 # is an internal path dep — offline, std-only, no external crates.
 [dev-dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-expr = { path = "../lawsynth-expr" }
-lawsynth-data = { path = "../lawsynth-data" }
-lawsynth-world = { path = "../lawsynth-world" }
-lawsynth-discovery = { path = "../lawsynth-discovery" }
-lawsynth-stability = { path = "../lawsynth-stability" }
-lawsynth-lyapunov = { path = "../lawsynth-lyapunov" }
-lawsynth-jacobian = { path = "../lawsynth-jacobian" }
-lawsynth-invariants = { path = "../lawsynth-invariants" }
-lawsynth-egraph = { path = "../lawsynth-egraph" }
-lawsynth-sim = { path = "../lawsynth-sim" }
-lawsynth-basins = { path = "../lawsynth-basins" }
-lawsynth-koopman = { path = "../lawsynth-koopman" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
+lawsynth-world = { path = "../lawsynth-world", version = "0.1.0" }
+lawsynth-discovery = { path = "../lawsynth-discovery", version = "0.1.0" }
+lawsynth-stability = { path = "../lawsynth-stability", version = "0.1.0" }
+lawsynth-lyapunov = { path = "../lawsynth-lyapunov", version = "0.1.0" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian", version = "0.1.0" }
+lawsynth-invariants = { path = "../lawsynth-invariants", version = "0.1.0" }
+lawsynth-egraph = { path = "../lawsynth-egraph", version = "0.1.0" }
+lawsynth-sim = { path = "../lawsynth-sim", version = "0.1.0" }
+lawsynth-basins = { path = "../lawsynth-basins", version = "0.1.0" }
+lawsynth-koopman = { path = "../lawsynth-koopman", version = "0.1.0" }

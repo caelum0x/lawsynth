@@ -22,7 +22,7 @@ path = "benches/crossover_throughput.rs"
 harness = false
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-expr = { path = "../lawsynth-expr" }
-lawsynth-opt = { path = "../lawsynth-opt" }
-lawsynth-units = { path = "../lawsynth-units" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
+lawsynth-opt = { path = "../lawsynth-opt", version = "0.1.0" }
+lawsynth-units = { path = "../lawsynth-units", version = "0.1.0" }

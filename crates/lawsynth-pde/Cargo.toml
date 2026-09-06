@@ -7,8 +7,8 @@ license.workspace = true
 description = "Deterministic evolution-PDE discovery (PDE-FIND style) for LawSynth spatiotemporal data."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-sparse = { path = "../lawsynth-sparse" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-sparse = { path = "../lawsynth-sparse", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

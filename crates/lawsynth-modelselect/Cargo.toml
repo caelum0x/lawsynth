@@ -7,15 +7,15 @@ license.workspace = true
 description = "Deterministic cross-validated hyperparameter selection for LawSynth discovery."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-data = { path = "../lawsynth-data" }
-lawsynth-discovery = { path = "../lawsynth-discovery" }
-lawsynth-score = { path = "../lawsynth-score" }
-lawsynth-sim = { path = "../lawsynth-sim" }
-lawsynth-world = { path = "../lawsynth-world" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
+lawsynth-discovery = { path = "../lawsynth-discovery", version = "0.1.0" }
+lawsynth-score = { path = "../lawsynth-score", version = "0.1.0" }
+lawsynth-sim = { path = "../lawsynth-sim", version = "0.1.0" }
+lawsynth-world = { path = "../lawsynth-world", version = "0.1.0" }
 
 [dev-dependencies]
-lawsynth-expr = { path = "../lawsynth-expr" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

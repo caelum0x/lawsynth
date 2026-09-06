@@ -7,9 +7,9 @@ license.workspace = true
 description = "Deterministic Lyapunov-exponent estimation (chaos diagnostic) for discovered LawSynth models."
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-expr = { path = "../lawsynth-expr" }
-lawsynth-jacobian = { path = "../lawsynth-jacobian" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
+lawsynth-jacobian = { path = "../lawsynth-jacobian", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

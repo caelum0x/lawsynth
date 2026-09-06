@@ -14,5 +14,5 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-wasm = { path = "../lawsynth-wasm" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-wasm = { path = "../lawsynth-wasm", version = "0.1.0" }

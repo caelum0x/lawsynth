@@ -8,8 +8,8 @@ description = "Safe host-side registry, process, permission, and RPC controls fo
 autoexamples = false
 
 [dependencies]
-lawsynth-plugin-api = { path = "../lawsynth-plugin-api" }
-lawsynth-bundle = { path = "../lawsynth-bundle" }
+lawsynth-plugin-api = { path = "../lawsynth-plugin-api", version = "0.1.0" }
+lawsynth-bundle = { path = "../lawsynth-bundle", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

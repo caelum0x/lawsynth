@@ -12,7 +12,7 @@ name = "lawsynth_uncertainty"
 path = "src/lib.rs"
 
 [dependencies]
-lawsynth-sparse = { path = "../lawsynth-sparse" }
+lawsynth-sparse = { path = "../lawsynth-sparse", version = "0.1.0" }
 
 [[example]]
 name = "structural_basic"

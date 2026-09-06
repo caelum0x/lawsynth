@@ -7,8 +7,8 @@ license.workspace = true
 description = "Local-first, content-addressed artifact lifecycle service for LawSynth."
 
 [dependencies]
-lawsynth-bundle = { path = "../../crates/lawsynth-bundle" }
-lawsynth-store = { path = "../../crates/lawsynth-store" }
+lawsynth-bundle = { path = "../../crates/lawsynth-bundle", version = "0.1.0" }
+lawsynth-store = { path = "../../crates/lawsynth-store", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

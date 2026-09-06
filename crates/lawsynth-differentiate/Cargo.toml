@@ -22,7 +22,7 @@ path = "benches/tvreg_throughput.rs"
 harness = false
 
 [dependencies]
-lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
 
 [dev-dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }

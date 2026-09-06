@@ -27,20 +27,20 @@ path = "benches/distributed_throughput.rs"
 harness = false
 
 [dependencies]
-lawsynth-causal = { path = "../lawsynth-causal" }
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-data = { path = "../lawsynth-data" }
-lawsynth-differentiate = { path = "../lawsynth-differentiate" }
-lawsynth-opt = { path = "../lawsynth-opt" }
-lawsynth-expr = { path = "../lawsynth-expr" }
-lawsynth-features = { path = "../lawsynth-features" }
-lawsynth-profile = { path = "../lawsynth-profile" }
-lawsynth-preprocess = { path = "../lawsynth-preprocess" }
-lawsynth-regime = { path = "../lawsynth-regime" }
-lawsynth-score = { path = "../lawsynth-score" }
-lawsynth-sparse = { path = "../lawsynth-sparse" }
-lawsynth-stats = { path = "../lawsynth-stats" }
-lawsynth-symbolic = { path = "../lawsynth-symbolic" }
-lawsynth-uncertainty = { path = "../lawsynth-uncertainty" }
-lawsynth-units = { path = "../lawsynth-units" }
-lawsynth-world = { path = "../lawsynth-world" }
+lawsynth-causal = { path = "../lawsynth-causal", version = "0.1.0" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
+lawsynth-differentiate = { path = "../lawsynth-differentiate", version = "0.1.0" }
+lawsynth-opt = { path = "../lawsynth-opt", version = "0.1.0" }
+lawsynth-expr = { path = "../lawsynth-expr", version = "0.1.0" }
+lawsynth-features = { path = "../lawsynth-features", version = "0.1.0" }
+lawsynth-profile = { path = "../lawsynth-profile", version = "0.1.0" }
+lawsynth-preprocess = { path = "../lawsynth-preprocess", version = "0.1.0" }
+lawsynth-regime = { path = "../lawsynth-regime", version = "0.1.0" }
+lawsynth-score = { path = "../lawsynth-score", version = "0.1.0" }
+lawsynth-sparse = { path = "../lawsynth-sparse", version = "0.1.0" }
+lawsynth-stats = { path = "../lawsynth-stats", version = "0.1.0" }
+lawsynth-symbolic = { path = "../lawsynth-symbolic", version = "0.1.0" }
+lawsynth-uncertainty = { path = "../lawsynth-uncertainty", version = "0.1.0" }
+lawsynth-units = { path = "../lawsynth-units", version = "0.1.0" }
+lawsynth-world = { path = "../lawsynth-world", version = "0.1.0" }
