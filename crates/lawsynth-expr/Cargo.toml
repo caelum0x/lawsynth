@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Deterministic scalar expression IR and evaluator for LawSynth."
 autoexamples = false
 

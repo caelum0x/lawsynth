@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "C-ABI (wasm32) bindings over lawsynth-wasm for the browser playground — no wasm-bindgen, std-only."
 
 # `cdylib` produces the deployable `.wasm` (or a host shared lib); `rlib` lets the

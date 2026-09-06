@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Safe host-side registry, process, permission, and RPC controls for LawSynth plugins."
 autoexamples = false
 
