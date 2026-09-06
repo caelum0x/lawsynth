@@ -1,6 +1,6 @@
 # LawSynth — Expansion v2 (toward a ~10,000-file platform)
 
-The original manifest (`LawSynth_3161_Repository_Manifest.md`) planned P0–P5 at
+The original manifest (`docs/internal/LawSynth_3161_Repository_Manifest.md`) planned P0–P5 at
 **3,161 files**; the repo is now ~3,460 with P6–P10 built. This document plans the
 **next expansion** — the competitor-informed capabilities from
 [`competitive-analysis.md`](../research/competitive-analysis.md) built out across
