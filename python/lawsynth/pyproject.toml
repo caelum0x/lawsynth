@@ -8,5 +8,10 @@ version = "0.1.0"
 requires-python = ">=3.11"
 
 [tool.maturin]
+# The Rust extension crate lives in the Cargo workspace, not beside this
+# pyproject; point maturin at it explicitly (path is relative to this file).
+# Without this, `maturin develop` from python/lawsynth/ has no Cargo.toml to
+# build and fails. See scripts/build-native.sh for the maturin-free fallback.
+manifest-path = "../../crates/lawsynth-python/Cargo.toml"
 module-name = "lawsynth._native"
 python-source = "src"
