@@ -1,4 +1,4 @@
-# From a messy sensor CSV to a trusted, shareable model
+# Messy sensor CSV to a trusted model
 
 This walkthrough takes a noisy, unevenly sampled two-channel sensor log all the
 way to a validated, exported, registered model. It chains: **profile → prep →

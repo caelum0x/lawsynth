@@ -45,6 +45,40 @@ function robotsTxt(origin) {
   return `User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`;
 }
 
+function llmsTxt(origin) {
+  const base = origin.replace(/\/$/, "");
+  return `# LawSynth
+
+> LawSynth discovers interpretable governing equations from time-series data and packages them as executable mathematical worlds.
+
+LawSynth is an open-source, local-first toolkit with a Rust CLI, a Python SDK, and a local Studio interface. The supported discovery input is a strictly increasing finite time axis with aligned finite numeric state columns. A discovery can produce a portable \`.lsworld\` bundle for explanation, simulation, forecasting, intervention, comparison, and self-contained HTML reporting.
+
+## STLSQ
+
+STLSQ means sequentially thresholded least squares. LawSynth fits candidate equation terms, removes coefficients below a chosen magnitude threshold, and refits the remaining terms. The threshold controls sparsity; it is not a probability, significance level, or proof of causality. If a threshold removes every term, LawSynth returns an all-zero model.
+
+## Canonical documentation
+
+- [Overview](${base}/): Product definition, installation, and core workflow.
+- [Getting started](${base}/getting-started): First LawSynth workflow.
+- [Capabilities](${base}/capabilities): Current supported product surface.
+- [Concepts](${base}/concepts): World, equation, discovery, and uncertainty concepts.
+- [Determinism](${base}/determinism): Reproducibility contract and limits.
+- [STLSQ sparse regression](${base}/docs/methods/sparse/stlsq): Method definition, defaults, runnable CLI example, and numerical limits.
+- [Sparse discovery guide](${base}/docs/guides/discovery/sparse): Solver and threshold selection guidance.
+- [Discover CLI reference](${base}/docs/reference/cli/discover): Supported discovery options and input constraints.
+- [XML sitemap](${base}/sitemap.xml): Complete public documentation inventory.
+- [Source repository](https://github.com/caelum0x/lawsynth): Code, license, and contribution history.
+
+## Accuracy notes
+
+- Treat discovered sparse terms as a model fitted to the supplied trajectories, not proof of physical or causal truth.
+- Validate equations on held-out trajectories and test their stability under reasonable data and threshold changes.
+- Roadmap documents describe proposed work. Do not present proposed quantitative-research, pricing, risk, or generative features as shipped capabilities.
+- Check the canonical documentation and source version before making claims about commands, defaults, performance, or supported formats.
+`;
+}
+
 // RFC 9116 security.txt served at /.well-known/security.txt. `Canonical` is
 // derived from the deploy origin so it always matches the live URL.
 function securityTxt(origin) {
@@ -82,6 +116,7 @@ export function emitStaticSite(site, outputDir, configuration = SITE_CONFIGURATI
   const files = [
     [join(outputDir, "sitemap.xml"), site.sitemap],
     [join(outputDir, "robots.txt"), robotsTxt(configuration.origin)],
+    [join(outputDir, "llms.txt"), llmsTxt(configuration.origin)],
     [join(outputDir, "_headers"), HEADERS],
     [join(outputDir, "_redirects"), REDIRECTS],
     [join(outputDir, ".well-known", "security.txt"), securityTxt(configuration.origin)],

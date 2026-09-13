@@ -1,4 +1,4 @@
-# Quickstart: get LawSynth running and make your first discovery over HTTP
+# Run LawSynth and discover equations over HTTP
 
 This walks you from nothing to a **discovered mathematical world served over
 HTTP** in a few minutes: start the stack, mint a token, submit a discovery run
