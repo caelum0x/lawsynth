@@ -17,6 +17,17 @@ test("site compilation connects markdown, navigation, search, SEO, pagination, a
   contains(site.sitemap, "https://docs.lawsynth.dev/guide/install");
 });
 
+test("site compilation caps long metadata descriptions without cutting a word", () => {
+  const longDescription = `${"A useful description with several complete words. ".repeat(6)}Final sentence.`;
+  const site = compileSite(
+    [{ path: "/long", section: "guide", source: ["---", "title: Long page", `description: ${longDescription}`, "---", "# Long page"].join("\n") }],
+    { origin: "https://docs.lawsynth.dev" },
+  );
+  const match = site.pages[0]!.html.match(/<meta name="description" content="([^"]+)">/);
+  equal(match?.[1]?.length !== undefined && match[1].length <= 155, true);
+  equal(match?.[1]?.endsWith("…"), true);
+});
+
 test("site compilation can include drafts but rejects insecure origins and duplicate pages", () => {
   equal(compileSite(sources, { origin: "https://docs.lawsynth.dev", includeDrafts: true }).pages.length, 3);
   throws(() => compileSite(sources, { origin: "http://docs.lawsynth.dev" }), /HTTPS/);

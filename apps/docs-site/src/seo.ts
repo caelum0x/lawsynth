@@ -4,23 +4,40 @@ export interface SeoMetadata {
   readonly imageUrl?: string; readonly type?: "website" | "article"; readonly noIndex?: boolean;
   readonly publishedAt?: string; readonly modifiedAt?: string;
 }
+
+const META_DESCRIPTION_LIMIT = 155;
+
+function compactDescription(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= META_DESCRIPTION_LIMIT) return normalized;
+
+  const candidate = normalized.slice(0, META_DESCRIPTION_LIMIT - 1);
+  const lastWordBoundary = candidate.lastIndexOf(" ");
+  const ending =
+    lastWordBoundary >= 120
+      ? candidate.slice(0, lastWordBoundary)
+      : candidate;
+  return `${ending.trimEnd()}…`;
+}
+
 export function renderSeo(metadata: SeoMetadata, siteName = "LawSynth"): string {
   const canonical = new URL(metadata.canonicalUrl);
   if (!["http:", "https:"].includes(canonical.protocol)) throw new RangeError("canonical URL must use HTTP(S)");
-  if (!metadata.title.trim() || metadata.description.trim().length < 20) throw new RangeError("SEO title and a descriptive summary are required");
+  const description = compactDescription(metadata.description);
+  if (!metadata.title.trim() || description.length < 20) throw new RangeError("SEO title and a descriptive summary are required");
   const title = metadata.title.includes(siteName) ? metadata.title : `${metadata.title} · ${siteName}`;
   const tags = [
     `<title>${escapeHtml(title)}</title>`,
-    `<meta name="description" content="${escapeHtml(metadata.description)}">`,
+    `<meta name="description" content="${escapeHtml(description)}">`,
     `<link rel="canonical" href="${escapeHtml(canonical.toString())}">`,
     `<meta property="og:site_name" content="${escapeHtml(siteName)}">`,
     `<meta property="og:title" content="${escapeHtml(title)}">`,
-    `<meta property="og:description" content="${escapeHtml(metadata.description)}">`,
+    `<meta property="og:description" content="${escapeHtml(description)}">`,
     `<meta property="og:url" content="${escapeHtml(canonical.toString())}">`,
     `<meta property="og:type" content="${metadata.type ?? "website"}">`,
     `<meta name="twitter:card" content="${metadata.imageUrl ? "summary_large_image" : "summary"}">`,
     `<meta name="twitter:title" content="${escapeHtml(title)}">`,
-    `<meta name="twitter:description" content="${escapeHtml(metadata.description)}">`,
+    `<meta name="twitter:description" content="${escapeHtml(description)}">`,
   ];
   if (metadata.imageUrl) {
     const image = escapeHtml(new URL(metadata.imageUrl, canonical).toString());

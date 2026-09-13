@@ -5,8 +5,13 @@
   // block alone serves the static tree. For the Cloudflare Pages flow instead,
   // see apps/docs-site/wrangler.toml + DEPLOY.md.
   "name": "lawsynth",
+  "main": "./apps/docs-site/worker.mjs",
   "compatibility_date": "2025-01-01",
-  "assets": { "directory": "./apps/docs-site/public" },
+  "assets": {
+    "directory": "./apps/docs-site/public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
   // Serve at the apex (and www) — lawsynth.dev is a zone in this account, so
   // Cloudflare provisions the custom domain + certificate on deploy.
   "routes": [

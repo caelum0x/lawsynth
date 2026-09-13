@@ -151,8 +151,7 @@ function renderPage(
   configuration: SiteConfiguration,
 ): string {
   const { document, source, title } = page;
-  const description =
-    document.metadata.description ?? document.plainText.slice(0, 180);
+  const description = document.metadata.description ?? document.plainText;
   const canonical = new URL(
     document.metadata.canonical ?? source.path,
     configuration.origin,

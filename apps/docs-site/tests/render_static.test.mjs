@@ -26,7 +26,7 @@ test("emitStaticSite writes one index.html per page plus control files", () => {
       assert.ok(readFileSync(file, "utf8").startsWith("<!doctype html>"), `${page.path} is a full HTML document`);
     }
 
-    for (const name of ["sitemap.xml", "robots.txt", "_headers", "_redirects"]) {
+    for (const name of ["sitemap.xml", "robots.txt", "llms.txt", "_headers", "_redirects"]) {
       assert.ok(written.includes(join(dir, name)), `${name} was written`);
     }
     assert.ok(readFileSync(join(dir, "sitemap.xml"), "utf8").includes("https://lawsynth.dev"), "sitemap origin");
@@ -35,6 +35,17 @@ test("emitStaticSite writes one index.html per page plus control files", () => {
       "robots points to the sitemap",
     );
     assert.ok(readFileSync(join(dir, "_headers"), "utf8").includes("X-Content-Type-Options: nosniff"), "security headers");
+
+    const llms = readFileSync(join(dir, "llms.txt"), "utf8");
+    assert.ok(llms.startsWith("# LawSynth"), "llms.txt identifies the product");
+    assert.ok(llms.includes("STLSQ means sequentially thresholded least squares"), "llms.txt defines STLSQ");
+    assert.ok(llms.includes("not proof of physical or causal truth"), "llms.txt states the model boundary");
+    const productionSitemap = buildFullSite(SITE_CONFIGURATION).sitemap;
+    for (const match of llms.matchAll(/\]\((https:\/\/lawsynth\.dev\/[^)]+)\)/gu)) {
+      const url = match[1];
+      if (url.endsWith("/sitemap.xml")) continue;
+      assert.ok(productionSitemap.includes(`<loc>${url}</loc>`), `${url} is canonical and listed in the sitemap`);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -71,6 +82,21 @@ test("the rendered site publishes the repo docs/ tree under /docs with rewritten
     const site = buildFullSite(SITE_CONFIGURATION);
     const docsPages = site.pages.filter((page) => page.path.startsWith("/docs"));
     assert.ok(docsPages.length > 200, `expected the full docs corpus (got ${docsPages.length})`);
+
+    const stlsq = readFileSync(join(dir, "docs/methods/sparse/stlsq/index.html"), "utf8");
+    assert.ok(
+      stlsq.includes("STLSQ: Sequentially Thresholded Least Squares"),
+      "STLSQ page expands the exact-query acronym in its search title",
+    );
+    assert.ok(
+      stlsq.includes("STLSQ means sequentially thresholded least squares"),
+      "STLSQ page answers the exact query in its search description",
+    );
+    assert.ok(stlsq.includes("--solver stlsq --threshold 0.05"), "STLSQ page includes a runnable example");
+    assert.ok(
+      stlsq.includes('href="/docs/guides/discovery/sparse"'),
+      "STLSQ page links to the sparse discovery guide",
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
