@@ -75,6 +75,16 @@ function parseOrder(value: string | undefined): number | undefined {
   return order;
 }
 
+function parseScalar(value: string): string {
+  if (value.length < 2) return value;
+  const first = value[0];
+  const last = value[value.length - 1];
+  if ((first === '"' || first === "'") && last === first) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
 function parseMetadata(lines: readonly string[]): ParsedSource {
   if (lines[0] !== "---") {
     return { metadata: {}, body: lines };
@@ -93,7 +103,7 @@ function parseMetadata(lines: readonly string[]): ParsedSource {
     }
 
     const key = line.slice(0, separator).trim().toLowerCase();
-    const value = line.slice(separator + 1).trim();
+    const value = parseScalar(line.slice(separator + 1).trim());
     if (fields.has(key)) {
       throw new SyntaxError(`duplicate front matter field: ${key}`);
     }
