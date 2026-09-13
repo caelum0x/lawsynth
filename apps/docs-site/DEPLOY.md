@@ -19,7 +19,9 @@ npm run render    # tsc build + emit the static tree to ./public
 - `public/sitemap.xml` — the crawl sitemap (origin `https://lawsynth.dev`)
 - `public/robots.txt` — allow-all + sitemap pointer
 - `public/_headers` — security headers (nosniff, DENY framing, a strict CSP)
-- `public/_redirects` — Cloudflare Pages redirect rules (add canonical rules here)
+- `public/_redirects` — Cloudflare Pages static redirect rules
+- `public/_worker.js` — the www-to-apex canonical redirect, with all other
+  requests forwarded to the Pages static-asset binding
 
 The output is byte-identical across runs (a test asserts this), so a rebuild only
 changes what the content changed.
@@ -46,7 +48,8 @@ In the Cloudflare dashboard → Pages → *Create project* → connect the repo,
 | Build output dir   | `public`                 |
 
 Cloudflare auto-provisions the certificate; `.dev` enforces HTTPS at the TLD
-(HSTS preload), so the site is HTTPS-only by construction.
+(HSTS preload), so the site is HTTPS-only by construction. The generated
+`_worker.js` keeps `www.lawsynth.dev` from competing with the apex URL.
 
 ## Custom domain
 

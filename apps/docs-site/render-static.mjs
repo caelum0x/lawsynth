@@ -24,6 +24,7 @@ import { loadDocsSources } from "./load-docs.mjs";
 
 /** Static assets (favicon, og image) copied verbatim into the output tree. */
 const ASSETS_DIR = fileURLToPath(new URL("./assets", import.meta.url));
+const WORKER_FILE = fileURLToPath(new URL("./worker.mjs", import.meta.url));
 
 /** Production configuration for https://lawsynth.dev. */
 export const SITE_CONFIGURATION = Object.freeze({ origin: "https://lawsynth.dev", name: "LawSynth" });
@@ -125,6 +126,11 @@ export function emitStaticSite(site, outputDir, configuration = SITE_CONFIGURATI
     write(file, contents);
     written.push(file);
   }
+  // Cloudflare Pages advanced mode: this worker performs the www -> apex
+  // canonical redirect, then forwards every other request to Pages assets.
+  const workerDestination = join(outputDir, "_worker.js");
+  copyFileSync(WORKER_FILE, workerDestination);
+  written.push(workerDestination);
   // Copy static assets (favicon.svg, og.svg, ...) verbatim into the output.
   if (existsSync(ASSETS_DIR)) {
     mkdirSync(outputDir, { recursive: true });
