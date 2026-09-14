@@ -11,14 +11,32 @@ import {
   type NavigationSection,
 } from "./navigation.js";
 import { SearchIndex } from "./search.js";
-import { renderSeo, softwareStructuredData } from "./seo.js";
+import {
+  articleStructuredData,
+  renderSeo,
+  softwareStructuredData,
+  type BreadcrumbCrumb,
+} from "./seo.js";
 import { DOCS_STYLES, docsThemeScript } from "./theme.js";
+
+/** Absolute path of the raster social-preview image (1200×630 PNG). */
+const OG_IMAGE_PATH = "/og.png";
+
+/**
+ * Deterministic fallback content date for pages that do not carry an explicit
+ * `publishedAt`/`updatedAt`. Kept as a constant (not `Date.now()`) so the emitted
+ * tree stays byte-identical across renders.
+ */
+const DEFAULT_CONTENT_DATE = "2026-09-14";
 
 export interface DocumentationPageSource {
   readonly path: string;
   readonly source: string;
   readonly section: string;
   readonly updatedAt?: string;
+  readonly publishedAt?: string;
+  /** When true the page emits TechArticle + BreadcrumbList JSON-LD. */
+  readonly article?: boolean;
 }
 
 export interface CompiledPage {
@@ -26,6 +44,8 @@ export interface CompiledPage {
   readonly title: string;
   readonly html: string;
   readonly document: MarkdownDocument;
+  /** W3C date used for the page's `<lastmod>` sitemap entry. */
+  readonly lastmod: string;
 }
 
 export interface DocumentationSite {
@@ -145,6 +165,41 @@ function renderPagination(
   return `<nav class="pagination" aria-label="Adjacent pages">${previous}${next}</nav>`;
 }
 
+/** Title-case a URL path segment the same way the navigation builder labels sections. */
+function segmentLabel(segment: string): string {
+  return segment.replaceAll("-", " ").replace(/\b\w/gu, (letter) => letter.toUpperCase());
+}
+
+/** Whether a page should be described as a content article (TechArticle + breadcrumbs). */
+function isArticlePage(source: DocumentationPageSource): boolean {
+  return source.article === true || /^\/docs\/(?:methods|guides)\/.+/u.test(source.path);
+}
+
+/**
+ * Breadcrumb trail from the site root to the current page, deriving intermediate
+ * labels from the URL segments and using the resolved page title for the leaf.
+ */
+function breadcrumbsFor(
+  path: string,
+  title: string,
+  origin: string,
+  canonical: string,
+): readonly BreadcrumbCrumb[] {
+  const base = origin.replace(/\/$/, "");
+  const crumbs: BreadcrumbCrumb[] = [{ name: "Home", url: `${base}/` }];
+  const segments = path.split("/").filter(Boolean);
+  let accumulated = "";
+  segments.forEach((segment, index) => {
+    accumulated += `/${segment}`;
+    const isLeaf = index === segments.length - 1;
+    crumbs.push({
+      name: isLeaf ? title : segmentLabel(segment),
+      url: isLeaf ? canonical : `${base}${accumulated}`,
+    });
+  });
+  return crumbs;
+}
+
 function renderPage(
   page: ParsedPage,
   navigation: readonly NavigationSection[],
@@ -161,25 +216,40 @@ function renderPage(
   const version = configuration.version
     ? `<span>${escapeHtml(configuration.version)}</span>`
     : "";
+  const article = isArticlePage(source);
+  const publishedAt = source.publishedAt ?? (article ? DEFAULT_CONTENT_DATE : undefined);
+  const modifiedAt = source.updatedAt ?? source.publishedAt ?? (article ? DEFAULT_CONTENT_DATE : undefined);
   const seo = renderSeo(
     {
       title,
       description,
       canonicalUrl: canonical,
-      imageUrl: "/og.svg",
-      ...(source.updatedAt === undefined
-        ? {}
-        : { modifiedAt: source.updatedAt }),
+      imageUrl: OG_IMAGE_PATH,
+      ...(article ? { type: "article" as const } : {}),
+      ...(publishedAt === undefined ? {} : { publishedAt }),
+      ...(modifiedAt === undefined ? {} : { modifiedAt }),
     },
     productName,
   );
-  // SoftwareApplication JSON-LD (escaped by softwareStructuredData, so it is
-  // safe to inline inside a <script> element).
-  const structuredData = `<script type="application/ld+json">${softwareStructuredData(
-    productName,
-    configuration.version ?? "0.1.0",
-    configuration.origin,
-  )}</script>`;
+  // Content pages get page-specific TechArticle + BreadcrumbList JSON-LD; every
+  // other page keeps the generic SoftwareApplication graph. Both helpers escape
+  // `<`, so the output is safe to inline inside a <script> element.
+  const structuredData = article
+    ? `<script type="application/ld+json">${articleStructuredData({
+        headline: title,
+        description,
+        url: canonical,
+        origin: configuration.origin,
+        imageUrl: new URL(OG_IMAGE_PATH, configuration.origin).toString(),
+        breadcrumbs: breadcrumbsFor(source.path, title, configuration.origin, canonical),
+        ...(publishedAt === undefined ? {} : { publishedAt }),
+        ...(modifiedAt === undefined ? {} : { modifiedAt }),
+      })}</script>`
+    : `<script type="application/ld+json">${softwareStructuredData(
+        productName,
+        configuration.version ?? "0.1.0",
+        configuration.origin,
+      )}</script>`;
 
   return [
     "<!doctype html>",
@@ -229,7 +299,7 @@ function createSitemap(
   const urls = pages
     .map((page) => {
       const location = escapeHtml(new URL(page.path, origin).toString());
-      return `  <url><loc>${location}</loc></url>`;
+      return `  <url><loc>${location}</loc><lastmod>${escapeHtml(page.lastmod)}</lastmod></url>`;
     })
     .join("\n");
 
@@ -273,6 +343,7 @@ export function compileSite(
       title: page.title,
       html: renderPage(page, navigation, configuration),
       document: page.document,
+      lastmod: page.source.updatedAt ?? page.source.publishedAt ?? DEFAULT_CONTENT_DATE,
     });
   });
 

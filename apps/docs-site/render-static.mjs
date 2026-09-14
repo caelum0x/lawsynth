@@ -131,6 +131,12 @@ export function emitStaticSite(site, outputDir, configuration = SITE_CONFIGURATI
   const workerDestination = join(outputDir, "_worker.js");
   copyFileSync(WORKER_FILE, workerDestination);
   written.push(workerDestination);
+  // The apex site deploys as a static-assets Worker (main: worker.mjs), which
+  // must NOT upload this Pages-mode `_worker.js` as an asset (wrangler errors).
+  // Emit an .assetsignore so `wrangler deploy` skips it on every rebuild.
+  const assetsIgnoreDestination = join(outputDir, ".assetsignore");
+  writeFileSync(assetsIgnoreDestination, "_worker.js\n");
+  written.push(assetsIgnoreDestination);
   // Copy static assets (favicon.svg, og.svg, ...) verbatim into the output.
   if (existsSync(ASSETS_DIR)) {
     mkdirSync(outputDir, { recursive: true });
