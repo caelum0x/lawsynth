@@ -1,4 +1,5 @@
 import { escapeHtml } from "./code.js";
+import { fallbackDescription, uniqueSeoTitles } from "./seo_titles.js";
 import {
   parseMarkdown,
   renderMarkdown,
@@ -204,9 +205,10 @@ function renderPage(
   page: ParsedPage,
   navigation: readonly NavigationSection[],
   configuration: SiteConfiguration,
+  seoTitle: string = page.title,
 ): string {
   const { document, source, title } = page;
-  const description = document.metadata.description ?? document.plainText;
+  const description = document.metadata.description ?? fallbackDescription(title, document.plainText);
   const canonical = new URL(
     document.metadata.canonical ?? source.path,
     configuration.origin,
@@ -221,7 +223,7 @@ function renderPage(
   const modifiedAt = source.updatedAt ?? source.publishedAt ?? (article ? DEFAULT_CONTENT_DATE : undefined);
   const seo = renderSeo(
     {
-      title,
+      title: seoTitle,
       description,
       canonicalUrl: canonical,
       imageUrl: OG_IMAGE_PATH,
@@ -321,6 +323,7 @@ export function compileSite(
     configuration.includeDrafts === true,
   );
   const navigation = buildNavigation(parsed.map(navigationInput));
+  const seoTitles = uniqueSeoTitles(parsed.map((page) => ({ path: page.source.path, title: page.title })));
   const search = new SearchIndex();
 
   const pages = parsed.map((page, index): CompiledPage => {
@@ -341,7 +344,7 @@ export function compileSite(
     return Object.freeze({
       path: page.source.path,
       title: page.title,
-      html: renderPage(page, navigation, configuration),
+      html: renderPage(page, navigation, configuration, seoTitles.get(page.source.path) ?? page.title),
       document: page.document,
       lastmod: page.source.updatedAt ?? page.source.publishedAt ?? DEFAULT_CONTENT_DATE,
     });

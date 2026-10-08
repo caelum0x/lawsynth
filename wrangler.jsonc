@@ -10,7 +10,10 @@
   "assets": {
     "directory": "./apps/docs-site/public",
     "binding": "ASSETS",
-    "run_worker_first": true
+    "run_worker_first": true,
+    // Internal links and canonicals are slashless (/getting-started); serve
+    // them directly instead of 307-redirecting to /getting-started/.
+    "html_handling": "drop-trailing-slash"
   },
   // Serve at the apex (and www) — lawsynth.dev is a zone in this account, so
   // Cloudflare provisions the custom domain + certificate on deploy.
