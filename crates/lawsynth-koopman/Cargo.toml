@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Deterministic Koopman / DMD linear-operator discovery for LawSynth."
 autoexamples = false
 
@@ -12,8 +13,8 @@ name = "recover_operator"
 path = "examples/recover_operator.rs"
 
 [dependencies]
-lawsynth-core = { path = "../lawsynth-core" }
-lawsynth-data = { path = "../lawsynth-data" }
+lawsynth-core = { path = "../lawsynth-core", version = "0.1.0" }
+lawsynth-data = { path = "../lawsynth-data", version = "0.1.0" }
 
 [lib]
 path = "src/lib.rs"

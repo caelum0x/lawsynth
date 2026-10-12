@@ -66,6 +66,11 @@ python -m pip install maturin
 maturin develop
 ```
 
+> Offline or maturin-free machines can build the same `lawsynth._native`
+> extension with a plain `cargo build`:
+> `python/lawsynth/scripts/build-native.sh`. Both paths produce an
+> import-compatible module; `import lawsynth` then exposes the `Study` API.
+
 ---
 
 ## Quickstart — the core loop end to end

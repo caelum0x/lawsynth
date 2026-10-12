@@ -63,6 +63,68 @@ const SOFTWARE_KEYWORDS = [
   "interpretable machine learning",
 ];
 
+export interface BreadcrumbCrumb {
+  readonly name: string;
+  readonly url: string;
+}
+
+export interface ArticleStructuredDataInput {
+  readonly headline: string;
+  readonly description: string;
+  /** Absolute canonical URL of the article page. */
+  readonly url: string;
+  /** Site origin (used for the publisher/author node). */
+  readonly origin: string;
+  /** Absolute URL of the social/preview image. */
+  readonly imageUrl: string;
+  readonly breadcrumbs: readonly BreadcrumbCrumb[];
+  readonly publishedAt?: string;
+  readonly modifiedAt?: string;
+  readonly articleType?: "TechArticle" | "Article";
+}
+
+/**
+ * TechArticle (or Article) + BreadcrumbList JSON-LD for a content page. Unlike
+ * the generic {@link softwareStructuredData}, this describes the specific page so
+ * every content URL carries distinct, accurate structured data. The `<` escape
+ * makes the result safe to inline inside a `<script>` element.
+ */
+export function articleStructuredData(input: ArticleStructuredDataInput): string {
+  const origin = input.origin.replace(/\/$/, "");
+  const publisher = {
+    "@type": "Organization",
+    name: "LawSynth",
+    url: origin,
+    sameAs: ["https://github.com/caelum0x/lawsynth"],
+  };
+  const article: Record<string, unknown> = {
+    "@type": input.articleType ?? "TechArticle",
+    headline: input.headline,
+    description: compactDescription(input.description),
+    url: input.url,
+    mainEntityOfPage: input.url,
+    image: input.imageUrl,
+    inLanguage: "en",
+    author: publisher,
+    publisher,
+  };
+  if (input.publishedAt) article.datePublished = input.publishedAt;
+  if (input.modifiedAt) article.dateModified = input.modifiedAt;
+  const breadcrumb = {
+    "@type": "BreadcrumbList",
+    itemListElement: input.breadcrumbs.map((crumb, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: crumb.name,
+      item: crumb.url,
+    })),
+  };
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [article, breadcrumb],
+  }).replaceAll("<", "\\u003c");
+}
+
 export function softwareStructuredData(name: string, version: string, url: string): string {
   const origin = url.replace(/\/$/, "");
   return JSON.stringify({

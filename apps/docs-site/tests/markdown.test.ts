@@ -4,7 +4,7 @@ import { contains, deepEqual, equal, test, throws } from "./assertions.js";
 test("markdown parsing creates structured blocks, metadata, stable anchors, and searchable text", () => {
   const fence = String.fromCharCode(96).repeat(3);
   const document = parseMarkdown([
-    "---", "title: Discovery guide", "description: Learn how to run deterministic sparse discovery.", "order: 2", "tags: discovery, python", "draft: false", "---",
+    "---", "title: \"Discovery guide\"", "description: 'Learn how to run deterministic sparse discovery.'", "order: 2", "tags: discovery, python", "draft: false", "---",
     "# Getting started", "", "A <safe> paragraph with **emphasis** and [guide](/guide).", "", "## Getting started", "",
     "- Install the wheel", "- Load observations", "", "> Native execution only.", "", fence + "python", "from lawsynth import discover", fence, "", "---",
   ].join("\n"));
@@ -15,6 +15,23 @@ test("markdown parsing creates structured blocks, metadata, stable anchors, and 
   contains(html, "&lt;safe&gt;");
   contains(html, '<a href="/guide">guide</a>');
   contains(html, 'data-language="python"');
+});
+
+test("front matter removes only matching outer scalar quotes", () => {
+  const document = parseMarkdown([
+    "---",
+    "title: \"STLSQ: Sequentially Thresholded Least Squares\"",
+    "description: Keep unmatched \"quotes visible",
+    "canonical: 'https://lawsynth.dev/docs/methods/sparse/stlsq'",
+    "---",
+    "# STLSQ",
+  ].join("\n"));
+
+  deepEqual(document.metadata, {
+    title: "STLSQ: Sequentially Thresholded Least Squares",
+    description: 'Keep unmatched "quotes visible',
+    canonical: "https://lawsynth.dev/docs/methods/sparse/stlsq",
+  });
 });
 
 test("standalone image lines become figures, with alt text indexed and unsafe sources rejected", () => {

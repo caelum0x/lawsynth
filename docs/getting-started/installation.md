@@ -28,6 +28,15 @@ maturin develop
 python -m pytest -q tests
 ```
 
+`maturin develop` reads `manifest-path` from `pyproject.toml`, which points at
+the `lawsynth-python` crate in the Cargo workspace. On machines without maturin
+(or without registry access to fetch the maturin/pyo3 build chain), build the
+identical `lawsynth._native` extension with a plain `cargo build`:
+
+```sh
+python/lawsynth/scripts/build-native.sh   # builds and installs _native next to the package
+```
+
 This gives you the `lawsynth.Study` API. Two optional companion packages extend it:
 `lawsynth-notebook` (the `StudyDashboard` rich notebook view) and
 `lawsynth-connectors` (import observations from `filesystem`, `http`, `s3`,

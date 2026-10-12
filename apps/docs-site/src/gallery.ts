@@ -175,6 +175,9 @@ export function galleryPages(): readonly DocumentationPageSource[] {
   const pages = GALLERY_ENTRIES.map((entry): DocumentationPageSource => ({
     path: `/examples/${entry.slug}`,
     section: "examples",
+    article: true,
+    publishedAt: "2026-01-15",
+    updatedAt: "2026-09-14",
     source: markdownDocument(
       frontMatter({ title: entry.title, description: entry.summary, order: entry.order, tags: ["examples", ...entry.tags] }),
       `# ${entry.title}`,

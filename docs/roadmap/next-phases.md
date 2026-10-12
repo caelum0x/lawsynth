@@ -5,7 +5,7 @@
 > boundary research, not an active hosted-service plan. `lawsynth.dev` is a
 > static project website.
 
-The original blueprint (`LawSynth_Production_Architecture.md`, `LawSynth_3161_Repository_Manifest.md`)
+The original blueprint (`docs/internal/LawSynth_Production_Architecture.md`, `docs/internal/LawSynth_3161_Repository_Manifest.md`)
 defined P0–P5: the engine, bindings, discovery depth, Studio, services, and
 deployment. Those are built. The product loop —
 `observe → prepare → discover → understand → use → validate → monitor → share → organize`

@@ -26,9 +26,13 @@ test("emitStaticSite writes one index.html per page plus control files", () => {
       assert.ok(readFileSync(file, "utf8").startsWith("<!doctype html>"), `${page.path} is a full HTML document`);
     }
 
-    for (const name of ["sitemap.xml", "robots.txt", "llms.txt", "_headers", "_redirects"]) {
+    for (const name of ["sitemap.xml", "robots.txt", "llms.txt", "_headers", "_redirects", "_worker.js"]) {
       assert.ok(written.includes(join(dir, name)), `${name} was written`);
     }
+    assert.ok(
+      readFileSync(join(dir, "_worker.js"), "utf8").includes("env.ASSETS.fetch(request)"),
+      "Pages worker forwards apex and preview traffic to static assets",
+    );
     assert.ok(readFileSync(join(dir, "sitemap.xml"), "utf8").includes("https://lawsynth.dev"), "sitemap origin");
     assert.ok(
       readFileSync(join(dir, "robots.txt"), "utf8").includes("Sitemap: https://lawsynth.dev/sitemap.xml"),

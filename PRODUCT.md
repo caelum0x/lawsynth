@@ -4,7 +4,7 @@ LawSynth turns time-series observations into **executable mathematical worlds**:
 interpretable law systems you can read, simulate, stress-test, and share. This
 document is the product view — what a user actually does with LawSynth — layered
 on top of the engine and repository blueprint in `ARCHITECTURE.md` and
-`LawSynth_Production_Architecture.md`.
+`docs/internal/LawSynth_Production_Architecture.md`.
 
 ## Who it's for
 

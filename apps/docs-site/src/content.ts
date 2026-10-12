@@ -1,6 +1,7 @@
 import { codeFence, frontMatter, markdownDocument } from "./content_markdown.js";
 import { ExampleRegistry, type DocumentedExample } from "./examples.js";
 import { galleryEntryToExample, galleryPages, GALLERY_ENTRIES } from "./gallery.js";
+import { systemsPages } from "./systems.js";
 import { compileSite, type DocumentationPageSource, type DocumentationSite, type SiteConfiguration } from "./site.js";
 
 /** The product's front page: what LawSynth is and the loop it runs. */
@@ -431,7 +432,7 @@ const DETERMINISM: DocumentationPageSource = {
 
 /** Every content page this site renders, in navigation order. */
 export function docsContentPages(): readonly DocumentationPageSource[] {
-  return Object.freeze([INTRODUCTION, GETTING_STARTED, CAPABILITIES, REFERENCE_CLI, CONCEPTS, DETERMINISM, ...galleryPages()]);
+  return Object.freeze([INTRODUCTION, GETTING_STARTED, CAPABILITIES, REFERENCE_CLI, CONCEPTS, DETERMINISM, ...galleryPages(), ...systemsPages()]);
 }
 
 /** The getting-started CLI/SDK snippets as documented examples. */

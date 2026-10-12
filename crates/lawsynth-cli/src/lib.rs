@@ -129,9 +129,19 @@ pub fn run(arguments: &[String]) -> Result<String, String> {
         "backtest" => backtest::run(&arguments[1..]),
         "workspace" => workspace::run(&arguments[1..]),
         "plugin" => plugin::run(&arguments[1..]),
+        "version" | "--version" | "-V" => Ok(version()),
         "help" | "--help" | "-h" => Ok(usage()),
         _ => Err(usage()),
     }
+}
+
+/// Prints the binary name and its version, e.g. `lawsynth 0.1.0`.
+///
+/// The version is taken from the crate's `CARGO_PKG_VERSION` at compile time so
+/// it always matches the published package, and is emitted on its own line for
+/// easy machine parsing.
+fn version() -> String {
+    format!("lawsynth {}\n", env!("CARGO_PKG_VERSION"))
 }
 
 /// Dispatches `discover` on the `--method` flag.
