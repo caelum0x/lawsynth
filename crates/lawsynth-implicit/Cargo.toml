@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Implicit / rational (nullspace) dynamics discovery for LawSynth (SINDy-PI style)."
+publish = false
 autoexamples = false
 
 [[example]]

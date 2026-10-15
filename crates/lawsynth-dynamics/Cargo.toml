@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Validated continuous and discrete identification problems for LawSynth."
+publish = false
 autoexamples = false
 
 [[example]]

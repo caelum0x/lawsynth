@@ -560,6 +560,7 @@ fn backtest(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // The simulation contract fixes this surface.
 fn forecast(
     adjacency: &BTreeMap<String, Vec<String>>,
     seeds: &[String],
@@ -586,7 +587,7 @@ fn forecast(
             .collect::<BTreeSet<_>>();
         let mut frontier = active.iter().cloned().collect::<Vec<_>>();
         totals[0].push(active.len());
-        for step in 1..=horizon {
+        for (step, bucket) in totals.iter_mut().enumerate().take(horizon + 1).skip(1) {
             if step % 8 == 0 {
                 check_deadline(deadline)?;
             }
@@ -606,7 +607,7 @@ fn forecast(
             }
             active.extend(newly.iter().cloned());
             frontier = newly.into_iter().collect();
-            totals[step].push(active.len());
+            bucket.push(active.len());
         }
     }
     let points = totals

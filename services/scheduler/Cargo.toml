@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Durable local scheduler for typed LawSynth worker jobs."
+publish = false
 
 [dependencies]
 lawsynth-runner = { path = "../../crates/lawsynth-runner", version = "0.1.0" }

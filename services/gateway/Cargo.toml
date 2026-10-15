@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Std-only, dependency-free HTTP/1.1 reverse proxy admission layer for LawSynth."
+publish = false
 
 [dependencies]
 

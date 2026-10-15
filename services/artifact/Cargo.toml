@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Local-first, content-addressed artifact lifecycle service for LawSynth."
+publish = false
 
 [dependencies]
 lawsynth-bundle = { path = "../../crates/lawsynth-bundle", version = "0.1.0" }

@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Deterministic local and in-memory object storage for LawSynth artifacts."
+publish = false
 autoexamples = false
 
 [[example]]

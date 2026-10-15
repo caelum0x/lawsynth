@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Local, durable execution worker for LawSynth discovery and simulation jobs."
+publish = false
 
 [dependencies]
 lawsynth-core = { path = "../../crates/lawsynth-core", version = "0.1.0" }
