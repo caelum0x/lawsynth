@@ -1,0 +1,49 @@
+name: Release build
+
+# Builds the `lawsynth` CLI binary for macOS and Linux and attaches them to
+# the GitHub Release for the pushed tag. This is additive to, and does not
+# modify, the manual `Release-candidate verification` workflow
+# (release.yml), which stays verify-only and workflow_dispatch-triggered.
+#
+# Does not touch apps/docs-site, packages/world-schema, or
+# packages/world-viewer, so it cannot trigger the Cloudflare Pages deploy of
+# lawsynth.dev (see deploy-site.yml's path filters).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_NET_OFFLINE: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.94.0
+      # Same command release.yml's release-candidate verification job runs.
+      - run: cargo build --release --locked -p lawsynth-cli
+      - name: Package binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          asset="lawsynth-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)"
+          cp target/release/lawsynth "dist/${asset}"
+          tar -C dist -czf "dist/${asset}.tar.gz" "${asset}"
+          echo "ASSET_PATH=dist/${asset}.tar.gz" >> "$GITHUB_ENV"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET_PATH }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true

@@ -11,10 +11,23 @@ permissions:
 jobs:
   scientific-fixtures:
     runs-on: ubuntu-latest
+    env:
+      CARGO_NET_OFFLINE: "false"
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.94.0
+      - run: cargo build -p lawsynth-cli
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: python -m pip install --upgrade pip pytest
-      - run: python -m pytest -q tests/scientific tests/conformance
+      # tests/scientific and tests/conformance hold declarative fixtures
+      # (case.toml/input.json/expected.json/run.py) executed directly per
+      # their own README, not pytest test_*.py files — pointing pytest at
+      # those directories collects zero tests (exit code 5). The real
+      # pytest-compatible wrappers live at tests/test_scientific.py and
+      # tests/test_conformance.py, which parametrize one test per case and
+      # run each case's own run.py against the native engine built above.
+      - run: python -m pytest -q tests/test_scientific.py tests/test_conformance.py
