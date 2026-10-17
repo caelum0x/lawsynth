@@ -208,11 +208,7 @@ function renderPage(
   seoTitle: string = page.title,
 ): string {
   const { document, source, title } = page;
-<<<<<<< HEAD
-  const description = document.metadata.description ?? document.plainText;
-=======
   const description = document.metadata.description ?? fallbackDescription(title, document.plainText);
->>>>>>> feat/release-cut-2026-09-06
   const canonical = new URL(
     document.metadata.canonical ?? source.path,
     configuration.origin,
