@@ -21,6 +21,9 @@ export interface WorldLabInput {
   readonly height?: number;
   readonly simulationStatus?: RunStatus;
   readonly running: boolean;
+  /** Result of the last `world:forecast` action (live API forecast), when one has run. */
+  readonly liveForecast?: { readonly samples: number; readonly horizon: number; readonly step: number };
+  readonly forecasting?: boolean;
 }
 
 function parameterControl(row: ParameterRow, override: number | undefined): ControlField {
@@ -109,6 +112,12 @@ export function worldLabModel(input: WorldLabInput): ScreenModel {
     { label: "Samples", value: String(sampleCount) },
     { label: "Active interventions", value: String(active.length) },
     { label: "Final state", value: finalValues === undefined ? "—" : variables.map((name, i) => `${name}=${(finalValues![i] ?? 0).toFixed(3)}`).join(", ") },
+    {
+      label: "Live forecast (API)",
+      value: input.liveForecast === undefined
+        ? "Not requested"
+        : `${input.liveForecast.samples} sample(s), horizon ${input.liveForecast.horizon}, step ${input.liveForecast.step}`,
+    },
   ];
 
   const ordered: ScreenSection[] = [];
@@ -121,6 +130,7 @@ export function worldLabModel(input: WorldLabInput): ScreenModel {
     id: "lab-actions",
     buttons: [
       { id: "lab:simulate", label: input.running ? "Simulating…" : "Run simulation", tone: "success", disabled: input.running },
+      { id: "world:forecast", label: input.forecasting === true ? "Requesting forecast…" : "Request live forecast", disabled: input.forecasting === true },
       { id: "lab:reset", label: "Reset overrides" },
     ],
   });

@@ -148,6 +148,7 @@ export class ScreensController extends EventTarget {
   #running = false;
   #simStatus: RunStatus | undefined;
   #simRunning = false;
+  #forecasting = false;
   #lastError: string | undefined;
   #collab: CollaborationData = { members: [], revisions: [], annotations: [], trusted: false };
   #collabLoaded = false;
@@ -340,7 +341,17 @@ export class ScreensController extends EventTarget {
           horizon: this.#lab.horizon,
           step: this.#lab.step,
           running: this.#simRunning,
+          forecasting: this.#forecasting,
           ...(this.#simStatus === undefined ? {} : { simulationStatus: this.#simStatus }),
+          ...(this.#forecast === undefined
+            ? {}
+            : {
+                liveForecast: {
+                  samples: this.#forecast.trajectory.time.length,
+                  horizon: this.#forecast.horizon,
+                  step: this.#forecast.step,
+                },
+              }),
         });
       case "scenario-board":
         return scenarioBoardModel({
@@ -416,7 +427,14 @@ export class ScreensController extends EventTarget {
     if (actionId === "world:explain") { await this.explainWorld(); return; }
     if (actionId === "world:report") { await this.reportWorld(); return; }
     if (actionId === "world:forecast") {
-      await this.forecastWorld({ horizon: this.#lab.horizon, step: this.#lab.step, initial: this.#trajectoryInitial() });
+      this.#forecasting = true;
+      this.#emit();
+      try {
+        await this.forecastWorld({ horizon: this.#lab.horizon, step: this.#lab.step, initial: this.#trajectoryInitial() });
+      } finally {
+        this.#forecasting = false;
+        this.#emit();
+      }
       return;
     }
     if (actionId === "collab:refresh") { await this.#refreshCollaboration(); return; }

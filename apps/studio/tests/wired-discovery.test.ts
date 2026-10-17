@@ -51,3 +51,46 @@ export async function wiredDiscoveryTests(): Promise<void> {
 
   controller.dispose();
 }
+
+/**
+ * Proves the World Lab "Request live forecast" button is actually wired: the
+ * `world:forecast` action id a renderer dispatches from that button's click
+ * reaches the live api-client (`worlds.forecast`), and the result is reflected
+ * back in the World Lab model rather than being silently dropped.
+ */
+export async function worldLabForecastTests(): Promise<void> {
+  const transport = new InMemoryDiscoveryTransport({
+    world: { id: "oscillator-demo", name: "Damped oscillator (demo)", states: ["x", "v"], equations: { x: "v", v: "-4*x - 0.5*v" } },
+  });
+  const api = new LawSynthClient(transport);
+  const controller = new ScreensController({ store: store(), api, randomId: () => "idem" });
+  controller.setScreen("world-lab");
+
+  // Before the action runs, the button is present and the live-forecast metric
+  // honestly reports nothing has been requested yet.
+  const before = controller.model();
+  const beforeActions = before.sections.find((section) => section.kind === "actions");
+  if (beforeActions === undefined || beforeActions.kind !== "actions") throw new Error("world lab has no actions section");
+  const button = beforeActions.buttons.find((candidate) => candidate.id === "world:forecast");
+  if (button === undefined) throw new Error("world lab is missing the world:forecast button");
+  const beforeMetrics = before.sections.find((section) => section.kind === "metrics");
+  if (beforeMetrics === undefined || beforeMetrics.kind !== "metrics") throw new Error("world lab has no metrics section");
+  const beforeMetric = beforeMetrics.metrics.find((metric) => metric.label === "Live forecast (API)");
+  if (beforeMetric === undefined) throw new Error("world lab is missing the live-forecast metric");
+  equal(beforeMetric.value, "Not requested");
+
+  // Clicking the button (onAction("world:forecast")) must reach the live client.
+  await controller.onAction("world:forecast");
+  equal(controller.lastError, undefined);
+  if (controller.forecast === undefined) throw new Error("world:forecast did not populate a forecast");
+
+  const after = controller.model();
+  const afterMetrics = after.sections.find((section) => section.kind === "metrics");
+  if (afterMetrics === undefined || afterMetrics.kind !== "metrics") throw new Error("world lab has no metrics section");
+  const afterMetric = afterMetrics.metrics.find((metric) => metric.label === "Live forecast (API)");
+  if (afterMetric === undefined) throw new Error("world lab is missing the live-forecast metric");
+  equal(afterMetric.value !== "Not requested", true);
+  equal(afterMetric.value.includes(`sample(s), horizon ${controller.forecast.horizon}`), true);
+
+  controller.dispose();
+}
