@@ -135,9 +135,12 @@ fn battery() -> Vec<&'static str> {
         "2 * 3",
         "1 + 1",
         "2 * x + 3 * x - 5 * x",
-        // Distributive factoring.
+        // Distributive factoring over addition and subtraction.
         "a * b + a * c",
         "a * c + b * c",
+        "a * b - a * c",
+        "b * a - a * c",
+        "a * b - c * a",
         // Combined, realistic messy laws.
         "0 + (x * 1) + (y - y)",
         "(a * b + a * c) * 1 + 0 - log(exp(d))",

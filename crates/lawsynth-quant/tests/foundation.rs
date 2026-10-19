@@ -69,6 +69,24 @@ fn money_encoding_round_trips_and_rejects_drift() {
 }
 
 #[test]
+fn money_decoder_rejects_corrupt_currency_field() {
+    let encoded = Money::from_minor_units(Currency::Usd, 4_200).canonical_bytes();
+
+    // Non-UTF-8 currency-code bytes are rejected before registry lookup.
+    let mut not_utf8 = encoded;
+    not_utf8[5..8].copy_from_slice(&[0xFF, 0xFE, 0xFD]);
+    assert!(matches!(Money::from_canonical_bytes(&not_utf8), Err(QuantError::InvalidEncoding(_))));
+
+    // Valid UTF-8 but an unknown code is rejected by the closed registry.
+    let mut unknown_code = encoded;
+    unknown_code[5..8].copy_from_slice(b"XXX");
+    assert!(matches!(
+        Money::from_canonical_bytes(&unknown_code),
+        Err(QuantError::UnknownCurrency(_))
+    ));
+}
+
+#[test]
 fn position_values_holdings_through_exact_money_algebra() {
     let price = Money::from_minor_units(Currency::Usd, 15_000);
     let long = Position::new("AAPL-XNAS", 3).unwrap();
