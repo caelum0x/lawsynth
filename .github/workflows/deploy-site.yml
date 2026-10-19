@@ -41,6 +41,13 @@ jobs:
           node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Build workspace dependencies first (@lawsynth/world-schema,
+      # @lawsynth/world-viewer, etc.) so their dist/ output exists before
+      # docs-site's tsc build resolves them. `pnpm --filter ... run render`
+      # alone only builds docs-site itself, not its workspace deps, which is
+      # what broke every deploy since 2026-08-18 (TS2307: cannot find module).
+      # This mirrors the root "build" script used by pr.yml's typescript job.
+      - run: pnpm -r --if-present run build
       # Emits the static tree to apps/docs-site/public (self-contained HTML +
       # sitemap/robots/_headers). Deterministic; see apps/docs-site/DEPLOY.md.
       - run: pnpm --filter @lawsynth/docs-site run render
