@@ -54,8 +54,8 @@ const GETTING_STARTED: DocumentationPageSource = {
     "This walkthrough takes you through the whole loop — **install, discover, understand, use, share** — with the real CLI commands and the equivalent Python SDK. Everything runs locally; no data leaves your machine.",
     "![The five steps of the LawSynth loop: observe, discover, understand, use, and share](/loop.svg)",
     "## 1. Install",
-    "Install the CLI with Cargo, or the Python SDK with pip:",
-    codeFence("bash", "$ cargo install lawsynth-cli\n$ pip install lawsynth"),
+    "LawSynth v0.1 installs from source — no crates.io/PyPI account needed. Clone the repo, then install the CLI with Cargo and build the Python SDK's native extension:",
+    codeFence("bash", "$ git clone https://github.com/caelum0x/lawsynth && cd lawsynth\n$ cargo install --path crates/lawsynth-cli\n$ cd python/lawsynth && maturin develop"),
     "## 2. Discover",
     "Point `discover` at a CSV, name the time column and the state variables whose dynamics you want to model, and write a `.lsworld` bundle:",
     codeFence("bash", "$ lawsynth discover obs.csv --time t --state x,y --output world.lsworld"),
@@ -437,7 +437,7 @@ export function docsContentPages(): readonly DocumentationPageSource[] {
 
 /** The getting-started CLI/SDK snippets as documented examples. */
 const GETTING_STARTED_EXAMPLES: readonly DocumentedExample[] = Object.freeze([
-  { id: "cli-install", title: "Install LawSynth", description: "Install the CLI with Cargo or the Python SDK with pip.", language: "bash", source: "$ cargo install lawsynth-cli\n$ pip install lawsynth", runnable: true, capabilities: ["install"] },
+  { id: "cli-install", title: "Install LawSynth", description: "Install from source: the CLI with Cargo, the Python SDK's native extension with maturin.", language: "bash", source: "$ git clone https://github.com/caelum0x/lawsynth && cd lawsynth\n$ cargo install --path crates/lawsynth-cli\n$ cd python/lawsynth && maturin develop", runnable: true, capabilities: ["install"] },
   { id: "cli-discover", title: "Discover a world", description: "Recover a world from a CSV, naming the time and state columns.", language: "bash", source: "$ lawsynth discover obs.csv --time t --state x,y --output world.lsworld", runnable: true, capabilities: ["discover"] },
   { id: "sdk-quickstart", title: "SDK quickstart", description: "The discover → explain → forecast → report loop from the Python SDK.", language: "python", source: "import lawsynth\n\nstudy = lawsynth.Study.from_csv(\"obs.csv\", time=\"t\", state=[\"x\", \"y\"])\nresult = study.discover()\nprint(result.explain().to_text())\nforecast = result.forecast({}, horizon=40)\nresult.report(\"report.html\")", runnable: true, capabilities: ["discover", "explain", "forecast", "report"] },
   { id: "cli-explain", title: "Explain a world", description: "Turn a bundle into a plain-language, structured explanation.", language: "bash", source: "$ lawsynth explain world.lsworld", runnable: true, capabilities: ["explain"] },
