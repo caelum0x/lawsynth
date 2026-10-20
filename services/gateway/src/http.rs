@@ -126,6 +126,7 @@ pub enum ReadOutcome {
     Request(HttpRequest),
     PayloadTooLarge,
     HeaderFieldsTooLarge,
+    UnsupportedTransferEncoding,
     Closed,
 }
 
@@ -178,6 +179,19 @@ pub fn read_request<R: BufRead>(
                 return Ok(ReadOutcome::HeaderFieldsTooLarge);
             }
         }
+    }
+
+    // `Content-Length` is the only body-framing this transport understands. A
+    // `Transfer-Encoding` (chunked or otherwise) means the body is not
+    // `Content-Length`-framed, so reading `content_length` bytes below would
+    // read the wrong number of bytes: either truncating the real body to
+    // nothing (desynchronizing this connection's byte stream, since the
+    // unread chunked bytes would then be misparsed as the start of the next
+    // request) or, if a chunked request also forged a `Content-Length`,
+    // smuggling a second hidden request. Mirror the legacy Python prototype
+    // (`lawsynth_gateway/app.py`) and reject the request outright instead.
+    if headers.iter().any(|(name, _)| name == "transfer-encoding") {
+        return Ok(ReadOutcome::UnsupportedTransferEncoding);
     }
 
     let content_length = headers
@@ -356,6 +370,20 @@ mod tests {
         assert!(matches!(
             read_request(&mut reader, 4, 8192, 32).unwrap(),
             ReadOutcome::PayloadTooLarge
+        ));
+    }
+
+    #[test]
+    fn rejects_chunked_transfer_encoding_instead_of_misreading_the_body() {
+        // No `Content-Length`, so the old code defaulted `content_length` to 0
+        // and silently forwarded an empty body, leaving the real chunked
+        // bytes unread on the connection (and desynchronizing the next
+        // request parsed from the same stream). It must be rejected instead.
+        let raw = b"POST /v1/artifacts HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n";
+        let mut reader = BufReader::new(&raw[..]);
+        assert!(matches!(
+            read_request(&mut reader, 1024, 8192, 32).unwrap(),
+            ReadOutcome::UnsupportedTransferEncoding
         ));
     }
 

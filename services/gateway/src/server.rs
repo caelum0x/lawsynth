@@ -212,6 +212,15 @@ impl Gateway {
                 "-".into(),
                 "-".into(),
             ),
+            ReadOutcome::UnsupportedTransferEncoding => (
+                self.reject(
+                    400,
+                    "unsupported_transfer_encoding",
+                    "chunked or transformed request bodies are not supported",
+                ),
+                "-".into(),
+                "-".into(),
+            ),
             ReadOutcome::Request(request) => {
                 let response = self.handle(&request, client_ip);
                 (response, request.method.clone(), request.path.clone())
