@@ -221,10 +221,22 @@ fn import(
         .map_err(|error| format!("failed to write {}: {error}", library_path.display()))?;
 
     // Runs are content-addressed and idempotent — copy them in verbatim.
+    //
+    // `path` comes straight from the archive's attacker-controlled manifest
+    // (`read_container` never validates the `<logical_path>` field), so
+    // `run_name` must be checked before it is joined onto `runs_dir`: a
+    // crafted entry such as `runs/../../../../.ssh/authorized_keys` would
+    // otherwise let `fs::write` escape the workspace directory entirely
+    // (zip-slip). A legitimate export (`read_runs`) only ever emits a bare
+    // `<id>.run` file name with no path separators, so reject anything else.
     let runs_dir = dir.join("runs");
     let mut runs_imported = 0;
     for (path, payload) in &entries {
         if let Some(run_name) = path.strip_prefix("runs/") {
+            if !is_safe_run_name(run_name) {
+                skipped.push(format!("runs/{run_name} (unsafe path in archive)"));
+                continue;
+            }
             fs::create_dir_all(&runs_dir)
                 .map_err(|error| format!("failed to create {}: {error}", runs_dir.display()))?;
             let target = runs_dir.join(run_name);
@@ -456,6 +468,18 @@ fn extract_flags(arguments: &[String]) -> Result<(Option<String>, bool, Vec<Stri
     Ok((dir, force, rest))
 }
 
+/// Returns whether `run_name` (the archive path with the `runs/` prefix
+/// already stripped) is a single plain filename component safe to join onto
+/// `runs_dir` — no path separators, and not `.` or `..`. Rejects anything
+/// that could escape the runs directory when written with `fs::write`.
+fn is_safe_run_name(run_name: &str) -> bool {
+    !run_name.is_empty()
+        && !run_name.contains('/')
+        && !run_name.contains('\\')
+        && run_name != "."
+        && run_name != ".."
+}
+
 /// Maps a library name to a filesystem-safe bundle filename stem.
 fn safe_filename(name: &str) -> String {
     let mapped: String = name
@@ -520,5 +544,19 @@ mod tests {
     fn find_subslice_locates_marker() {
         assert_eq!(find_subslice(b"abc--payload--\nxyz", PAYLOAD_MARKER), Some(3));
         assert_eq!(find_subslice(b"no marker here", PAYLOAD_MARKER), None);
+    }
+
+    #[test]
+    fn is_safe_run_name_rejects_path_traversal_and_separators() {
+        // A legitimate export only ever emits a bare `<id>.run` file name.
+        assert!(is_safe_run_name("a1b2c3.run"));
+        // A crafted archive manifest could otherwise write outside runs_dir
+        // (zip-slip) via `..`, nested separators, or an empty component.
+        assert!(!is_safe_run_name("../../../../.ssh/authorized_keys"));
+        assert!(!is_safe_run_name(".."));
+        assert!(!is_safe_run_name("."));
+        assert!(!is_safe_run_name("nested/evil.run"));
+        assert!(!is_safe_run_name("nested\\evil.run"));
+        assert!(!is_safe_run_name(""));
     }
 }
