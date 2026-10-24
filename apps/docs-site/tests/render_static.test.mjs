@@ -10,6 +10,31 @@ import { tmpdir } from "node:os";
 import { buildDocsSite } from "../dist/src/content.js";
 import { buildFullSite, emitStaticSite, renderStaticSite, SITE_CONFIGURATION } from "../render-static.mjs";
 
+test("the landing first screen states the time-series pain and links the shipped sample", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lawsynth-home-"));
+  try {
+    const site = buildDocsSite(SITE_CONFIGURATION);
+    emitStaticSite(site, dir);
+    const home = readFileSync(join(dir, "index.html"), "utf8");
+    const articleStart = home.indexOf('<main id="content">');
+    const articleEnd = home.indexOf("</article>");
+    const article = home.slice(articleStart, articleEnd);
+    assert.ok(article.includes("Find the equation in a time series"), "heading names the pain");
+    assert.ok(/time series/i.test(article), "opening copy says time series");
+    assert.ok(article.includes("symbolic regression from a time series"), "opening copy uses the search the product answers");
+    assert.ok(
+      article.includes('href="/examples/damped-oscillator"'),
+      "opening copy points at the shipped damped-oscillator sample",
+    );
+    assert.ok(article.includes('href="/examples"'), "opening copy points at the examples gallery");
+    const sampleAt = article.indexOf('href="/examples/damped-oscillator"');
+    const firstSection = article.indexOf("<h2");
+    assert.ok(sampleAt > 0 && firstSection > sampleAt, "the sample link is on the opening screen, before later sections");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("emitStaticSite writes one index.html per page plus control files", () => {
   const dir = mkdtempSync(join(tmpdir(), "lawsynth-site-"));
   try {
