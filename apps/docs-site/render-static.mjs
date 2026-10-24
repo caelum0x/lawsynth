@@ -35,7 +35,7 @@ const HEADERS = `/*
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://static.ads-twitter.com; img-src 'self' data: https://analytics.twitter.com https://t.co; connect-src 'self' https://analytics.twitter.com https://t.co; base-uri 'self'; form-action 'self'
 `;
 
 const REDIRECTS = `# Cloudflare Pages redirects. Add canonical/legacy path rules here.
