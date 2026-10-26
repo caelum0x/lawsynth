@@ -54,8 +54,11 @@ cargo install --path crates/lawsynth-cli
 cargo run -p lawsynth-cli -- --help
 ```
 
-> Cargo is configured offline by default for reproducible local builds. On a fresh
-> machine, run `cargo fetch` once with registry access, then build normally.
+> Cargo is configured offline by default (`[net] offline = true`) for reproducible
+> local builds. A bare `cargo fetch` inherits that setting and still fails with
+> "attempting to make an HTTP request, but --offline was specified". On a fresh
+> machine, first populate the registry cache with offline mode disabled —
+> `CARGO_NET_OFFLINE=false cargo fetch` — then build normally.
 > See [docs/getting-started/installation.md](docs/getting-started/installation.md).
 
 Python SDK (builds the native extension with [maturin](https://www.maturin.rs/)):

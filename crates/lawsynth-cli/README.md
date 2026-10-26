@@ -9,7 +9,7 @@ inspects bundles, and simulates continuous or discrete worlds.
 ```sh
 lawsynth discover observations.csv --time t --state x,y --output recovered.lsworld
 lawsynth inspect recovered.lsworld
-lawsynth simulate recovered.lsworld --start 0 --end 10 --step 0.01 --set x=1
+lawsynth simulate recovered.lsworld --start 0 --end 10 --step 0.01 --initial x=1 --initial y=1
 ```
 
 Discovery flags expose derivative choice, feature families, sparse solver,
