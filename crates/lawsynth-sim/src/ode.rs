@@ -69,9 +69,19 @@ pub fn simulate(
     let mut trajectory = Trajectory::from_initial(config.start, &state);
     let mut time = config.start;
 
+    // Repeated `time = time + step` additions drift from the mathematically exact
+    // grid by a few ULPs per step, so after enough steps the loop's final
+    // iteration can see a `remaining` that is tiny-but-nonzero floating-point
+    // noise rather than a real leftover interval. A tolerance scaled to the raw
+    // f64 epsilon (`1e-12`) is tighter than that accumulated drift and lets an
+    // extra, near-zero-duration step sneak in right at the end, producing a
+    // spurious duplicate-looking final sample. Scale the tolerance to the step
+    // size instead so it comfortably absorbs summation drift while staying far
+    // smaller than any real remaining sub-step.
+    const END_TOLERANCE_FACTOR: f64 = 1e-6;
     while time < config.end {
         let remaining = config.end - time;
-        if remaining <= config.step * 1e-12 {
+        if remaining <= config.step * END_TOLERANCE_FACTOR {
             break;
         }
         let scheduled_remaining = request
@@ -84,7 +94,7 @@ pub fn simulate(
         if next_time <= time {
             return Err(SimulationError::TimeResolutionLoss);
         }
-        time = if (config.end - next_time).abs() <= config.step * 1e-12 {
+        time = if (config.end - next_time).abs() <= config.step * END_TOLERANCE_FACTOR {
             config.end
         } else {
             next_time
@@ -210,6 +220,33 @@ mod tests {
         .unwrap();
         let final_value = trajectory.values[&id("x")].last().copied().unwrap();
         assert!((final_value - (-1.0_f64).exp()).abs() < 1e-8);
+    }
+
+    #[test]
+    fn sample_count_matches_the_requested_grid_despite_float_drift() {
+        let world = World::new(
+            [Variable::new(id("x"), VariableRole::State)],
+            [Parameter::new(id("rate"), 1.0)],
+            [ContinuousLaw::new(
+                id("x"),
+                Expr::product(
+                    Expr::constant(-1.0),
+                    Expr::product(Expr::symbol(id("rate")), Expr::symbol(id("x"))),
+                ),
+            )],
+        )
+        .unwrap();
+        let trajectory = simulate(
+            &world,
+            SimulationConfig::new(0.0, 5.0, 0.01).unwrap(),
+            &SimulationRequest::default().with_initial(id("x"), 1.0),
+        )
+        .unwrap();
+        // 0.0..=5.0 in steps of 0.01 is exactly 500 steps -> 501 samples including t=0.
+        // Floating-point summation drift in `time` must not cause an extra, near-zero
+        // final step to sneak in.
+        assert_eq!(trajectory.samples(), 501);
+        assert_eq!(*trajectory.time.last().unwrap(), 5.0);
     }
 
     #[test]
